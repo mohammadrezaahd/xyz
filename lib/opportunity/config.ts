@@ -31,7 +31,7 @@ export interface OpportunityConfig {
 }
 
 export const DEFAULT_OPPORTUNITY_CONFIG: OpportunityConfig = {
-  externalValidationPct: 0.25,
+  externalValidationPct: 0.4,
   spreadTriggerPct: 1,
   lookbackCandles: 10,
   minBullishRatio: 0.8,
