@@ -30,3 +30,12 @@ export async function getMongoDb() {
   const client = await globalThis.__xyzMongoClientPromise;
   return client.db(dbName);
 }
+
+export async function closeMongoClient(): Promise<void> {
+  if (globalThis.__xyzMongoClient) {
+    await globalThis.__xyzMongoClient.close();
+  }
+
+  globalThis.__xyzMongoClient = undefined;
+  globalThis.__xyzMongoClientPromise = undefined;
+}
