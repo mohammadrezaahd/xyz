@@ -1,15 +1,10 @@
-import test from "node:test";
-import assert from "node:assert/strict";
-import { analyzeOpportunity } from "../lib/opportunity/engine";
-import type { Candle } from "../lib/candles";
+const test = require("node:test");
+const assert = require("node:assert/strict");
+const { analyzeOpportunity } = require("../.test-dist/lib/opportunity/engine.js");
 
 const nowMs = 6 * 60 * 1000;
 
-function candle(
-  time: number,
-  open: number,
-  close: number,
-): Candle {
+function candle(time, open, close) {
   return {
     time,
     open,
@@ -19,30 +14,18 @@ function candle(
   };
 }
 
-function fiveCandles(
-  directions: Array<"up" | "down">,
-  movePct = 0.1,
-): Candle[] {
+function fiveCandles(directions, movePct = 0.1) {
   return directions.map((direction, index) => {
     const open = 270000;
-    const multiplier =
-      direction === "up"
-        ? 1 + movePct / 100
-        : 1 - movePct / 100;
+    const multiplier = direction === "up"
+      ? 1 + movePct / 100
+      : 1 - movePct / 100;
 
-    return candle(
-      (index + 1) * 60,
-      open,
-      open * multiplier,
-    );
+    return candle((index + 1) * 60, open, open * multiplier);
   });
 }
 
-function baseAnalysis(
-  externalPrice: number | null = 280000,
-  bitpin = 271000,
-  wallex = 280000,
-) {
+function baseAnalysis(externalPrice = 280000, bitpin = 271000, wallex = 280000) {
   return analyzeOpportunity({
     bitpinCandles: fiveCandles(["up", "up", "up", "up", "down"]),
     wallexCandles: fiveCandles(["up", "up", "up", "up", "up"]),
@@ -122,7 +105,7 @@ test("momentum uses fixed 0.20% reference and clamps at 5", () => {
     [0.1, 2.5],
     [0.2, 5],
     [0.5, 5],
-  ] as const) {
+  ]) {
     const analysis = analyzeOpportunity({
       bitpinCandles: fiveCandles(["up", "up", "up", "up", "up"], averageMove),
       wallexCandles: fiveCandles(["up", "up", "up", "up", "up"], averageMove),
@@ -131,10 +114,6 @@ test("momentum uses fixed 0.20% reference and clamps at 5", () => {
       nowMs,
     });
 
-    assert.ok(
-      Math.abs(
-        (analysis.candles.momentumScore ?? 0) - expected,
-      ) < 1e-9,
-    );
+    assert.ok(Math.abs((analysis.candles.momentumScore ?? 0) - expected) < 1e-9);
   }
 });
