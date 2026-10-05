@@ -385,7 +385,7 @@ export function analyzeOpportunity({
           status: netPct > 0 ? "SUCCESS" : "FAILED",
           actual: netPct,
           threshold: 0,
-        };
+        } as const;
 
   const weights = [
     {
