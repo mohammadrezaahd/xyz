@@ -57,7 +57,7 @@ export async function insertOpenOpportunity(
 
 export async function updateOpenMonitoring(
   id: ObjectId,
-  currentWallexPrice: number | null,
+  currentBitpinPrice: number | null,
   updatedAt: Date,
 ): Promise<boolean> {
   const collection = await getCollection();
@@ -65,7 +65,7 @@ export async function updateOpenMonitoring(
     { _id: id, status: "OPEN" },
     {
       $set: {
-        "monitoring.currentWallexPrice": currentWallexPrice,
+        "monitoring.currentBitpinPrice": currentBitpinPrice,
         "monitoring.updatedAt": updatedAt,
         updatedAt,
       },
@@ -79,7 +79,7 @@ export async function resolveOpportunity(
   exitPrice: number,
   priceChangePct: number,
   resolvedAt: Date,
-  status: "SUCCESS" | "FAILED" | "INVALIDATED",
+  status: "SUCCESS" | "FAILED",
 ): Promise<boolean> {
   const collection = await getCollection();
   const result = await collection.updateOne(
@@ -146,6 +146,7 @@ export async function getOpportunityStats() {
     successful,
     failed,
     invalidated,
-    successRate: resolved > 0 ? (successful / resolved) * 100 : 0,
+    resolved,
+    successRate: resolved > 0 ? successful / resolved : null,
   };
 }
