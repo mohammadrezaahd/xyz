@@ -35,7 +35,7 @@ function findBitpinPrice(payload: unknown, symbol: string): number | null {
 }
 
 async function fetchBitpinPrice(): Promise<number> {
-  const baseUrl = requireEnv("BITPIN_API_BASE_URL").replace(/\\/$/, "");
+  const baseUrl = requireEnv("BITPIN_API_BASE_URL").replace(/\/$/, "");
   const url = new URL(`${baseUrl}/v1/mkt/tickers/`);
 
   const symbol = requireEnv("BITPIN_SYMBOL");
@@ -64,9 +64,17 @@ async function fetchBitpinPrice(): Promise<number> {
 }
 
 async function fetchWallexPrice(): Promise<number> {
-  const baseUrl = requireEnv("WALLEX_API_BASE_URL").replace(/\\/$/, "");
-  const url = new URL(`${baseUrl}/v1/otc/markets`);
-  const symbol = requireEnv("WALLEX_SYMBOL");
+  const baseUrl = env(
+    "WALLEX_API_BASE_URL",
+    "https://api.wallex.ir",
+  );
+  const url = new URL(
+    env(
+      "WALLEX_MARKETS_URL",
+      `${baseUrl}/v1/otc/markets`,
+    ),
+  );
+  const symbol = env("WALLEX_SYMBOL", "USDTTMN");
   const apiKey = env("WALLEX_API_KEY");
 
   if (!apiKey) {
