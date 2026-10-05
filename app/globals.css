@@ -48,7 +48,7 @@ h1 { margin:0; font-size:28px; letter-spacing:-.03em; }
 .testStatus.insufficient_data { color:var(--warning); border-color:#4d3b12; }
 
 .testPopover { position:absolute; z-index:20; left:0; right:0; bottom:calc(100% + 8px); padding:10px 11px; border:1px solid var(--border); border-radius:10px; background:#0f1116; box-shadow:0 10px 30px rgba(0,0,0,.35); opacity:0; visibility:hidden; transform:translateY(4px); pointer-events:none; transition:opacity .14s ease,transform .14s ease,visibility .14s ease; }
-.testRowWrap:hover .testPopover,.testRowWrap:focus-within .testPopover,.testRowWrap.isOpen .testPopover { opacity:1; visibility:visible; transform:translateY(0); pointer-events:auto; }
+.testRowWrap.isOpen .testPopover { opacity:1; visibility:visible; transform:translateY(0); pointer-events:auto; }
 .testPopoverHeader { font-size:11px; margin-bottom:6px; }
 .testPopoverMetrics { display:flex; flex-wrap:wrap; gap:5px 10px; color:#b8beca; font-size:10px; font-variant-numeric:tabular-nums; margin-bottom:5px; }
 .testPopover p { margin:0; color:var(--muted); font-size:11px; line-height:1.5; overflow-wrap:anywhere; }
