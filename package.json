@@ -6,7 +6,7 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "test": "tsc -p tests/tsconfig.json && node --test tests/opportunity-engine.test.cjs"
+    "test": "tsc -p tests/tsconfig.json && node --test tests/opportunity-engine.test.cjs tests/phase3-outcome.test.cjs tests/phase3-persistence.test.cjs"
   },
   "dependencies": {
     "@types/node": "^22.15.0",
@@ -16,6 +16,7 @@
     "next": "^15.5.19",
     "react": "^19.1.0",
     "react-dom": "^19.1.0",
-    "typescript": "^5.8.3"
+    "typescript": "^5.8.3",
+    "mongodb": "^6.20.0"
   }
 }

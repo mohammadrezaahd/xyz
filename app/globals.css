@@ -61,3 +61,84 @@ h1 { margin:0; font-size:28px; letter-spacing:-.03em; }
 
 .chartPriceNote { padding:8px 16px; border-bottom:1px solid var(--border); color:var(--muted); font-size:11px; }
 .candleDataBadge { margin-top:10px; color:var(--muted); font-size:11px; }
+
+
+.phase3Current,
+.phase3History {
+  margin-top: 18px;
+}
+
+.phase3PositionGrid,
+.phase3Stats {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  gap: 10px;
+}
+
+.phase3PositionGrid > div,
+.phase3Stats > div {
+  padding: 12px;
+  border: 1px solid var(--border, rgba(255,255,255,.08));
+  border-radius: 10px;
+}
+
+.phase3PositionGrid span,
+.phase3Stats span {
+  display: block;
+  opacity: .65;
+  font-size: .78rem;
+  margin-bottom: 5px;
+}
+
+.phase3PositionGrid strong,
+.phase3Stats strong {
+  font-size: .95rem;
+}
+
+.phase3Tests {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.phase3Status {
+  display: inline-block;
+  font-size: .72rem;
+  font-weight: 700;
+  letter-spacing: .02em;
+}
+
+.phase3Status.open { opacity: .9; }
+.phase3Status.success { opacity: 1; }
+.phase3Status.failed { opacity: .85; }
+.phase3Status.invalidated { opacity: .7; }
+
+.phase3TableWrap {
+  overflow-x: auto;
+}
+
+.phase3Table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-top: 10px;
+}
+
+.phase3Table th,
+.phase3Table td {
+  padding: 10px 8px;
+  text-align: left;
+  border-bottom: 1px solid var(--border, rgba(255,255,255,.08));
+  white-space: nowrap;
+}
+
+.phase3Table th {
+  opacity: .6;
+  font-size: .75rem;
+}
+
+.phase3Empty {
+  opacity: .65;
+  padding: 14px 0;
+}
+
