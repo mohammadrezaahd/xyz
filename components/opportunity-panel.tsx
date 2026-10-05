@@ -165,6 +165,7 @@ function TestRow({
     <div
       className={`testRowWrap${isOpen ? " isOpen" : ""}`}
       onMouseEnter={() => setOpenTest(id)}
+      onMouseLeave={() => setOpenTest(null)}
     >
       <button
         className="testRow"
