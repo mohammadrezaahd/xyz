@@ -1,5 +1,5 @@
 export type PositionDirection = "SHORT";
-export type SyntheticOutcomeStatus = "OPEN" | "SUCCESS" | "INVALIDATED";
+export type SyntheticOutcomeStatus = "OPEN" | "SUCCESS" | "FAILED" | "INVALIDATED";
 
 export type SyntheticOutcomeEvaluation = {
   status: SyntheticOutcomeStatus;
@@ -8,17 +8,31 @@ export type SyntheticOutcomeEvaluation = {
   reason?: string;
 };
 
+function isValidStoredPrice(value: number): boolean {
+  return Number.isFinite(value) && value > 0;
+}
+
 export function evaluateSyntheticOutcome(
   entryPrice: number,
+  targetPrice: number,
   currentPrice: number | null | undefined,
   direction: PositionDirection,
 ): SyntheticOutcomeEvaluation {
-  if (!Number.isFinite(entryPrice) || entryPrice <= 0) {
+  if (!isValidStoredPrice(entryPrice)) {
     return {
       status: "INVALIDATED",
       exitPrice: null,
       priceChangePct: null,
       reason: "Stored entry price is structurally invalid.",
+    };
+  }
+
+  if (!isValidStoredPrice(targetPrice)) {
+    return {
+      status: "INVALIDATED",
+      exitPrice: null,
+      priceChangePct: null,
+      reason: "Stored target price is structurally invalid.",
     };
   }
 
@@ -31,22 +45,39 @@ export function evaluateSyntheticOutcome(
       status: "OPEN",
       exitPrice: null,
       priceChangePct: null,
-      reason: "Current Wallex price is unavailable or invalid.",
+      reason: "Current Bitpin price is unavailable or invalid.",
     };
   }
 
-  if (direction === "SHORT" && currentPrice <= entryPrice) {
+  if (direction === "SHORT") {
+    if (currentPrice >= targetPrice) {
+      return {
+        status: "SUCCESS",
+        exitPrice: currentPrice,
+        priceChangePct: ((currentPrice - entryPrice) / entryPrice) * 100,
+      };
+    }
+
+    if (currentPrice < entryPrice) {
+      return {
+        status: "FAILED",
+        exitPrice: currentPrice,
+        priceChangePct: ((currentPrice - entryPrice) / entryPrice) * 100,
+      };
+    }
+
     return {
-      status: "SUCCESS",
-      exitPrice: currentPrice,
-      priceChangePct: ((currentPrice - entryPrice) / entryPrice) * 100,
+      status: "OPEN",
+      exitPrice: null,
+      priceChangePct: null,
     };
   }
 
   return {
-    status: "OPEN",
+    status: "INVALIDATED",
     exitPrice: null,
     priceChangePct: null,
+    reason: "Unsupported position direction.",
   };
 }
 
@@ -62,7 +93,8 @@ export type OpportunityStats = {
   successful: number;
   failed: number;
   invalidated: number;
-  successRate: number;
+  resolved: number;
+  successRate: number | null;
 };
 
 export function calculateOpportunityStats(
@@ -81,6 +113,7 @@ export function calculateOpportunityStats(
     successful,
     failed,
     invalidated,
-    successRate: resolved > 0 ? (successful / resolved) * 100 : 0,
+    resolved,
+    successRate: resolved > 0 ? successful / resolved : null,
   };
 }
