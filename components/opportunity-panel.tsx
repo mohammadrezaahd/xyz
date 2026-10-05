@@ -1,6 +1,11 @@
 "use client";
 
-import { useState } from "react";
+import {
+  useEffect,
+  useRef,
+  useState,
+  type PointerEvent as ReactPointerEvent,
+} from "react";
 import { PHASE_2_CONFIG } from "@/lib/opportunity/config";
 import type { OpportunityAnalysis, TestResult } from "@/lib/opportunity/types";
 
@@ -8,6 +13,26 @@ type OpportunityPanelProps = {
   analysis: OpportunityAnalysis;
   externalPrice: string;
   onExternalPriceChange: (value: string) => void;
+};
+
+type StabilityTestKey =
+  | "external"
+  | "wallexAboveBitpin"
+  | "spread"
+  | "bitpinBullish"
+  | "wallexBullish"
+  | "candleAlignment"
+  | "targetViability";
+
+type TestRowProps = {
+  id: StabilityTestKey;
+  label: string;
+  result: TestResult;
+  explanation: string;
+  formatActual?: (value: number) => string;
+  formatThreshold?: (value: number) => string;
+  openTest: StabilityTestKey | null;
+  setOpenTest: (id: StabilityTestKey | null) => void;
 };
 
 function formatPrice(value: number | null): string {
@@ -22,23 +47,163 @@ function formatPercent(value: number | null): string {
   return value === null ? "—" : `${value.toFixed(2)}%`;
 }
 
+function formatRatio(value: number): string {
+  return `${(value * 100).toFixed(2)}%`;
+}
+
+function formatSignedPrice(value: number): string {
+  return `${value >= 0 ? "+" : ""}${formatPrice(value)}`;
+}
+
 function testClass(status: TestResult["status"]): string {
   return `testStatus ${status.toLowerCase()}`;
 }
 
+function getTestExplanation(
+  id: StabilityTestKey,
+  result: TestResult,
+  lookback: number,
+): string {
+  if (result.status === "INSUFFICIENT_DATA") {
+    switch (id) {
+      case "external":
+        return "No external reference price is available, so this test cannot be evaluated.";
+      case "wallexAboveBitpin":
+        return "One or both current ticker prices are unavailable.";
+      case "spread":
+        return "Current Bitpin/Wallex ticker data is insufficient to calculate the spread.";
+      case "bitpinBullish":
+      case "wallexBullish":
+        return `Fewer than ${lookback} synchronized closed candles are available.`;
+      case "candleAlignment":
+        return `Fewer than ${lookback} synchronized closed candle pairs are available.`;
+      case "targetViability":
+        return "Current ticker prices are insufficient to evaluate target viability.";
+    }
+  }
+
+  switch (id) {
+    case "external":
+      return result.status === "SUCCESS"
+        ? `Actual deviation is ${result.actual!.toFixed(2)}%, which is within the maximum allowed ${result.threshold!.toFixed(2)}%.`
+        : `Actual deviation is ${result.actual!.toFixed(2)}%, which exceeds the maximum allowed ${result.threshold!.toFixed(2)}%.`;
+
+    case "wallexAboveBitpin":
+      return result.status === "SUCCESS"
+        ? `Wallex is currently ${formatPrice(result.actual!)} Toman above Bitpin.`
+        : "Wallex is not above Bitpin, so the required price relationship is not satisfied.";
+
+    case "spread":
+      return result.status === "SUCCESS"
+        ? `Current spread is ${result.actual!.toFixed(2)}%, meeting the required minimum of ${result.threshold!.toFixed(2)}%.`
+        : `Current spread is ${result.actual!.toFixed(2)}%, below the required minimum of ${result.threshold!.toFixed(2)}%.`;
+
+    case "bitpinBullish":
+    case "wallexBullish": {
+      const exchange = id === "bitpinBullish" ? "Bitpin" : "Wallex";
+      const actual = result.actual!;
+
+      if (result.status === "SUCCESS") {
+        return `${formatRatio(actual)} of the last ${lookback} synchronized closed ${exchange} candles were bullish, meeting the SUCCESS threshold of ${formatRatio(result.threshold!)}.`;
+      }
+
+      if (result.status === "ACCEPTABLE") {
+        return `${formatRatio(actual)} were bullish. This is above the minimum acceptable 50% level but below the SUCCESS threshold.`;
+      }
+
+      return `${formatRatio(actual)} were bullish, below the minimum acceptable 50% level.`;
+    }
+
+    case "candleAlignment": {
+      const actual = result.actual!;
+
+      if (result.status === "SUCCESS") {
+        return `${formatRatio(actual)} of the last ${lookback} synchronized closed candle pairs moved in the same direction, meeting the SUCCESS threshold of ${formatRatio(result.threshold!)}.`;
+      }
+
+      if (result.status === "ACCEPTABLE") {
+        return `${formatRatio(actual)} of candle pairs were aligned. This is acceptable but below the SUCCESS threshold.`;
+      }
+
+      return `${formatRatio(actual)} of candle pairs were aligned, below the minimum acceptable 50% level.`;
+    }
+
+    case "targetViability":
+      return result.status === "SUCCESS"
+        ? `Estimated net edge is ${result.actual!.toFixed(2)}%, which is above the required break-even threshold of 0%.`
+        : `Estimated net edge is ${result.actual!.toFixed(2)}%, so the target does not provide a positive net edge after the configured fees.`;
+  }
+}
+
 function TestRow({
+  id,
   label,
   result,
-}: {
-  label: string;
-  result: TestResult;
-}) {
+  explanation,
+  formatActual,
+  formatThreshold,
+  openTest,
+  setOpenTest,
+}: TestRowProps) {
+  const pointerType = useRef<string | null>(null);
+  const isOpen = openTest === id;
+
+  const handlePointerDown = (event: ReactPointerEvent<HTMLButtonElement>) => {
+    pointerType.current = event.pointerType;
+  };
+
+  const handleClick = () => {
+    if (pointerType.current === "touch") {
+      setOpenTest(isOpen ? null : id);
+      return;
+    }
+
+    setOpenTest(id);
+  };
+
   return (
-    <div className="testRow">
-      <span>{label}</span>
-      <span className={testClass(result.status)}>
-        {result.status}
-      </span>
+    <div
+      className={`testRowWrap${isOpen ? " isOpen" : ""}`}
+      onMouseEnter={() => setOpenTest(id)}
+    >
+      <button
+        className="testRow"
+        type="button"
+        aria-expanded={isOpen}
+        aria-label={`${label}: ${result.status}. Show test details`}
+        title={`Inspect ${label}`}
+        onPointerDown={handlePointerDown}
+        onClick={handleClick}
+        onFocus={() => setOpenTest(id)}
+      >
+        <span>{label}</span>
+        <span className={testClass(result.status)}>
+          {result.status}
+        </span>
+      </button>
+
+      <div className="testPopover" role="status">
+        <div className="testPopoverHeader">
+          <strong>{result.status}</strong>
+        </div>
+
+        {(result.actual !== null || result.threshold !== null) && (
+          <div className="testPopoverMetrics">
+            {result.actual !== null && (
+              <span>
+                Actual: {formatActual ? formatActual(result.actual) : result.actual.toFixed(2)}
+              </span>
+            )}
+            {result.threshold !== null && (
+              <span>
+                Required: {formatThreshold ? formatThreshold(result.threshold) : result.threshold.toFixed(2)}
+              </span>
+            )}
+          </div>
+        )}
+
+        <p>{explanation}</p>
+      </div>
     </div>
   );
 }
@@ -49,6 +214,63 @@ export function OpportunityPanel({
   onExternalPriceChange,
 }: OpportunityPanelProps) {
   const [showDetails, setShowDetails] = useState(false);
+  const [openTest, setOpenTest] = useState<StabilityTestKey | null>(null);
+  const testsRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!openTest) return;
+
+    const handleOutsidePointerDown = (event: PointerEvent) => {
+      if (
+        testsRef.current &&
+        !testsRef.current.contains(event.target as Node)
+      ) {
+        setOpenTest(null);
+      }
+    };
+
+    document.addEventListener("pointerdown", handleOutsidePointerDown);
+    return () =>
+      document.removeEventListener("pointerdown", handleOutsidePointerDown);
+  }, [openTest]);
+
+  const testRows = [
+    {
+      id: "external" as const,
+      label: "External Wallex Validation",
+      result: analysis.validation.external,
+    },
+    {
+      id: "wallexAboveBitpin" as const,
+      label: "Wallex > Bitpin",
+      result: analysis.validation.wallexAboveBitpin,
+    },
+    {
+      id: "spread" as const,
+      label: "Spread Threshold",
+      result: analysis.validation.spread,
+    },
+    {
+      id: "bitpinBullish" as const,
+      label: "Bitpin Bullish Ratio",
+      result: analysis.validation.bitpinBullish,
+    },
+    {
+      id: "wallexBullish" as const,
+      label: "Wallex Bullish Ratio",
+      result: analysis.validation.wallexBullish,
+    },
+    {
+      id: "candleAlignment" as const,
+      label: "Candle Alignment",
+      result: analysis.validation.candleAlignment,
+    },
+    {
+      id: "targetViability" as const,
+      label: "Target Viability",
+      result: analysis.validation.targetViability,
+    },
+  ];
 
   return (
     <section className="opportunity card">
@@ -111,36 +333,46 @@ export function OpportunityPanel({
           </div>
         </div>
 
-        <div className="opportunityGroup tests">
+        <div className="opportunityGroup tests" ref={testsRef}>
           <h3>Stability Tests</h3>
-          <TestRow
-            label="External Wallex Validation"
-            result={analysis.validation.external}
-          />
-          <TestRow
-            label="Wallex &gt; Bitpin"
-            result={analysis.validation.wallexAboveBitpin}
-          />
-          <TestRow
-            label="Spread Threshold"
-            result={analysis.validation.spread}
-          />
-          <TestRow
-            label="Bitpin Bullish Ratio"
-            result={analysis.validation.bitpinBullish}
-          />
-          <TestRow
-            label="Wallex Bullish Ratio"
-            result={analysis.validation.wallexBullish}
-          />
-          <TestRow
-            label="Candle Alignment"
-            result={analysis.validation.candleAlignment}
-          />
-          <TestRow
-            label="Target Viability"
-            result={analysis.validation.targetViability}
-          />
+          {testRows.map((test) => (
+            <TestRow
+              key={test.id}
+              id={test.id}
+              label={test.label}
+              result={test.result}
+              explanation={getTestExplanation(
+                test.id,
+                test.result,
+                analysis.candles.lookback,
+              )}
+              formatActual={
+                test.id === "external" ||
+                test.id === "spread"
+                  ? formatPercent
+                  : test.id === "wallexAboveBitpin"
+                    ? formatSignedPrice
+                    : test.id === "bitpinBullish" ||
+                        test.id === "wallexBullish" ||
+                        test.id === "candleAlignment"
+                      ? formatRatio
+                      : formatPercent
+              }
+              formatThreshold={
+                test.id === "external" || test.id === "spread"
+                  ? formatPercent
+                  : test.id === "wallexAboveBitpin"
+                    ? formatSignedPrice
+                    : test.id === "bitpinBullish" ||
+                        test.id === "wallexBullish" ||
+                        test.id === "candleAlignment"
+                      ? formatRatio
+                      : formatPercent
+              }
+              openTest={openTest}
+              setOpenTest={setOpenTest}
+            />
+          ))}
         </div>
 
         <div className="opportunityGroup">
