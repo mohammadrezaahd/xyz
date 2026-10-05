@@ -7,7 +7,7 @@ test(
   "MongoDB persistence survives separate repository calls and enforces one OPEN position",
   { skip: !enabled ? "Set MONGODB_URI and MONGODB_DB_NAME to run the MongoDB integration test." : false },
   async () => {
-    const { getMongoDb } = require("../.test-dist/lib/mongodb.js");
+    const { getMongoDb, closeMongoClient } = require("../.test-dist/lib/mongodb.js");
     const {
       findOpenOpportunity,
       insertOpenOpportunity,
@@ -16,9 +16,11 @@ test(
 
     const db = await getMongoDb();
     const collection = db.collection("opportunities");
-    await collection.deleteMany({ "detection.engineVersion": "phase3-test" });
 
-    const now = new Date();
+    try {
+      await collection.deleteMany({ "detection.engineVersion": "phase3-test" });
+
+      const now = new Date();
     const first = {
       createdAt: now,
       updatedAt: now,
@@ -91,6 +93,9 @@ test(
     assert.ok(later._id);
     assert.notEqual(later._id.toString(), inserted._id.toString());
 
-    await collection.deleteMany({ "detection.engineVersion": "phase3-test" });
+      await collection.deleteMany({ "detection.engineVersion": "phase3-test" });
+    } finally {
+      await closeMongoClient();
+    }
   },
 );
