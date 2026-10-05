@@ -134,26 +134,16 @@ function alignment(
   pairs: Array<{ bitpin: Candle; wallex: Candle }>,
   minMovePct: number,
 ): number | null {
-  const directionalPairs = pairs.filter(({ bitpin, wallex }) => {
-    const bitpinDirection = direction(bitpin, minMovePct);
-    const wallexDirection = direction(wallex, minMovePct);
+  if (!pairs.length) return null;
 
-    return (
-      bitpinDirection !== "NEUTRAL" &&
-      wallexDirection !== "NEUTRAL"
-    );
-  });
-
-  if (!directionalPairs.length) return null;
-
-  const matching = directionalPairs.filter(({ bitpin, wallex }) => {
+  const matching = pairs.filter(({ bitpin, wallex }) => {
     return (
       direction(bitpin, minMovePct) ===
       direction(wallex, minMovePct)
     );
   }).length;
 
-  return matching / directionalPairs.length;
+  return matching / pairs.length;
 }
 
 function averageDirectionalMovePct(
