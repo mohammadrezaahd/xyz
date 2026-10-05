@@ -61,6 +61,7 @@ test(
     const fromSecondCall = await findOpenOpportunity();
     const duplicate = await insertOpenOpportunity({
       ...first,
+      _id: undefined,
       createdAt: new Date(now.getTime() + 1000),
       updatedAt: new Date(now.getTime() + 1000),
     });
@@ -84,6 +85,7 @@ test(
 
     const later = await insertOpenOpportunity({
       ...first,
+      _id: undefined,
       createdAt: new Date(now.getTime() + 3000),
       updatedAt: new Date(now.getTime() + 3000),
       entry: { price: 273000, source: "wallex" },
