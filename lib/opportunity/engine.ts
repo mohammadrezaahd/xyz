@@ -13,12 +13,15 @@ import type {
 
 const MINUTE_SECONDS = 60;
 
-function success(actual: number, threshold: number): TestResult {
-  return {
-    status: actual >= threshold ? "SUCCESS" : "FAILED",
-    actual,
-    threshold,
-  };
+function classifyRatio(actual: number, threshold: number): TestResult {
+  const status =
+    actual >= threshold
+      ? "SUCCESS"
+      : actual >= 0.5
+        ? "ACCEPTABLE"
+        : "FAILED";
+
+  return { status, actual, threshold };
 }
 
 function insufficient(threshold: number | null = null): TestResult {
@@ -293,7 +296,14 @@ export function analyzeOpportunity({
   const spreadTest =
     spreadPercent === null
       ? insufficient(config.spreadTriggerPct)
-      : success(spreadPercent, config.spreadTriggerPct);
+      : {
+          status:
+            spreadPercent >= config.spreadTriggerPct
+              ? "SUCCESS"
+              : "FAILED",
+          actual: spreadPercent,
+          threshold: config.spreadTriggerPct,
+        };
 
   const pairs = synchronizedClosedCandles(
     bitpinCandles,
@@ -332,17 +342,17 @@ export function analyzeOpportunity({
   const bitpinBullish =
     bitpinBullishRatio === null
       ? insufficient(config.minBullishRatio)
-      : success(bitpinBullishRatio, config.minBullishRatio);
+      : classifyRatio(bitpinBullishRatio, config.minBullishRatio);
 
   const wallexBullish =
     wallexBullishRatio === null
       ? insufficient(config.minBullishRatio)
-      : success(wallexBullishRatio, config.minBullishRatio);
+      : classifyRatio(wallexBullishRatio, config.minBullishRatio);
 
   const candleAlignment =
     alignmentRatio === null
       ? insufficient(config.minAlignmentRatio)
-      : success(alignmentRatio, config.minAlignmentRatio);
+      : classifyRatio(alignmentRatio, config.minAlignmentRatio);
 
   const momentum = momentumScore(
     averageMove,
@@ -425,6 +435,15 @@ export function analyzeOpportunity({
   for (const item of weights.slice(0, -1)) {
     if (item.result.status === "SUCCESS") {
       earnedPoints += item.weight;
+      continue;
+    }
+
+    if (
+      item.result.status === "ACCEPTABLE" &&
+      item.result.actual !== null &&
+      item.result.actual >= 0.5
+    ) {
+      earnedPoints += item.result.actual * item.weight;
     }
   }
 
