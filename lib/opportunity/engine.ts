@@ -66,6 +66,35 @@ function movePct(candle: Candle): number | null {
   return (Math.abs(candle.close - candle.open) / candle.open) * 100;
 }
 
+function minuteBucket(time: number): number {
+  return Math.floor(time / MINUTE_SECONDS) * MINUTE_SECONDS;
+}
+
+function candlesByMinuteBucket(
+  candles: Candle[],
+  currentCandleStart: number,
+): Map<number, Candle> {
+  const map = new Map<number, Candle>();
+
+  for (const candle of candles) {
+    if (
+      !Number.isFinite(candle.time) ||
+      candle.time >= currentCandleStart
+    ) {
+      continue;
+    }
+
+    const bucket = minuteBucket(candle.time);
+    const existing = map.get(bucket);
+
+    if (existing === undefined || candle.time > existing.time) {
+      map.set(bucket, candle);
+    }
+  }
+
+  return map;
+}
+
 function synchronizedClosedCandles(
   bitpin: Candle[],
   wallex: Candle[],
@@ -76,35 +105,18 @@ function synchronizedClosedCandles(
   const currentCandleStart =
     Math.floor(nowSeconds / MINUTE_SECONDS) * MINUTE_SECONDS;
 
-  const bitpinMap = new Map(
-    bitpin
-      .filter(
-        (candle) =>
-          Number.isFinite(candle.time) &&
-          candle.time < currentCandleStart,
-      )
-      .map((candle) => [candle.time, candle]),
-  );
+  const bitpinMap = candlesByMinuteBucket(bitpin, currentCandleStart);
+  const wallexMap = candlesByMinuteBucket(wallex, currentCandleStart);
 
-  const wallexMap = new Map(
-    wallex
-      .filter(
-        (candle) =>
-          Number.isFinite(candle.time) &&
-          candle.time < currentCandleStart,
-      )
-      .map((candle) => [candle.time, candle]),
-  );
-
-  const timestamps = [...bitpinMap.keys()]
-    .filter((time) => wallexMap.has(time))
+  const buckets = [...bitpinMap.keys()]
+    .filter((bucket) => wallexMap.has(bucket))
     .sort((a, b) => a - b);
 
-  return timestamps
+  return buckets
     .slice(-Math.max(0, lookback))
-    .map((time) => ({
-      bitpin: bitpinMap.get(time)!,
-      wallex: wallexMap.get(time)!,
+    .map((bucket) => ({
+      bitpin: bitpinMap.get(bucket)!,
+      wallex: wallexMap.get(bucket)!,
     }));
 }
 
