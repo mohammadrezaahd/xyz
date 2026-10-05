@@ -101,7 +101,7 @@ export default function Home() {
         externalPrice: externalPrice.trim()
           ? Number(externalPrice)
           : null,
-        nowMs: data?.fetchedAt ?? Date.now(),
+        nowMs: Date.now(),
       }),
     [data, prices, externalPrice],
   );
