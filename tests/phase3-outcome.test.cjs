@@ -5,6 +5,7 @@ const {
   calculateOpportunityStats,
 } = require("../.test-dist/lib/opportunity/outcome.js");
 const { buildOpportunityDocument } = require("../.test-dist/lib/opportunity/snapshot.js");
+const { isCronAuthorized } = require("../.test-dist/lib/opportunity/cron-auth.js");
 
 test("valid opportunity starts as an OPEN synthetic position", () => {
   assert.equal(evaluateSyntheticOutcome(272800, 272900, "SHORT").status, "OPEN");
@@ -98,4 +99,11 @@ test("valid Phase 2 analysis snapshot creates one OPEN SHORT position", () => {
   assert.equal(document.entry.price, 272800);
   assert.equal(document.entry.source, "wallex");
   assert.equal(document.outcome.status, "PENDING");
+});
+
+test("cron endpoint authorization accepts only the configured bearer secret", () => {
+  assert.equal(isCronAuthorized("Bearer phase3-secret", "phase3-secret"), true);
+  assert.equal(isCronAuthorized("Bearer wrong", "phase3-secret"), false);
+  assert.equal(isCronAuthorized(null, "phase3-secret"), false);
+  assert.equal(isCronAuthorized("Bearer phase3-secret", undefined), false);
 });
