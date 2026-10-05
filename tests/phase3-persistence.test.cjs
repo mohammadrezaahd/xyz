@@ -21,14 +21,15 @@ test(
       await collection.deleteMany({ "detection.engineVersion": "phase3-test" });
 
       const now = new Date();
-    const first = {
+      const first = {
       createdAt: now,
       updatedAt: now,
       status: "OPEN",
       direction: "SHORT",
-      entry: { price: 272800, source: "wallex" },
-      market: { bitpinPrice: 269000, wallexPrice: 272800, spreadPct: 1.412 },
-      analysis: {
+        entry: { price: 269000, source: "bitpin" },
+        target: { price: 272000, source: "phase-2-safe-target" },
+        market: { bitpinPrice: 269000, wallexPrice: 272800, spreadPct: 1.412 },
+        analysis: {
         score: 80,
         tests: {
           externalValidation: { status: "SUCCESS", actual: 0.1, threshold: 0.4 },
@@ -47,17 +48,23 @@ test(
           momentumScore: 2.5,
         },
       },
-      outcome: {
+        outcome: {
         status: "PENDING",
         resolvedAt: null,
         exitPrice: null,
         priceChangePct: null,
       },
-      detection: { detectedAt: now, engineVersion: "phase3-test" },
-      monitoring: { currentWallexPrice: 272800, updatedAt: now },
-    };
+        detection: { detectedAt: now, engineVersion: "phase3-test" },
+        monitoring: { currentBitpinPrice: 269000, updatedAt: now },
+      };
 
-    const inserted = await insertOpenOpportunity(first);
+      assert.equal(first.entry.price, first.market.bitpinPrice);
+      assert.equal(first.entry.source, "bitpin");
+      assert.equal(first.target.price, 272000);
+      assert.equal(first.target.source, "phase-2-safe-target");
+      assert.equal(first.monitoring.currentBitpinPrice, 269000);
+
+      const inserted = await insertOpenOpportunity(first);
     const fromSecondCall = await findOpenOpportunity();
     const duplicate = await insertOpenOpportunity({
       ...first,
@@ -73,7 +80,7 @@ test(
     await resolveOpportunity(
       inserted._id,
       272500,
-      ((272500 - 272800) / 272800) * 100,
+      ((272500 - 269000) / 269000) * 100,
       new Date(now.getTime() + 2000),
       "SUCCESS",
     );
@@ -88,9 +95,10 @@ test(
       _id: undefined,
       createdAt: new Date(now.getTime() + 3000),
       updatedAt: new Date(now.getTime() + 3000),
-      entry: { price: 273000, source: "wallex" },
-      market: { bitpinPrice: 269000, wallexPrice: 273000, spreadPct: 1.48 },
-      monitoring: { currentWallexPrice: 273000, updatedAt: new Date(now.getTime() + 3000) },
+        entry: { price: 269500, source: "bitpin" },
+        target: { price: 272500, source: "phase-2-safe-target" },
+        market: { bitpinPrice: 269500, wallexPrice: 273000, spreadPct: 1.48 },
+        monitoring: { currentBitpinPrice: 269500, updatedAt: new Date(now.getTime() + 3000) },
     });
     assert.ok(later._id);
     assert.notEqual(later._id.toString(), inserted._id.toString());
