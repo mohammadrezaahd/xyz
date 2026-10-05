@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { parsePositivePrice } from "@/lib/prices";
 
-const env = (key: string) => process.env[key] ?? "";
+const env = (key: string, fallback = "") => process.env[key] ?? fallback;
 
 function requireEnv(key: string): string {
   const value = env(key).trim();
