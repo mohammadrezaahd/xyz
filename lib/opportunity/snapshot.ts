@@ -48,6 +48,10 @@ export type OpportunityDocument = {
     detectedAt: Date;
     engineVersion: string;
   };
+  monitoring: {
+    currentWallexPrice: number | null;
+    updatedAt: Date;
+  };
 };
 
 export function buildOpportunityDocument(
@@ -113,6 +117,10 @@ export function buildOpportunityDocument(
     detection: {
       detectedAt,
       engineVersion: PHASE_3_ENGINE_VERSION,
+    },
+    monitoring: {
+      currentWallexPrice: analysis.prices.wallex,
+      updatedAt: detectedAt,
     },
   };
 }
