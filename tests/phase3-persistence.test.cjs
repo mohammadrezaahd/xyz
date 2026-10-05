@@ -52,6 +52,7 @@ test(
         priceChangePct: null,
       },
       detection: { detectedAt: now, engineVersion: "phase3-test" },
+      monitoring: { currentWallexPrice: 272800, updatedAt: now },
     };
 
     const inserted = await insertOpenOpportunity(first);
@@ -78,6 +79,17 @@ test(
     assert.equal(resolved?.status, "SUCCESS");
     assert.equal(resolved?.outcome.exitPrice, 272500);
     assert.equal(resolved?.outcome.status, "SUCCESS");
+
+    const later = await insertOpenOpportunity({
+      ...first,
+      createdAt: new Date(now.getTime() + 3000),
+      updatedAt: new Date(now.getTime() + 3000),
+      entry: { price: 273000, source: "wallex" },
+      market: { bitpinPrice: 269000, wallexPrice: 273000, spreadPct: 1.48 },
+      monitoring: { currentWallexPrice: 273000, updatedAt: new Date(now.getTime() + 3000) },
+    });
+    assert.ok(later._id);
+    assert.notEqual(later._id.toString(), inserted._id.toString());
 
     await collection.deleteMany({ "detection.engineVersion": "phase3-test" });
   },
