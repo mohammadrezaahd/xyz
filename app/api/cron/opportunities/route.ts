@@ -6,6 +6,7 @@ import {
   findOpenOpportunity,
   insertOpenOpportunity,
   invalidateOpportunity,
+  updateOpenMonitoring,
   resolveOpportunity,
 } from "@/lib/opportunities/repository";
 import type { Candle } from "@/lib/candles";
@@ -70,6 +71,12 @@ export async function GET(request: Request) {
     const open = await findOpenOpportunity();
 
     if (open?._id) {
+      await updateOpenMonitoring(
+        open._id,
+        prices.wallex,
+        new Date(prices.fetchedAt),
+      );
+
       const evaluation = evaluateSyntheticOutcome(
         open.entry.price,
         prices.wallex,
