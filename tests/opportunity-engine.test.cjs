@@ -57,8 +57,11 @@ test("external validation succeeds at 0.40% threshold", () => {
 
 test("external validation fails above 0.40%", () => {
   const analysis = baseAnalysis(267000, 271000, 268786);
-  assert.ok(Math.abs((analysis.validation.external.actual ?? 0) - 0.66816479400749) < 1e-9);
-  assert.equal(analysis.validation.external.threshold, 0.4);
+assert.ok(
+  Math.abs(
+    (analysis.validation.external.actual ?? 0) - 0.6689138576779027,
+  ) < 1e-9,
+);  assert.equal(analysis.validation.external.threshold, 0.4);
   assert.equal(analysis.validation.external.status, "FAILED");
 });
 

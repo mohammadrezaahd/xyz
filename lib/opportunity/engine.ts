@@ -1,8 +1,5 @@
 import type { Candle } from "../candles";
-import {
-  DEFAULT_OPPORTUNITY_CONFIG,
-  type OpportunityConfig,
-} from "./config";
+import { DEFAULT_OPPORTUNITY_CONFIG, type OpportunityConfig } from "./config";
 import type {
   CandleDirection,
   OpportunityAnalysis,
@@ -15,11 +12,7 @@ const MINUTE_SECONDS = 60;
 
 function classifyRatio(actual: number, threshold: number): TestResult {
   const status =
-    actual >= threshold
-      ? "SUCCESS"
-      : actual >= 0.5
-        ? "ACCEPTABLE"
-        : "FAILED";
+    actual >= threshold ? "SUCCESS" : actual >= 0.5 ? "ACCEPTABLE" : "FAILED";
 
   return { status, actual, threshold };
 }
@@ -32,7 +25,9 @@ function insufficient(threshold: number | null = null): TestResult {
   };
 }
 
-function normalizePositivePrice(value: number | null | undefined): number | null {
+function normalizePositivePrice(
+  value: number | null | undefined,
+): number | null {
   return typeof value === "number" && Number.isFinite(value) && value > 0
     ? value
     : null;
@@ -47,8 +42,7 @@ function direction(candle: Candle, minMovePct: number): CandleDirection {
     return "NEUTRAL";
   }
 
-  const changePct =
-    (Math.abs(candle.close - candle.open) / candle.open) * 100;
+  const changePct = (Math.abs(candle.close - candle.open) / candle.open) * 100;
 
   if (changePct < minMovePct) return "NEUTRAL";
   return candle.close > candle.open ? "BULLISH" : "BEARISH";
@@ -77,10 +71,7 @@ function candlesByMinuteBucket(
   const map = new Map<number, Candle>();
 
   for (const candle of candles) {
-    if (
-      !Number.isFinite(candle.time) ||
-      candle.time >= currentCandleStart
-    ) {
+    if (!Number.isFinite(candle.time) || candle.time >= currentCandleStart) {
       continue;
     }
 
@@ -112,12 +103,10 @@ function synchronizedClosedCandles(
     .filter((bucket) => wallexMap.has(bucket))
     .sort((a, b) => a - b);
 
-  return buckets
-    .slice(-Math.max(0, lookback))
-    .map((bucket) => ({
-      bitpin: bitpinMap.get(bucket)!,
-      wallex: wallexMap.get(bucket)!,
-    }));
+  return buckets.slice(-Math.max(0, lookback)).map((bucket) => ({
+    bitpin: bitpinMap.get(bucket)!,
+    wallex: wallexMap.get(bucket)!,
+  }));
 }
 
 function ratio(candles: Candle[], minMovePct: number): number | null {
@@ -137,10 +126,7 @@ function alignment(
   if (!pairs.length) return null;
 
   const matching = pairs.filter(({ bitpin, wallex }) => {
-    return (
-      direction(bitpin, minMovePct) ===
-      direction(wallex, minMovePct)
-    );
+    return direction(bitpin, minMovePct) === direction(wallex, minMovePct);
   }).length;
 
   return matching / pairs.length;
@@ -168,10 +154,7 @@ function averageDirectionalMovePct(
 
   if (!moves.length) return null;
 
-  return (
-    moves.reduce((sum, value) => sum + value, 0) /
-    moves.length
-  );
+  return moves.reduce((sum, value) => sum + value, 0) / moves.length;
 }
 
 function momentumScore(
@@ -205,19 +188,11 @@ function opportunityLevel(
   const above = wallexAboveBitpin.status === "SUCCESS";
   const spreadOk = spread.status === "SUCCESS";
 
-  if (
-    score >= config.opportunityThresholds.strong &&
-    above &&
-    spreadOk
-  ) {
+  if (score >= config.opportunityThresholds.strong && above && spreadOk) {
     return "STRONG";
   }
 
-  if (
-    score >= config.opportunityThresholds.moderate &&
-    above &&
-    spreadOk
-  ) {
+  if (score >= config.opportunityThresholds.moderate && above && spreadOk) {
     return "MODERATE";
   }
 
@@ -226,10 +201,7 @@ function opportunityLevel(
   return "NONE";
 }
 
-function availableWeight(
-  result: TestResult,
-  weight: number,
-): number {
+function availableWeight(result: TestResult, weight: number): number {
   return result.status === "INSUFFICIENT_DATA" ? 0 : weight;
 }
 
@@ -261,51 +233,45 @@ export function analyzeOpportunity({
       : null;
 
   const spreadPercent =
-    spreadAbsolute !== null &&
-    bitpinPrice !== null &&
-    bitpinPrice > 0
+    spreadAbsolute !== null && bitpinPrice !== null && bitpinPrice > 0
       ? (spreadAbsolute / bitpinPrice) * 100
       : null;
 
   const externalDeviation =
     normalizedExternal !== null && wallexPrice !== null
-      ? (Math.abs(wallexPrice - normalizedExternal) /
-          normalizedExternal) *
-        100
+      ? (Math.abs(wallexPrice - normalizedExternal) / normalizedExternal) * 100
       : null;
 
   const externalValidation =
     externalDeviation === null
       ? insufficient(config.externalValidationPct)
-      : {
+      : ({
           status:
             externalDeviation <= config.externalValidationPct
               ? "SUCCESS"
               : "FAILED",
           actual: externalDeviation,
           threshold: config.externalValidationPct,
-        } as const;
+        } as const);
 
   const wallexAboveBitpin =
     bitpinPrice === null || wallexPrice === null
       ? insufficient()
-      : {
+      : ({
           status: wallexPrice > bitpinPrice ? "SUCCESS" : "FAILED",
           actual: wallexPrice - bitpinPrice,
           threshold: 0,
-        } as const;
+        } as const);
 
   const spreadTest =
     spreadPercent === null
       ? insufficient(config.spreadTriggerPct)
-      : {
+      : ({
           status:
-            spreadPercent >= config.spreadTriggerPct
-              ? "SUCCESS"
-              : "FAILED",
+            spreadPercent >= config.spreadTriggerPct ? "SUCCESS" : "FAILED",
           actual: spreadPercent,
           threshold: config.spreadTriggerPct,
-        } as const;
+        } as const);
 
   const pairs = synchronizedClosedCandles(
     bitpinCandles,
@@ -335,10 +301,7 @@ export function analyzeOpportunity({
     : null;
 
   const averageMove = hasEnoughCandles
-    ? averageDirectionalMovePct(
-        pairs,
-        config.minCandleMovePct,
-      )
+    ? averageDirectionalMovePct(pairs, config.minCandleMovePct)
     : null;
 
   const bitpinBullish =
@@ -356,10 +319,7 @@ export function analyzeOpportunity({
       ? insufficient(config.minAlignmentRatio)
       : classifyRatio(alignmentRatio, config.minAlignmentRatio);
 
-  const momentum = momentumScore(
-    averageMove,
-    config.momentumReferencePct,
-  );
+  const momentum = momentumScore(averageMove, config.momentumReferencePct);
 
   const momentumTest =
     momentum === null
@@ -381,24 +341,21 @@ export function analyzeOpportunity({
       : null;
 
   const grossPct =
-    gross !== null &&
-    bitpinPrice !== null &&
-    bitpinPrice > 0
+    gross !== null && bitpinPrice !== null && bitpinPrice > 0
       ? (gross / bitpinPrice) * 100
       : null;
 
   const feesPct = config.takerFeePct + config.takerFeePct;
-  const netPct =
-    grossPct !== null ? grossPct - feesPct : null;
+  const netPct = grossPct !== null ? grossPct - feesPct : null;
 
   const targetViability =
     netPct === null
       ? insufficient()
-      : {
+      : ({
           status: netPct > 0 ? "SUCCESS" : "FAILED",
           actual: netPct,
           threshold: 0,
-        } as const;
+        } as const);
 
   const weights = [
     {
@@ -453,18 +410,14 @@ export function analyzeOpportunity({
     earnedPoints += momentum;
   }
 
-  const dataCompleteness =
-    (availablePoints / 100) * 100;
+  const dataCompleteness = Math.round(availablePoints * 1e9) / 1e9;
 
   const stabilityScore =
     availablePoints > 0
-      ? Math.min(
-          100,
-          Math.max(
-            0,
-            (earnedPoints / availablePoints) * 100,
-          ),
-        )
+      ? Math.round(
+          Math.min(100, Math.max(0, (earnedPoints / availablePoints) * 100)) *
+            1e9,
+        ) / 1e9
       : 0;
 
   return {
