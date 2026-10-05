@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { CandleChart } from "@/components/candle-chart";
 import { OpportunityPanel } from "@/components/opportunity-panel";
+import { Phase3Panel } from "@/components/phase3-panel";
 import { analyzeOpportunity } from "@/lib/opportunity/engine";
 import type { Candle } from "@/lib/candles";
 import type { CurrentPricesResponse } from "@/lib/prices";
@@ -170,6 +171,8 @@ export default function Home() {
         externalPrice={externalPrice}
         onExternalPriceChange={setExternalPrice}
       />
+
+      <Phase3Panel />
 
       {error && <div className="error">{error}</div>}
       <div className="footer">
