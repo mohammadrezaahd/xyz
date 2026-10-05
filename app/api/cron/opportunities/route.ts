@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { analyzeOpportunity } from "@/lib/opportunity/engine";
+import { isCronAuthorized } from "@/lib/opportunity/cron-auth";
 import { evaluateSyntheticOutcome } from "@/lib/opportunity/outcome";
 import { buildOpportunityDocument } from "@/lib/opportunity/snapshot";
 import {
@@ -36,13 +37,8 @@ async function fetchInternal<T>(request: Request, path: string): Promise<T> {
   return payload;
 }
 
-function isAuthorized(request: Request): boolean {
-  const secret = process.env.CRON_SECRET?.trim();
-  return Boolean(secret) && request.headers.get("authorization") === `Bearer ${secret}`;
-}
-
 export async function GET(request: Request) {
-  if (!isAuthorized(request)) {
+  if (!isCronAuthorized(request.headers.get("authorization"), process.env.CRON_SECRET)) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
