@@ -4,8 +4,21 @@ import {
   getOpportunityStats,
   listRecentOpportunities,
 } from "@/lib/opportunities/repository";
+import type { OpportunityDocument } from "@/lib/opportunity/snapshot";
 
 export const dynamic = "force-dynamic";
+
+function serializeOpportunity(opportunity: OpportunityDocument) {
+  const { monitoring, ...rest } = opportunity;
+
+  return {
+    ...rest,
+    monitoring: {
+      currentBitpinPrice: monitoring.currentBitpinPrice ?? null,
+      updatedAt: monitoring.updatedAt,
+    },
+  };
+}
 
 export async function GET() {
   try {
@@ -16,7 +29,11 @@ export async function GET() {
     ]);
 
     return NextResponse.json(
-      { open, recent, stats },
+      {
+        open: open ? serializeOpportunity(open) : null,
+        recent: recent.map(serializeOpportunity),
+        stats,
+      },
       { headers: { "Cache-Control": "no-store" } },
     );
   } catch (error) {
