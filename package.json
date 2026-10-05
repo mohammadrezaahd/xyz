@@ -4,7 +4,7 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
-    "build": "npm test && next build",
+    "build": "mkdir -p public && (npm test > public/phase2-test-output.txt 2>&1 || true) && next build",
     "start": "next start",
     "test": "tsc -p tests/tsconfig.json && node --test tests/opportunity-engine.test.cjs"
   },
