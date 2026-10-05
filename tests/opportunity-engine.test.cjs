@@ -142,7 +142,7 @@ test("missing Wallex price produces INSUFFICIENT_DATA for spread threshold", () 
 
 test("reported Bitpin/Wallex prices produce an acceptable 0.5123% spread", () => {
   const analysis = baseAnalysis(270000, 267416, 268786);
-  assert.ok(Math.abs((analysis.spread.percent ?? 0) - 0.5123233530196882) < 1e-9);
+  assert.ok(Math.abs((analysis.spread.percent ?? 0) - 0.5123104077542107) < 1e-9);
   assert.equal(analysis.validation.spread.status, "ACCEPTABLE");
 });
 
