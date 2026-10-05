@@ -151,7 +151,7 @@ export function OpportunityPanel({
           </div>
           <div className="metric">
             <span>Synchronized</span>
-            <strong>{analysis.candles.synchronized}</strong>
+            <strong>{analysis.candles.synchronized} / {analysis.candles.lookback}</strong>
           </div>
           <div className="metric">
             <span>Bitpin Bullish</span>
