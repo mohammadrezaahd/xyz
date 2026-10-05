@@ -16,6 +16,7 @@ type Opportunity = {
     priceChangePct: number | null;
   };
   detection: { detectedAt: string };
+  monitoring: { currentWallexPrice: number | null; updatedAt: string };
 };
 type Stats = {
   total: number;
@@ -104,11 +105,15 @@ export function Phase3Panel() {
               <div><span>Status</span><strong className={statusClass(open.status)}>{open.status}</strong></div>
               <div><span>Direction</span><strong>{open.direction}</strong></div>
               <div><span>Entry</span><strong>{formatPrice(open.entry.price)}</strong></div>
-              <div><span>Current</span><strong>{formatPrice(open.market.wallexPrice)}</strong></div>
+              <div><span>Current</span><strong>{formatPrice(open.monitoring.currentWallexPrice)}</strong></div>
               <div><span>Spread</span><strong>{open.market.spreadPct.toFixed(2)}%</strong></div>
               <div><span>Score</span><strong>{open.analysis.score.toFixed(1)}</strong></div>
               <div><span>Detected</span><strong>{formatDate(open.detection.detectedAt)}</strong></div>
-              <div><span>Change</span><strong>Open</strong></div>
+              <div><span>Change</span><strong>{
+                open.monitoring.currentWallexPrice === null
+                  ? "—"
+                  : `${((open.monitoring.currentWallexPrice - open.entry.price) / open.entry.price * 100).toFixed(3)}%`
+              }</strong></div>
             </div>
             <div className="phase3Tests">
               {Object.entries(open.analysis.tests).map(([key, test]) => (
