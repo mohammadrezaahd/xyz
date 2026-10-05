@@ -37,7 +37,7 @@ h1 { margin:0; font-size:28px; letter-spacing:-.03em; }
 .inputField input:focus { border-color:#555d6d; }
 .testStatus { border:1px solid var(--border); border-radius:999px; padding:3px 7px; font-size:10px; font-weight:700; white-space:nowrap; }
 .testStatus.success { color:var(--success); border-color:#28502d; }
-.testStatus.failed { color:var(--danger); border-color:#593238; }
+.testStatus.acceptable { color:#e6c75a; border-color:#66591f; } .testStatus.failed { color:var(--danger); border-color:#593238; }
 .testStatus.insufficient_data { color:var(--warning); border-color:#4d3b12; }
 .detailsButton { margin-top:12px; border:1px solid var(--border); border-radius:8px; background:#0f1116; color:var(--muted); padding:8px 10px; cursor:pointer; }
 .thresholds { margin-top:10px; color:var(--muted); font-size:11px; line-height:1.6; }
