@@ -159,7 +159,7 @@ export function Phase3Panel() {
                   <tr key={typeof item._id === "string" ? item._id : item._id?.$oid ?? index}>
                     <td><span className={statusClass(item.status)}>{item.status}</span></td>
                     <td>{formatPrice(item.entry.price)}</td>
-                    <td>{formatPrice(item.target.price)}</td>
+                    <td>{formatPrice(item.target?.price ?? null)}</td>
                     <td>{formatPrice(item.outcome.exitPrice)}</td>
                     <td>{item.market.spreadPct.toFixed(2)}%</td>
                     <td>{item.analysis.score.toFixed(1)}</td>
