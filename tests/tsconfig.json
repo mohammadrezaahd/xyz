@@ -12,7 +12,6 @@
   },
   "include": [
     "../lib/candles.ts",
-    "../lib/opportunity/**/*.ts",
-    "./opportunity-engine.test.ts"
+    "../lib/opportunity/**/*.ts"
   ]
 }

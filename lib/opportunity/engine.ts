@@ -69,8 +69,9 @@ function synchronizedClosedCandles(
   lookback: number,
   nowMs: number,
 ): Array<{ bitpin: Candle; wallex: Candle }> {
+  const nowSeconds = Math.floor(nowMs / 1000);
   const currentCandleStart =
-    Math.floor(nowMs / 60000) * MINUTE_SECONDS;
+    Math.floor(nowSeconds / MINUTE_SECONDS) * MINUTE_SECONDS;
 
   const bitpinMap = new Map(
     bitpin

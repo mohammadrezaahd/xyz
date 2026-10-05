@@ -36,7 +36,7 @@ async function fetchBitpinPrice(): Promise<number> {
   const url = new URL(
     env(
       "BITPIN_TICKER_URL",
-      `${baseUrl}/api/v1/mkt/tickers/`,
+      `${baseUrl}/v1/mkt/tickers/`,
     ),
   );
 
