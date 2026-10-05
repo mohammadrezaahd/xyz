@@ -36,7 +36,7 @@ function findBitpinPrice(payload: unknown, symbol: string): number | null {
 
 async function fetchBitpinPrice(): Promise<number> {
   const baseUrl = requireEnv("BITPIN_API_BASE_URL").replace(/\/$/, "");
-  const url = new URL(`${baseUrl}/v1/mkt/tickers/`);
+  const url = new URL(`${baseUrl}/api/v1/mkt/tickers/`);
 
   const symbol = requireEnv("BITPIN_SYMBOL");
   url.searchParams.set("symbol", symbol);
