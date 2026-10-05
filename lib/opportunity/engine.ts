@@ -310,6 +310,15 @@ export function analyzeOpportunity({
       ? statusFromBoolean(false)
       : statusFromBoolean(netPct > 0, netPct);
 
+  const externalValidation =
+    externalDeviation === null
+      ? statusFromBoolean(false)
+      : {
+          status: externalDeviation <= config.externalValidationPct ? "SUCCESS" : "FAILED",
+          actual: externalDeviation,
+          threshold: config.externalValidationPct,
+        };
+
   let stabilityScore = 0;
   if (externalValidation.status === "SUCCESS") {
     stabilityScore += config.scoreWeights.externalValidation;
@@ -345,13 +354,7 @@ export function analyzeOpportunity({
       percent: spreadPercent,
     },
     validation: {
-      external: externalDeviation === null
-        ? statusFromBoolean(false)
-        : {
-            status: externalDeviation <= config.externalValidationPct ? "SUCCESS" : "FAILED",
-            actual: externalDeviation,
-            threshold: config.externalValidationPct,
-          },
+      external: externalValidation,
       wallexAboveBitpin,
       spread: spreadTest,
       candleAlignment,
