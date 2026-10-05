@@ -69,13 +69,14 @@ export async function GET(request: Request) {
     if (open?._id) {
       await updateOpenMonitoring(
         open._id,
-        prices.wallex,
+        prices.bitpin,
         new Date(prices.fetchedAt),
       );
 
       const evaluation = evaluateSyntheticOutcome(
         open.entry.price,
-        prices.wallex,
+        open.target.price,
+        prices.bitpin,
         open.direction,
       );
 
@@ -96,7 +97,29 @@ export async function GET(request: Request) {
           ok: true,
           action: "RESOLVED_SUCCESS",
           opportunityId: open._id.toHexString(),
-          currentWallexPrice: prices.wallex,
+          currentBitpinPrice: prices.bitpin,
+          errors,
+        });
+      }
+
+      if (
+        evaluation.status === "FAILED" &&
+        evaluation.exitPrice !== null &&
+        evaluation.priceChangePct !== null
+      ) {
+        await resolveOpportunity(
+          open._id,
+          evaluation.exitPrice,
+          evaluation.priceChangePct,
+          new Date(prices.fetchedAt),
+          "FAILED",
+        );
+
+        return NextResponse.json({
+          ok: true,
+          action: "RESOLVED_FAILED",
+          opportunityId: open._id.toHexString(),
+          currentBitpinPrice: prices.bitpin,
           errors,
         });
       }
@@ -108,7 +131,7 @@ export async function GET(request: Request) {
           ok: true,
           action: "INVALIDATED",
           opportunityId: open._id.toHexString(),
-          currentWallexPrice: prices.wallex,
+          currentBitpinPrice: prices.bitpin,
           errors,
         });
       }
@@ -117,7 +140,7 @@ export async function GET(request: Request) {
         ok: true,
         action: "MONITORED_OPEN",
         opportunityId: open._id.toHexString(),
-        currentWallexPrice: prices.wallex,
+        currentBitpinPrice: prices.bitpin,
         errors,
       });
     }
@@ -126,7 +149,8 @@ export async function GET(request: Request) {
       analysis.opportunity !== "NONE" &&
       analysis.prices.wallex !== null &&
       analysis.prices.bitpin !== null &&
-      analysis.spread.percent !== null;
+      analysis.spread.percent !== null &&
+      analysis.target.safeTarget !== null;
 
     if (!validOpportunity) {
       return NextResponse.json({
