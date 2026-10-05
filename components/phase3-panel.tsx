@@ -8,6 +8,7 @@ type Opportunity = {
   status: "OPEN" | "SUCCESS" | "FAILED" | "INVALIDATED";
   direction: "SHORT";
   entry: { price: number };
+  target: { price: number; source: "phase-2-safe-target" };
   market: { bitpinPrice: number; wallexPrice: number; spreadPct: number };
   analysis: { score: number; tests: Record<string, TestResult> };
   outcome: {
@@ -16,7 +17,7 @@ type Opportunity = {
     priceChangePct: number | null;
   };
   detection: { detectedAt: string };
-  monitoring: { currentWallexPrice: number | null; updatedAt: string };
+  monitoring: { currentBitpinPrice: number | null; updatedAt: string };
 };
 type Stats = {
   total: number;
@@ -24,7 +25,8 @@ type Stats = {
   successful: number;
   failed: number;
   invalidated: number;
-  successRate: number;
+  resolved: number;
+  successRate: number | null;
 };
 
 function formatPrice(value: number | null) {
@@ -105,15 +107,16 @@ export function Phase3Panel() {
               <div><span>Status</span><strong className={statusClass(open.status)}>{open.status}</strong></div>
               <div><span>Direction</span><strong>{open.direction}</strong></div>
               <div><span>Entry</span><strong>{formatPrice(open.entry.price)}</strong></div>
-              <div><span>Current</span><strong>{formatPrice(open.monitoring.currentWallexPrice)}</strong></div>
-              <div><span>Spread</span><strong>{open.market.spreadPct.toFixed(2)}%</strong></div>
+              <div><span>Safe Target</span><strong>{formatPrice(open.target.price)}</strong></div>
+              <div><span>Current Bitpin</span><strong>{formatPrice(open.monitoring.currentBitpinPrice)}</strong></div>
+              <div><span>Current Change</span><strong>{
+                open.monitoring.currentBitpinPrice === null
+                  ? "—"
+                  : `${((open.monitoring.currentBitpinPrice - open.entry.price) / open.entry.price * 100).toFixed(3)}%`
+              }</strong></div>
+              <div><span>Spread at Detection</span><strong>{open.market.spreadPct.toFixed(2)}%</strong></div>
               <div><span>Score</span><strong>{open.analysis.score.toFixed(1)}</strong></div>
               <div><span>Detected</span><strong>{formatDate(open.detection.detectedAt)}</strong></div>
-              <div><span>Change</span><strong>{
-                open.monitoring.currentWallexPrice === null
-                  ? "—"
-                  : `${((open.monitoring.currentWallexPrice - open.entry.price) / open.entry.price * 100).toFixed(3)}%`
-              }</strong></div>
             </div>
             <div className="phase3Tests">
               {Object.entries(open.analysis.tests).map(([key, test]) => (
@@ -135,19 +138,20 @@ export function Phase3Panel() {
           <div><span>Success</span><strong>{stats.successful}</strong></div>
           <div><span>Failed</span><strong>{stats.failed}</strong></div>
           <div><span>Invalidated</span><strong>{stats.invalidated}</strong></div>
-          <div><span>Success rate</span><strong>{stats.successRate.toFixed(1)}%</strong></div>
+          <div><span>Resolved</span><strong>{stats.resolved}</strong></div>
+          <div><span>Success Rate</span><strong>{stats.successRate === null ? "—" : `${(stats.successRate * 100).toFixed(1)}%`}</strong></div>
         </div>
       )}
 
       <div className="phase3History">
-        <h3>Recent Opportunities</h3>
+        <h3>History</h3>
         {recent.length > 0 ? (
           <div className="phase3TableWrap">
             <table className="phase3Table">
               <thead>
                 <tr>
-                  <th>Status</th><th>Entry</th><th>Exit</th><th>Spread</th>
-                  <th>Score</th><th>Detected</th><th>Resolved</th>
+                  <th>Status</th><th>Entry</th><th>Target</th><th>Exit</th>
+                  <th>Spread</th><th>Score</th><th>Detected</th><th>Resolved</th>
                 </tr>
               </thead>
               <tbody>
@@ -155,6 +159,7 @@ export function Phase3Panel() {
                   <tr key={typeof item._id === "string" ? item._id : item._id?.$oid ?? index}>
                     <td><span className={statusClass(item.status)}>{item.status}</span></td>
                     <td>{formatPrice(item.entry.price)}</td>
+                    <td>{formatPrice(item.target.price)}</td>
                     <td>{formatPrice(item.outcome.exitPrice)}</td>
                     <td>{item.market.spreadPct.toFixed(2)}%</td>
                     <td>{item.analysis.score.toFixed(1)}</td>
