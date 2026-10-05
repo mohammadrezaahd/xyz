@@ -93,10 +93,19 @@ function getTestExplanation(
         ? `Wallex is currently ${formatPrice(result.actual!)} Toman above Bitpin.`
         : "Wallex is not above Bitpin, so the required price relationship is not satisfied.";
 
-    case "spread":
-      return result.status === "SUCCESS"
-        ? `Current spread is ${result.actual!.toFixed(2)}%, meeting the required minimum of ${result.threshold!.toFixed(2)}%.`
-        : `Current spread is ${result.actual!.toFixed(2)}%, below the required minimum of ${result.threshold!.toFixed(2)}%.`;
+    case "spread": {
+      const acceptableThreshold = PHASE_2_CONFIG.spreadTriggerPct * 0.5;
+
+      if (result.status === "SUCCESS") {
+        return `Current spread is ${result.actual!.toFixed(2)}%, meeting the required SUCCESS threshold of ${result.threshold!.toFixed(2)}%.`;
+      }
+
+      if (result.status === "ACCEPTABLE") {
+        return `Current spread is ${result.actual!.toFixed(2)}%. This is above the minimum acceptable ${acceptableThreshold.toFixed(2)}% level but below the SUCCESS threshold of ${result.threshold!.toFixed(2)}%.`;
+      }
+
+      return `Current spread is ${result.actual!.toFixed(2)}%, below the minimum acceptable ${acceptableThreshold.toFixed(2)}% level.`;
+    }
 
     case "bitpinBullish":
     case "wallexBullish": {
