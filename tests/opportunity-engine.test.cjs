@@ -2,7 +2,7 @@ const test = require("node:test");
 const assert = require("node:assert/strict");
 const { analyzeOpportunity } = require("../.test-dist/lib/opportunity/engine.js");
 
-const nowMs = 6 * 60 * 1000;
+const nowMs = 11 * 60 * 1000;
 
 function candle(time, open, close) {
   return {
@@ -14,21 +14,34 @@ function candle(time, open, close) {
   };
 }
 
-function fiveCandles(directions, movePct = 0.1) {
+function candles(directions, movePct = 0.1, start = 1) {
   return directions.map((direction, index) => {
     const open = 270000;
-    const multiplier = direction === "up"
-      ? 1 + movePct / 100
-      : 1 - movePct / 100;
+    const multiplier =
+      direction === "up"
+        ? 1 + movePct / 100
+        : direction === "down"
+          ? 1 - movePct / 100
+          : 1 + 0.01 / 100;
 
-    return candle((index + 1) * 60, open, open * multiplier);
+    return candle(
+      (start + index) * 60,
+      open,
+      open * multiplier,
+    );
   });
 }
 
-function baseAnalysis(externalPrice = 280000, bitpin = 271000, wallex = 280000) {
+function baseAnalysis(
+  externalPrice = 280000,
+  bitpin = 271000,
+  wallex = 280000,
+  bitpinDirections = Array(10).fill("up").map((_, i) => i === 9 ? "down" : "up"),
+  wallexDirections = Array(10).fill("up"),
+) {
   return analyzeOpportunity({
-    bitpinCandles: fiveCandles(["up", "up", "up", "up", "down"]),
-    wallexCandles: fiveCandles(["up", "up", "up", "up", "up"]),
+    bitpinCandles: candles(bitpinDirections),
+    wallexCandles: candles(wallexDirections),
     currentPrices: { bitpin, wallex },
     externalPrice,
     nowMs,
@@ -47,14 +60,14 @@ test("external validation fails above 0.25%", () => {
   assert.equal(analysis.validation.external.status, "FAILED");
 });
 
-test("missing external price is insufficient data", () => {
+test("missing external price is insufficient data and does not consume weight", () => {
   const analysis = baseAnalysis(null);
   assert.equal(analysis.validation.external.status, "INSUFFICIENT_DATA");
   assert.equal(analysis.dataCompleteness, 80);
   assert.equal(analysis.stabilityScore, 96.875);
 });
 
-test("current prices drive spread independently of candle closes", () => {
+test("current ticker prices drive spread independently of candle closes", () => {
   const analysis = baseAnalysis(280000, 271000, 280000);
   assert.equal(analysis.prices.bitpin, 271000);
   assert.equal(analysis.prices.wallex, 280000);
@@ -62,7 +75,7 @@ test("current prices drive spread independently of candle closes", () => {
   assert.ok(Math.abs((analysis.spread.percent ?? 0) - 3.321033210332103) < 1e-9);
 });
 
-test("Bitpin ticker null returns insufficient data without candle fallback", () => {
+test("Bitpin ticker null never falls back to candle close", () => {
   const analysis = baseAnalysis(280000, null, 280000);
   assert.equal(analysis.prices.bitpin, null);
   assert.equal(analysis.target.entryPrice, null);
@@ -70,7 +83,7 @@ test("Bitpin ticker null returns insufficient data without candle fallback", () 
   assert.equal(analysis.validation.spread.status, "INSUFFICIENT_DATA");
 });
 
-test("Wallex ticker null returns insufficient data without candle fallback", () => {
+test("Wallex ticker null never falls back to candle close", () => {
   const analysis = baseAnalysis(280000, 271000, null);
   assert.equal(analysis.prices.wallex, null);
   assert.equal(analysis.target.safeTarget, null);
@@ -79,31 +92,152 @@ test("Wallex ticker null returns insufficient data without candle fallback", () 
   assert.equal(analysis.validation.spread.status, "INSUFFICIENT_DATA");
 });
 
-test("spread at or above 1% succeeds", () => {
-  const analysis = baseAnalysis(280000, 271000, 273710);
-  assert.ok((analysis.spread.percent ?? 0) >= 1);
+test("spread at 1% succeeds", () => {
+  const analysis = baseAnalysis(280000, 270000, 272700);
+  assert.ok(Math.abs((analysis.spread.percent ?? 0) - 1) < 1e-9);
   assert.equal(analysis.validation.spread.status, "SUCCESS");
 });
 
-test("spread below 1% fails", () => {
+test("spread below 1% fails independently from Wallex > Bitpin", () => {
   const analysis = baseAnalysis(270000, 270000, 272000);
   assert.ok((analysis.spread.percent ?? 0) < 1);
+  assert.equal(analysis.validation.wallexAboveBitpin.status, "SUCCESS");
   assert.equal(analysis.validation.spread.status, "FAILED");
 });
 
-test("current incomplete minute is excluded from synchronized candles", () => {
+test("Wallex below Bitpin fails independently from spread", () => {
+  const analysis = baseAnalysis(270000, 271000, 270000);
+  assert.equal(analysis.validation.wallexAboveBitpin.status, "FAILED");
+  assert.ok((analysis.spread.percent ?? 0) < 0);
+});
+
+test("10 synchronized closed candles are used", () => {
+  const analysis = baseAnalysis();
+  assert.equal(analysis.candles.lookback, 10);
+  assert.equal(analysis.candles.synchronized, 10);
+});
+
+test("current incomplete minute is excluded", () => {
   const analysis = analyzeOpportunity({
-    bitpinCandles: fiveCandles(["up", "up", "up", "up", "up"]).concat([
-      candle(360, 270000, 280000),
+    bitpinCandles: candles(Array(10).fill("up"), 0.1).concat([
+      candle(660, 270000, 280000),
     ]),
-    wallexCandles: fiveCandles(["up", "up", "up", "up", "up"]).concat([
-      candle(360, 270000, 280000),
+    wallexCandles: candles(Array(10).fill("up"), 0.1).concat([
+      candle(660, 270000, 280000),
     ]),
     currentPrices: { bitpin: 271000, wallex: 280000 },
     externalPrice: 280000,
-    nowMs: 360000,
+    nowMs: 660000,
   });
-  assert.equal(analysis.candles.synchronized, 5);
+  assert.equal(analysis.candles.synchronized, 10);
+});
+
+test("9 synchronized candles are insufficient", () => {
+  const bitpin = candles(Array(10).fill("up"));
+  const wallex = candles(Array(10).fill("up")).slice(1);
+  const analysis = analyzeOpportunity({
+    bitpinCandles: bitpin,
+    wallexCandles: wallex,
+    currentPrices: { bitpin: 271000, wallex: 280000 },
+    externalPrice: 280000,
+    nowMs,
+  });
+  assert.equal(analysis.candles.synchronized, 9);
+  assert.equal(analysis.validation.candleAlignment.status, "INSUFFICIENT_DATA");
+  assert.equal(analysis.validation.bitpinBullish.status, "INSUFFICIENT_DATA");
+  assert.equal(analysis.validation.wallexBullish.status, "INSUFFICIENT_DATA");
+});
+
+test("bullish ratio classification is 40 FAILED, 50/70 ACCEPTABLE, 80/100 SUCCESS", () => {
+  const cases = [
+    [4, "FAILED"],
+    [5, "ACCEPTABLE"],
+    [7, "ACCEPTABLE"],
+    [8, "SUCCESS"],
+    [10, "SUCCESS"],
+  ];
+
+  for (const [bullishCount, expected] of cases) {
+    const bitpinDirections = Array.from({ length: 10 }, (_, i) =>
+      i < bullishCount ? "up" : "down",
+    );
+    const analysis = baseAnalysis(
+      280000,
+      271000,
+      280000,
+      bitpinDirections,
+      Array(10).fill("up"),
+    );
+    assert.equal(analysis.candles.bitpinBullishRatio, bullishCount / 10);
+    assert.equal(analysis.validation.bitpinBullish.status, expected);
+  }
+});
+
+test("acceptable bullish ratio receives proportional score, not full weight", () => {
+  const analysis = baseAnalysis(
+    280000,
+    271000,
+    280000,
+    Array.from({ length: 10 }, (_, i) => i < 6 ? "up" : "down"),
+    Array(10).fill("up"),
+  );
+  assert.equal(analysis.validation.bitpinBullish.status, "ACCEPTABLE");
+  assert.equal(analysis.candles.bitpinBullishRatio, 0.6);
+});
+
+test("alignment classification is 8 SUCCESS, 7/5 ACCEPTABLE, 4 FAILED", () => {
+  const cases = [
+    [8, "SUCCESS"],
+    [7, "ACCEPTABLE"],
+    [5, "ACCEPTABLE"],
+    [4, "FAILED"],
+  ];
+
+  for (const [alignedCount, expected] of cases) {
+    const wallexDirections = Array.from({ length: 10 }, (_, i) =>
+      i < alignedCount ? "up" : "down",
+    );
+    const analysis = baseAnalysis(
+      280000,
+      271000,
+      280000,
+      Array(10).fill("up"),
+      wallexDirections,
+    );
+    assert.equal(analysis.candles.alignmentRatio, alignedCount / 10);
+    assert.equal(analysis.validation.candleAlignment.status, expected);
+  }
+});
+
+test("sub-0.05% movement is neutral and not bullish", () => {
+  const bitpin = candles(Array(10).fill("up"));
+  bitpin[0] = candle(60, 270000, 270050);
+  const analysis = analyzeOpportunity({
+    bitpinCandles: bitpin,
+    wallexCandles: candles(Array(10).fill("up")),
+    currentPrices: { bitpin: 271000, wallex: 280000 },
+    externalPrice: 280000,
+    nowMs,
+  });
+  assert.equal(analysis.candles.bitpinBullishRatio, 0.9);
+});
+
+test("momentum uses fixed 0.20% reference and clamps at 5", () => {
+  for (const [averageMove, expected] of [
+    [0.05, 1.25],
+    [0.1, 2.5],
+    [0.2, 5],
+    [0.5, 5],
+  ]) {
+    const analysis = analyzeOpportunity({
+      bitpinCandles: candles(Array(10).fill("up"), averageMove),
+      wallexCandles: candles(Array(10).fill("up"), averageMove),
+      currentPrices: { bitpin: 271000, wallex: 280000 },
+      externalPrice: 280000,
+      nowMs,
+    });
+    assert.ok(Math.abs((analysis.candles.momentumScore ?? 0) - expected) < 1e-9);
+  }
 });
 
 test("safe target and net edge use current ticker prices and 0.70% taker fees", () => {
@@ -118,14 +252,8 @@ test("safe target and net edge use current ticker prices and 0.70% taker fees", 
 
 test("invalid prices and candle values never produce non-finite analysis numbers", () => {
   const analysis = analyzeOpportunity({
-    bitpinCandles: [
-      candle(60, 270000, Number.NaN),
-      candle(120, 270000, Number.POSITIVE_INFINITY),
-      candle(180, 270000, 270270),
-      candle(240, 270000, 270270),
-      candle(300, 270000, 270270),
-    ],
-    wallexCandles: fiveCandles(["up", "up", "up", "up", "up"]),
+    bitpinCandles: candles(Array(10).fill("up")),
+    wallexCandles: candles(Array(10).fill("up")),
     currentPrices: { bitpin: Number.NaN, wallex: Number.POSITIVE_INFINITY },
     externalPrice: Number.NaN,
     nowMs,
@@ -136,60 +264,4 @@ test("invalid prices and candle values never produce non-finite analysis numbers
   assert.equal(analysis.spread.percent, null);
   assert.equal(analysis.edge.netPct, null);
   assert.equal(analysis.validation.external.status, "INSUFFICIENT_DATA");
-});
-
-test("Wallex below Bitpin fails without throwing", () => {
-  const analysis = baseAnalysis(270000, 271000, 270000);
-  assert.equal(analysis.validation.wallexAboveBitpin.status, "FAILED");
-  assert.ok((analysis.spread.percent ?? 0) < 0);
-});
-
-test("five-candle bullish ratios remain 80% and 100%", () => {
-  const analysis = baseAnalysis();
-  assert.equal(analysis.candles.synchronized, 5);
-  assert.equal(analysis.candles.bitpinBullishRatio, 0.8);
-  assert.equal(analysis.candles.wallexBullishRatio, 1);
-});
-
-test("cross-exchange alignment remains 80%", () => {
-  const analysis = baseAnalysis();
-  assert.equal(analysis.candles.alignmentRatio, 0.8);
-  assert.equal(analysis.validation.candleAlignment.status, "SUCCESS");
-});
-
-test("sub-0.05% candle movement is neutral and not bullish", () => {
-  const analysis = analyzeOpportunity({
-    bitpinCandles: [
-      candle(60, 270000, 270050),
-      candle(120, 270000, 270270),
-      candle(180, 270000, 270270),
-      candle(240, 270000, 270270),
-      candle(300, 270000, 270270),
-    ],
-    wallexCandles: fiveCandles(["up", "up", "up", "up", "up"]),
-    currentPrices: { bitpin: 271000, wallex: 280000 },
-    externalPrice: 280000,
-    nowMs,
-  });
-
-  assert.equal(analysis.candles.bitpinBullishRatio, 0.8);
-});
-
-test("momentum uses fixed 0.20% reference and clamps at 5", () => {
-  for (const [averageMove, expected] of [
-    [0.05, 1.25],
-    [0.1, 2.5],
-    [0.2, 5],
-    [0.5, 5],
-  ]) {
-    const analysis = analyzeOpportunity({
-      bitpinCandles: fiveCandles(["up", "up", "up", "up", "up"], averageMove),
-      wallexCandles: fiveCandles(["up", "up", "up", "up", "up"], averageMove),
-      currentPrices: { bitpin: 271000, wallex: 280000 },
-      externalPrice: 280000,
-      nowMs,
-    });
-
-    assert.ok(Math.abs((analysis.candles.momentumScore ?? 0) - expected) < 1e-9);
-  }
 });
