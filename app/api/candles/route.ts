@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { dedupeSort, parseCandles, type Candle } from "@/lib/candles";
 
 const env = (key: string, fallback = "") => process.env[key] ?? fallback;
+const WALLEX_CHUNK_SECONDS = 6 * 60 * 60;
 
 async function fetchBitpin(): Promise<Candle[]> {
   const url = new URL(env("BITPIN_CANDLES_URL"));
@@ -18,7 +19,6 @@ async function fetchBitpin(): Promise<Candle[]> {
   const stepSeconds = resolutionSeconds[resolution];
   if (!stepSeconds) throw new Error(`Unsupported Bitpin resolution: ${resolution}`);
 
-  // Bitpin counts both endpoints, so N bars need (N - 1) intervals.
   const requestedSeconds = Math.max(1, initialDays) * 86400;
   const maxRangeSeconds = Math.max(0, maxBars - 1) * stepSeconds;
   const from = now - Math.min(requestedSeconds, maxRangeSeconds);
@@ -37,30 +37,88 @@ async function fetchBitpin(): Promise<Candle[]> {
   return dedupeSort(parseCandles(await response.json()));
 }
 
-async function fetchWallex(): Promise<Candle[]> {
-  const url = new URL(env("WALLEX_CANDLES_URL", "https://api.wallex.ir/v1/udf/history"));
-  const now = Math.floor(Date.now() / 1000);
-  const days = Number(env("WALLEX_INITIAL_DAYS", "20"));
+async function fetchWallexChunk(
+  baseUrl: string,
+  symbol: string,
+  resolution: string,
+  from: number,
+  to: number,
+  apiKey: string,
+): Promise<Candle[]> {
+  const url = new URL(baseUrl);
+  url.searchParams.set("symbol", symbol);
+  url.searchParams.set("resolution", resolution);
+  url.searchParams.set("from", String(from));
+  url.searchParams.set("to", String(to));
 
-  url.searchParams.set("symbol", env("WALLEX_SYMBOL", "USDTTMN"));
-  url.searchParams.set("resolution", env("WALLEX_RESOLUTION", "1"));
-  url.searchParams.set("from", String(now - days * 86400));
-  url.searchParams.set("to", String(now));
+  const response = await fetch(url, {
+    headers: { "x-api-key": apiKey },
+    cache: "no-store",
+  });
 
-  const headers: Record<string, string> = {};
-  if (env("WALLEX_API_KEY")) headers["x-api-key"] = env("WALLEX_API_KEY");
+  const payload = await response.json().catch(() => null);
 
-  const response = await fetch(url, { headers, cache: "no-store" });
-  if (!response.ok) throw new Error(`Wallex HTTP ${response.status}`);
+  if (!response.ok) {
+    throw new Error(`Wallex HTTP ${response.status}: ${JSON.stringify(payload)}`);
+  }
 
-  const payload = await response.json();
-  if (payload?.s === "error") throw new Error(payload?.errmsg ?? "Wallex returned an error");
+  if (payload?.s === "error") {
+    throw new Error(payload?.errmsg ?? "Wallex returned an error");
+  }
+
+  if (payload?.s === "no_data") {
+    return [];
+  }
 
   return dedupeSort(parseCandles(payload));
 }
 
+async function fetchWallex(): Promise<Candle[]> {
+  const baseUrl = env(
+    "WALLEX_CANDLES_URL",
+    "https://api.wallex.ir/v1/udf/history",
+  );
+  const symbol = env("WALLEX_SYMBOL", "USDTTMN");
+  const resolution = env("WALLEX_RESOLUTION", "1");
+  const days = Math.max(1, Number(env("WALLEX_INITIAL_DAYS", "20")));
+  const apiKey = env("WALLEX_API_KEY");
+
+  if (!apiKey) {
+    throw new Error("Wallex API key is not configured");
+  }
+
+  const now = Math.floor(Date.now() / 1000);
+  const from = now - days * 86400;
+  const candles: Candle[] = [];
+
+  for (
+    let chunkFrom = from;
+    chunkFrom < now;
+    chunkFrom += WALLEX_CHUNK_SECONDS
+  ) {
+    const chunkTo = Math.min(chunkFrom + WALLEX_CHUNK_SECONDS, now);
+
+    const chunk = await fetchWallexChunk(
+      baseUrl,
+      symbol,
+      resolution,
+      chunkFrom,
+      chunkTo,
+      apiKey,
+    );
+
+    candles.push(...chunk);
+  }
+
+  return dedupeSort(candles);
+}
+
 export async function GET() {
-  const [bitpin, wallex] = await Promise.allSettled([fetchBitpin(), fetchWallex()]);
+  const [bitpin, wallex] = await Promise.allSettled([
+    fetchBitpin(),
+    fetchWallex(),
+  ]);
+
   const errors: string[] = [];
 
   const bitpinData = bitpin.status === "fulfilled"
