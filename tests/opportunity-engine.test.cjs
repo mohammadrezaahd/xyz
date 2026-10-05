@@ -132,6 +132,65 @@ test("current incomplete minute is excluded", () => {
   assert.equal(analysis.candles.synchronized, 10);
 });
 
+test("1-minute bucket synchronization matches offset timestamps", () => {
+  const bitpin = candles(Array(10).fill("up"));
+  const wallex = candles(Array(10).fill("up")).map((c) => ({
+    ...c,
+    time: c.time + 30,
+  }));
+
+  const analysis = analyzeOpportunity({
+    bitpinCandles: bitpin,
+    wallexCandles: wallex,
+    currentPrices: { bitpin: 271000, wallex: 280000 },
+    externalPrice: 280000,
+    nowMs,
+  });
+
+  assert.equal(analysis.candles.synchronized, 10);
+  assert.equal(analysis.validation.candleAlignment.status, "SUCCESS");
+  assert.equal(analysis.candles.alignmentRatio, 1);
+});
+
+test("duplicate candles in one minute bucket do not inflate synchronization", () => {
+  const bitpin = candles(Array(10).fill("up")).concat([
+    candle(60 + 45, 270000, 270270),
+  ]);
+  const wallex = candles(Array(10).fill("up")).map((c) => ({
+    ...c,
+    time: c.time + 30,
+  }));
+
+  const analysis = analyzeOpportunity({
+    bitpinCandles: bitpin,
+    wallexCandles: wallex,
+    currentPrices: { bitpin: 271000, wallex: 280000 },
+    externalPrice: 280000,
+    nowMs,
+  });
+
+  assert.equal(analysis.candles.synchronized, 10);
+});
+
+test("offset current-minute candles remain excluded", () => {
+  const bitpin = candles(Array(10).fill("up")).concat([
+    candle(660 + 30, 270000, 280000),
+  ]);
+  const wallex = candles(Array(10).fill("up")).concat([
+    candle(660 + 45, 270000, 280000),
+  ]);
+
+  const analysis = analyzeOpportunity({
+    bitpinCandles: bitpin,
+    wallexCandles: wallex,
+    currentPrices: { bitpin: 271000, wallex: 280000 },
+    externalPrice: 280000,
+    nowMs: 660000,
+  });
+
+  assert.equal(analysis.candles.synchronized, 10);
+});
+
 test("9 synchronized candles are insufficient", () => {
   const bitpin = candles(Array(10).fill("up"));
   const wallex = candles(Array(10).fill("up")).slice(1);
