@@ -68,12 +68,7 @@ async function fetchWallexPrice(): Promise<number> {
     "WALLEX_API_BASE_URL",
     "https://api.wallex.ir",
   );
-  const url = new URL(
-    env(
-      "WALLEX_MARKETS_URL",
-      `${baseUrl}/v1/otc/markets`,
-    ),
-  );
+  const url = new URL(`${baseUrl}/v1/otc/markets`);
   const symbol = env("WALLEX_SYMBOL", "USDTTMN");
   const apiKey = env("WALLEX_API_KEY");
 
