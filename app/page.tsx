@@ -5,8 +5,9 @@ import { CandleChart } from "@/components/candle-chart";
 import { OpportunityPanel } from "@/components/opportunity-panel";
 import { analyzeOpportunity } from "@/lib/opportunity/engine";
 import type { Candle } from "@/lib/candles";
+import type { CurrentPricesResponse } from "@/lib/prices";
 
-type Response = {
+type CandleResponse = {
   bitpin: Candle[];
   wallex: Candle[];
   errors: string[];
@@ -15,7 +16,9 @@ type Response = {
 };
 
 export default function Home() {
-  const [data, setData] = useState<Response | null>(null);
+  const [data, setData] = useState<CandleResponse | null>(null);
+  const [prices, setPrices] =
+    useState<CurrentPricesResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [externalPrice, setExternalPrice] = useState("");
@@ -25,30 +28,59 @@ export default function Home() {
 
     const load = async () => {
       try {
-        const response = await fetch("/api/candles", { cache: "no-store" });
-        const json = (await response.json()) as Response;
+        const [candleResponse, priceResponse] =
+          await Promise.all([
+            fetch("/api/candles", { cache: "no-store" }),
+            fetch("/api/prices", { cache: "no-store" }),
+          ]);
 
-        if (!response.ok) {
-          throw new Error(json.errors?.join("\n") || `HTTP ${response.status}`);
+        const candleJson =
+          (await candleResponse.json()) as CandleResponse;
+        const priceJson =
+          (await priceResponse.json()) as CurrentPricesResponse;
+
+        if (!candleResponse.ok) {
+          throw new Error(
+            candleJson.errors?.join("\n") ||
+              `Candle API HTTP ${candleResponse.status}`,
+          );
+        }
+
+        if (!priceResponse.ok) {
+          throw new Error(
+            priceJson.errors?.join("\n") ||
+              `Price API HTTP ${priceResponse.status}`,
+          );
         }
 
         if (!cancelled) {
-          setData(json);
-          setError(json.errors?.join("\n") || "");
+          setData(candleJson);
+          setPrices(priceJson);
+
+          const errors = [
+            ...(candleJson.errors ?? []),
+            ...(priceJson.errors ?? []),
+          ];
+          setError(errors.join("\n"));
           setLoading(false);
         }
       } catch (e) {
         if (!cancelled) {
-          setError(e instanceof Error ? e.message : "Unknown error");
+          setError(
+            e instanceof Error ? e.message : "Unknown error",
+          );
           setLoading(false);
         }
       }
     };
 
     load();
+
     const timer = window.setInterval(
       load,
-      Number(process.env.NEXT_PUBLIC_CANDLE_REFRESH_MS ?? 15000),
+      Number(
+        process.env.NEXT_PUBLIC_CANDLE_REFRESH_MS ?? 15000,
+      ),
     );
 
     return () => {
@@ -62,10 +94,16 @@ export default function Home() {
       analyzeOpportunity({
         bitpinCandles: data?.bitpin ?? [],
         wallexCandles: data?.wallex ?? [],
-        externalPrice: externalPrice.trim() ? Number(externalPrice) : null,
+        currentPrices: {
+          bitpin: prices?.bitpin ?? null,
+          wallex: prices?.wallex ?? null,
+        },
+        externalPrice: externalPrice.trim()
+          ? Number(externalPrice)
+          : null,
         nowMs: data?.fetchedAt ?? Date.now(),
       }),
-    [data, externalPrice],
+    [data, prices, externalPrice],
   );
 
   return (
@@ -73,12 +111,14 @@ export default function Home() {
       <header>
         <div>
           <h1>Tether / Toman</h1>
-          <div className="subtitle">Bitpin vs Wallex · 1 minute candles</div>
+          <div className="subtitle">
+            Bitpin vs Wallex · 1 minute candles
+          </div>
         </div>
         <div className="badge">
           {loading
             ? "Loading…"
-            : `Updated ${data ? new Date(data.fetchedAt).toLocaleTimeString() : "—"}`}
+            : `Updated ${prices ? new Date(prices.fetchedAt).toLocaleTimeString() : "—"}`}
         </div>
       </header>
 
@@ -87,9 +127,16 @@ export default function Home() {
           <div className="cardHead">
             <div>
               <div className="exchange">Bitpin</div>
-              <div className="symbol">USDT_IRT</div>
+              <div className="symbol">Current Market Price</div>
             </div>
-            <div className="status">{data?.bitpin.length ?? 0} candles</div>
+            <div className="status">
+              {prices?.bitpin
+                ? prices.bitpin.toLocaleString("en-US")
+                : "—"}
+            </div>
+          </div>
+          <div className="chartPriceNote">
+            Current ticker price is independent from the 1m candle close.
           </div>
           <CandleChart candles={data?.bitpin ?? []} />
         </article>
@@ -98,13 +145,25 @@ export default function Home() {
           <div className="cardHead">
             <div>
               <div className="exchange">Wallex</div>
-              <div className="symbol">USDTTMN</div>
+              <div className="symbol">Current Market Price</div>
             </div>
-            <div className="status">{data?.wallex.length ?? 0} candles</div>
+            <div className="status">
+              {prices?.wallex
+                ? prices.wallex.toLocaleString("en-US")
+                : "—"}
+            </div>
+          </div>
+          <div className="chartPriceNote">
+            Current ticker price is independent from the 1m candle close.
           </div>
           <CandleChart candles={data?.wallex ?? []} />
         </article>
       </section>
+
+      <div className="candleDataBadge">
+        Historical 1m Candle Data · Bitpin: {data?.bitpin.length ?? 0} ·
+        Wallex: {data?.wallex.length ?? 0}
+      </div>
 
       <OpportunityPanel
         analysis={analysis}
@@ -114,7 +173,8 @@ export default function Home() {
 
       {error && <div className="error">{error}</div>}
       <div className="footer">
-        Phase 2 provides historical opportunity/stability analysis; it does not execute trades or guarantee outcomes.
+        Phase 2 provides historical opportunity/stability analysis; it
+        does not execute trades or guarantee outcomes.
       </div>
     </main>
   );

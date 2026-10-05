@@ -5,6 +5,7 @@ export interface OpportunityConfig {
   minBullishRatio: number;
   minAlignmentRatio: number;
   minCandleMovePct: number;
+  momentumReferencePct: number;
   safetyMarginPct: number;
   targetHorizonMinutes: number;
   takerFeePct: number;
@@ -36,6 +37,7 @@ export const DEFAULT_OPPORTUNITY_CONFIG: OpportunityConfig = {
   minBullishRatio: 0.8,
   minAlignmentRatio: 0.8,
   minCandleMovePct: 0.05,
+  momentumReferencePct: 0.2,
   safetyMarginPct: 0.35,
   targetHorizonMinutes: 30,
   takerFeePct: 0.35,

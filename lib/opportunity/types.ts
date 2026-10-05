@@ -1,4 +1,4 @@
-import type { Candle } from "@/lib/candles";
+import type { Candle } from "../candles";
 
 export type TestStatus = "SUCCESS" | "FAILED" | "INSUFFICIENT_DATA";
 export type OpportunityLevel = "STRONG" | "MODERATE" | "WEAK" | "NONE";
@@ -9,6 +9,12 @@ export interface TestResult {
   status: TestStatus;
   actual: number | null;
   threshold: number | null;
+}
+
+export interface CurrentPrices {
+  bitpin: number | null;
+  wallex: number | null;
+  fetchedAt: number;
 }
 
 export interface OpportunityAnalysis {
@@ -37,6 +43,7 @@ export interface OpportunityAnalysis {
     wallexBullishRatio: number | null;
     alignmentRatio: number | null;
     averageDirectionalMovePct: number | null;
+    momentumScore: number | null;
   };
   target: {
     entryPrice: number | null;
@@ -51,6 +58,7 @@ export interface OpportunityAnalysis {
     netPct: number | null;
   };
   stabilityScore: number;
+  dataCompleteness: number;
   riskLevel: RiskLevel;
   opportunity: OpportunityLevel;
 }
