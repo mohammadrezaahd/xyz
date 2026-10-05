@@ -7,6 +7,15 @@ function classifyRatio(actual, threshold) {
     const status = actual >= threshold ? "SUCCESS" : actual >= 0.5 ? "ACCEPTABLE" : "FAILED";
     return { status, actual, threshold };
 }
+function classifySpread(actual, successThreshold) {
+    const acceptableThreshold = successThreshold * 0.5;
+    const status = actual >= successThreshold
+        ? "SUCCESS"
+        : actual >= acceptableThreshold
+            ? "ACCEPTABLE"
+            : "FAILED";
+    return { status, actual, threshold: successThreshold };
+}
 function insufficient(threshold = null) {
     return {
         status: "INSUFFICIENT_DATA",
@@ -166,9 +175,7 @@ function analyzeOpportunity({ bitpinCandles, wallexCandles, currentPrices, exter
     const spreadTest = spreadPercent === null
         ? insufficient(config.spreadTriggerPct)
         : {
-            status: spreadPercent >= config.spreadTriggerPct ? "SUCCESS" : "FAILED",
-            actual: spreadPercent,
-            threshold: config.spreadTriggerPct,
+            ...classifySpread(spreadPercent, config.spreadTriggerPct),
         };
     const pairs = synchronizedClosedCandles(bitpinCandles, wallexCandles, config.lookbackCandles, nowMs);
     const hasEnoughCandles = pairs.length >= config.lookbackCandles;
