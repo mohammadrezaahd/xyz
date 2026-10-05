@@ -3,8 +3,8 @@ import {
   ObjectId,
   type Collection,
 } from "mongodb";
-import { getMongoDb } from "@/lib/mongodb";
-import type { OpportunityDocument } from "@/lib/opportunity/snapshot";
+import { getMongoDb } from "../mongodb";
+import type { OpportunityDocument } from "../opportunity/snapshot";
 
 const COLLECTION_NAME = "opportunities";
 let indexesPromise: Promise<void> | undefined;
