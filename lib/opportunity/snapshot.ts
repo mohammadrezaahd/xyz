@@ -12,7 +12,11 @@ export type OpportunityDocument = {
   direction: PositionDirection;
   entry: {
     price: number;
-    source: "wallex";
+    source: "bitpin";
+  };
+  target: {
+    price: number;
+    source: "phase-2-safe-target";
   };
   market: {
     bitpinPrice: number;
@@ -49,7 +53,7 @@ export type OpportunityDocument = {
     engineVersion: string;
   };
   monitoring: {
-    currentWallexPrice: number | null;
+    currentBitpinPrice: number | null;
     updatedAt: Date;
   };
 };
@@ -61,9 +65,10 @@ export function buildOpportunityDocument(
   if (
     analysis.prices.bitpin === null ||
     analysis.prices.wallex === null ||
-    analysis.spread.percent === null
+    analysis.spread.percent === null ||
+    analysis.target.safeTarget === null
   ) {
-    throw new Error("Cannot persist an opportunity without valid ticker/spread data.");
+    throw new Error("Cannot persist an opportunity without valid ticker/spread/target data.");
   }
 
   return {
@@ -72,8 +77,12 @@ export function buildOpportunityDocument(
     status: "OPEN",
     direction: "SHORT",
     entry: {
-      price: analysis.prices.wallex,
-      source: "wallex",
+      price: analysis.prices.bitpin,
+      source: "bitpin",
+    },
+    target: {
+      price: analysis.target.safeTarget,
+      source: "phase-2-safe-target",
     },
     market: {
       bitpinPrice: analysis.prices.bitpin,
@@ -119,7 +128,7 @@ export function buildOpportunityDocument(
       engineVersion: PHASE_3_ENGINE_VERSION,
     },
     monitoring: {
-      currentWallexPrice: analysis.prices.wallex,
+      currentBitpinPrice: analysis.prices.bitpin,
       updatedAt: detectedAt,
     },
   };
