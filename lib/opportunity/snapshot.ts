@@ -1,6 +1,6 @@
 import type { ObjectId } from "mongodb";
-import type { OpportunityAnalysis } from "@/lib/opportunity/types";
-import type { PositionDirection } from "@/lib/opportunity/outcome";
+import type { OpportunityAnalysis } from "./types";
+import type { PositionDirection } from "./outcome";
 
 export const PHASE_3_ENGINE_VERSION = "phase-2-opportunity-engine";
 
