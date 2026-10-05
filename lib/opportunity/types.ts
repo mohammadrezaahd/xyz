@@ -1,6 +1,6 @@
 import type { Candle } from "../candles";
 
-export type TestStatus = "SUCCESS" | "FAILED" | "INSUFFICIENT_DATA";
+export type TestStatus = "SUCCESS" | "ACCEPTABLE" | "FAILED" | "INSUFFICIENT_DATA";
 export type OpportunityLevel = "STRONG" | "MODERATE" | "WEAK" | "NONE";
 export type RiskLevel = "LOW" | "MEDIUM" | "HIGH" | "VERY_HIGH";
 export type CandleDirection = "BULLISH" | "BEARISH" | "NEUTRAL";
