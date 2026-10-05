@@ -303,7 +303,7 @@ export function analyzeOpportunity({
               : "FAILED",
           actual: spreadPercent,
           threshold: config.spreadTriggerPct,
-        };
+        } as const;
 
   const pairs = synchronizedClosedCandles(
     bitpinCandles,
