@@ -278,7 +278,7 @@ export function analyzeOpportunity({
               : "FAILED",
           actual: externalDeviation,
           threshold: config.externalValidationPct,
-        };
+        } as const;
 
   const wallexAboveBitpin =
     bitpinPrice === null || wallexPrice === null
@@ -287,7 +287,7 @@ export function analyzeOpportunity({
           status: wallexPrice > bitpinPrice ? "SUCCESS" : "FAILED",
           actual: wallexPrice - bitpinPrice,
           threshold: 0,
-        };
+        } as const;
 
   const spreadTest =
     spreadPercent === null
@@ -419,20 +419,17 @@ export function analyzeOpportunity({
     0,
   );
 
-  const earnedPoints = weights.reduce((sum, item) => {
+  let earnedPoints = 0;
+
+  for (const item of weights.slice(0, -1)) {
     if (item.result.status === "SUCCESS") {
-      if (
-        item === weights[5] &&
-        momentum !== null
-      ) {
-        return sum + momentum;
-      }
-
-      return sum + item.weight;
+      earnedPoints += item.weight;
     }
+  }
 
-    return sum;
-  }, 0);
+  if (momentum !== null) {
+    earnedPoints += momentum;
+  }
 
   const dataCompleteness =
     (availablePoints / 100) * 100;

@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { analyzeOpportunity } from "../lib/opportunity/engine.ts";
-import type { Candle } from "../lib/candles.ts";
+import { analyzeOpportunity } from "../lib/opportunity/engine";
+import type { Candle } from "../lib/candles";
 
 const nowMs = 6 * 60 * 1000;
 

@@ -1,0 +1,18 @@
+{
+  "compilerOptions": {
+    "target": "ES2020",
+    "module": "CommonJS",
+    "moduleResolution": "Node",
+    "strict": true,
+    "esModuleInterop": true,
+    "skipLibCheck": true,
+    "outDir": "../.test-dist",
+    "rootDir": "..",
+    "noEmit": false
+  },
+  "include": [
+    "../lib/candles.ts",
+    "../lib/opportunity/**/*.ts",
+    "./opportunity-engine.test.ts"
+  ]
+}
