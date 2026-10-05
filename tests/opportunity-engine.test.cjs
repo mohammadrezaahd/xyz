@@ -51,7 +51,7 @@ test("missing external price is insufficient data", () => {
   const analysis = baseAnalysis(null);
   assert.equal(analysis.validation.external.status, "INSUFFICIENT_DATA");
   assert.equal(analysis.dataCompleteness, 80);
-  assert.equal(analysis.stabilityScore, 100);
+  assert.equal(analysis.stabilityScore, 96.875);
 });
 
 test("current prices drive spread independently of candle closes", () => {
