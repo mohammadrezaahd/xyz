@@ -7,34 +7,55 @@ const {
 const { buildOpportunityDocument } = require("../.test-dist/lib/opportunity/snapshot.js");
 const { isCronAuthorized } = require("../.test-dist/lib/opportunity/cron-auth.js");
 
-test("valid opportunity starts as an OPEN synthetic position", () => {
-  assert.equal(evaluateSyntheticOutcome(272800, 272900, "SHORT").status, "OPEN");
+const ENTRY = 269000;
+const TARGET = 272000;
+
+test("current Bitpin at or above target resolves SUCCESS", () => {
+  assert.equal(evaluateSyntheticOutcome(ENTRY, TARGET, 272001, "SHORT").status, "SUCCESS");
+  assert.equal(evaluateSyntheticOutcome(ENTRY, TARGET, TARGET, "SHORT").status, "SUCCESS");
 });
 
-test("repeated evaluation does not change an OPEN position while price is above entry", () => {
-  assert.equal(evaluateSyntheticOutcome(272800, 272801, "SHORT").status, "OPEN");
-  assert.equal(evaluateSyntheticOutcome(272800, 272900, "SHORT").status, "OPEN");
+test("current Bitpin below entry resolves FAILED", () => {
+  assert.equal(evaluateSyntheticOutcome(ENTRY, TARGET, 268999, "SHORT").status, "FAILED");
 });
 
-test("position becomes SUCCESS when current price is at or below entry", () => {
-  assert.equal(evaluateSyntheticOutcome(272800, 272800, "SHORT").status, "SUCCESS");
-  assert.equal(evaluateSyntheticOutcome(272800, 272500, "SHORT").status, "SUCCESS");
+test("current Bitpin between entry and target remains OPEN", () => {
+  assert.equal(evaluateSyntheticOutcome(ENTRY, TARGET, 270000, "SHORT").status, "OPEN");
+});
+
+test("exact entry price does not count as FAILED", () => {
+  assert.equal(evaluateSyntheticOutcome(ENTRY, TARGET, ENTRY, "SHORT").status, "OPEN");
 });
 
 test("successful position stores exit price and price change", () => {
-  const outcome = evaluateSyntheticOutcome(272800, 272500, "SHORT");
+  const outcome = evaluateSyntheticOutcome(ENTRY, TARGET, 272500, "SHORT");
   assert.equal(outcome.exitPrice, 272500);
-  assert.equal(outcome.priceChangePct, ((272500 - 272800) / 272800) * 100);
+  assert.equal(outcome.priceChangePct, ((272500 - ENTRY) / ENTRY) * 100);
 });
 
-test("OPEN positions are not counted as failures", () => {
-  const stats = calculateOpportunityStats(["OPEN", "SUCCESS", "FAILED"]);
-  assert.equal(stats.open, 1);
-  assert.equal(stats.failed, 1);
-  assert.equal(stats.successRate, 50);
+test("failed position stores exit price and price change", () => {
+  const outcome = evaluateSyntheticOutcome(ENTRY, TARGET, 268500, "SHORT");
+  assert.equal(outcome.exitPrice, 268500);
+  assert.equal(outcome.priceChangePct, ((268500 - ENTRY) / ENTRY) * 100);
 });
 
-test("success rate excludes OPEN and INVALIDATED positions", () => {
+test("invalid entry is INVALIDATED", () => {
+  assert.equal(evaluateSyntheticOutcome(0, TARGET, 270000, "SHORT").status, "INVALIDATED");
+  assert.equal(evaluateSyntheticOutcome(Number.NaN, TARGET, 270000, "SHORT").status, "INVALIDATED");
+});
+
+test("invalid target is INVALIDATED", () => {
+  assert.equal(evaluateSyntheticOutcome(ENTRY, 0, 270000, "SHORT").status, "INVALIDATED");
+  assert.equal(evaluateSyntheticOutcome(ENTRY, Number.POSITIVE_INFINITY, 270000, "SHORT").status, "INVALIDATED");
+});
+
+test("missing or invalid current price remains OPEN", () => {
+  assert.equal(evaluateSyntheticOutcome(ENTRY, TARGET, null, "SHORT").status, "OPEN");
+  assert.equal(evaluateSyntheticOutcome(ENTRY, TARGET, Number.NaN, "SHORT").status, "OPEN");
+  assert.equal(evaluateSyntheticOutcome(ENTRY, TARGET, Number.POSITIVE_INFINITY, "SHORT").status, "OPEN");
+});
+
+test("success rate excludes OPEN and INVALIDATED and uses successful/(successful+failed)", () => {
   const stats = calculateOpportunityStats([
     "OPEN",
     "INVALIDATED",
@@ -42,23 +63,17 @@ test("success rate excludes OPEN and INVALIDATED positions", () => {
     "SUCCESS",
     "FAILED",
   ]);
-  assert.equal(stats.successRate, (2 / 3) * 100);
+  assert.equal(stats.resolved, 3);
+  assert.equal(stats.successRate, 2 / 3);
 });
 
-test("missing or invalid current price does not create false SUCCESS or FAILED", () => {
-  assert.equal(evaluateSyntheticOutcome(272800, null, "SHORT").status, "OPEN");
-  assert.equal(evaluateSyntheticOutcome(272800, Number.NaN, "SHORT").status, "OPEN");
-  assert.equal(
-    evaluateSyntheticOutcome(272800, Number.POSITIVE_INFINITY, "SHORT").status,
-    "OPEN",
-  );
+test("success rate is null when there are no resolved opportunities", () => {
+  const stats = calculateOpportunityStats(["OPEN", "INVALIDATED"]);
+  assert.equal(stats.resolved, 0);
+  assert.equal(stats.successRate, null);
 });
 
-test("structurally invalid entry becomes INVALIDATED", () => {
-  assert.equal(evaluateSyntheticOutcome(0, 272500, "SHORT").status, "INVALIDATED");
-});
-
-test("valid Phase 2 analysis snapshot creates one OPEN SHORT position", () => {
+test("valid Phase 2 analysis snapshot uses Bitpin entry and exact Safe Target", () => {
   const analysis = {
     prices: { bitpin: 269000, wallex: 272800, external: null },
     spread: { absolute: 3800, percent: 1.412 },
@@ -96,8 +111,13 @@ test("valid Phase 2 analysis snapshot creates one OPEN SHORT position", () => {
   const document = buildOpportunityDocument(analysis, new Date("2026-10-05T20:00:00Z"));
   assert.equal(document.status, "OPEN");
   assert.equal(document.direction, "SHORT");
-  assert.equal(document.entry.price, 272800);
-  assert.equal(document.entry.source, "wallex");
+  assert.equal(document.entry.price, 269000);
+  assert.equal(document.entry.source, "bitpin");
+  assert.equal(document.target.price, 272000);
+  assert.equal(document.target.source, "phase-2-safe-target");
+  assert.equal(document.market.bitpinPrice, 269000);
+  assert.equal(document.market.wallexPrice, 272800);
+  assert.equal(document.monitoring.currentBitpinPrice, 269000);
   assert.equal(document.outcome.status, "PENDING");
 });
 
