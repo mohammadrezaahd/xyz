@@ -55,6 +55,25 @@ export async function insertOpenOpportunity(
   }
 }
 
+export async function updateOpenMonitoring(
+  id: ObjectId,
+  currentWallexPrice: number | null,
+  updatedAt: Date,
+): Promise<boolean> {
+  const collection = await getCollection();
+  const result = await collection.updateOne(
+    { _id: id, status: "OPEN" },
+    {
+      $set: {
+        "monitoring.currentWallexPrice": currentWallexPrice,
+        "monitoring.updatedAt": updatedAt,
+        updatedAt,
+      },
+    },
+  );
+  return result.modifiedCount === 1;
+}
+
 export async function resolveOpportunity(
   id: ObjectId,
   exitPrice: number,
