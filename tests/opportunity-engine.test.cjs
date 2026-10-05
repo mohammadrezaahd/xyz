@@ -103,11 +103,47 @@ test("spread at 1% succeeds", () => {
   assert.equal(analysis.validation.spread.status, "SUCCESS");
 });
 
-test("spread below 1% fails independently from Wallex > Bitpin", () => {
-  const analysis = baseAnalysis(270000, 270000, 272000);
-  assert.ok((analysis.spread.percent ?? 0) < 1);
+test("spread at 0.99% is acceptable independently from Wallex > Bitpin", () => {
+  const analysis = baseAnalysis(270000, 100000, 100990);
+  assert.ok(Math.abs((analysis.spread.percent ?? 0) - 0.99) < 1e-9);
   assert.equal(analysis.validation.wallexAboveBitpin.status, "SUCCESS");
+  assert.equal(analysis.validation.spread.status, "ACCEPTABLE");
+});
+
+test("spread at exactly 1.00% is SUCCESS", () => {
+  const analysis = baseAnalysis(270000, 100000, 101000);
+  assert.ok(Math.abs((analysis.spread.percent ?? 0) - 1) < 1e-9);
+  assert.equal(analysis.validation.spread.status, "SUCCESS");
+});
+
+test("spread at exactly 0.50% is ACCEPTABLE", () => {
+  const analysis = baseAnalysis(270000, 100000, 100500);
+  assert.ok(Math.abs((analysis.spread.percent ?? 0) - 0.5) < 1e-9);
+  assert.equal(analysis.validation.spread.status, "ACCEPTABLE");
+});
+
+test("spread at 0.49% is FAILED", () => {
+  const analysis = baseAnalysis(270000, 100000, 100490);
+  assert.ok(Math.abs((analysis.spread.percent ?? 0) - 0.49) < 1e-9);
   assert.equal(analysis.validation.spread.status, "FAILED");
+});
+
+test("missing Bitpin price produces INSUFFICIENT_DATA for spread threshold", () => {
+  const analysis = baseAnalysis(270000, null, 101000);
+  assert.equal(analysis.spread.percent, null);
+  assert.equal(analysis.validation.spread.status, "INSUFFICIENT_DATA");
+});
+
+test("missing Wallex price produces INSUFFICIENT_DATA for spread threshold", () => {
+  const analysis = baseAnalysis(270000, 100000, null);
+  assert.equal(analysis.spread.percent, null);
+  assert.equal(analysis.validation.spread.status, "INSUFFICIENT_DATA");
+});
+
+test("reported Bitpin/Wallex prices produce an acceptable 0.5123% spread", () => {
+  const analysis = baseAnalysis(270000, 267416, 268786);
+  assert.ok(Math.abs((analysis.spread.percent ?? 0) - 0.5123104077542107) < 1e-9);
+  assert.equal(analysis.validation.spread.status, "ACCEPTABLE");
 });
 
 test("Wallex below Bitpin fails independently from spread", () => {

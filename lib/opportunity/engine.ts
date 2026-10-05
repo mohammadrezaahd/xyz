@@ -17,6 +17,18 @@ function classifyRatio(actual: number, threshold: number): TestResult {
   return { status, actual, threshold };
 }
 
+function classifySpread(actual: number, successThreshold: number): TestResult {
+  const acceptableThreshold = successThreshold * 0.5;
+  const status =
+    actual >= successThreshold
+      ? "SUCCESS"
+      : actual >= acceptableThreshold
+        ? "ACCEPTABLE"
+        : "FAILED";
+
+  return { status, actual, threshold: successThreshold };
+}
+
 function insufficient(threshold: number | null = null): TestResult {
   return {
     status: "INSUFFICIENT_DATA",
@@ -267,10 +279,7 @@ export function analyzeOpportunity({
     spreadPercent === null
       ? insufficient(config.spreadTriggerPct)
       : ({
-          status:
-            spreadPercent >= config.spreadTriggerPct ? "SUCCESS" : "FAILED",
-          actual: spreadPercent,
-          threshold: config.spreadTriggerPct,
+          ...classifySpread(spreadPercent, config.spreadTriggerPct),
         } as const);
 
   const pairs = synchronizedClosedCandles(
