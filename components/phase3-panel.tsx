@@ -8,7 +8,7 @@ type Opportunity = {
   status: "OPEN" | "SUCCESS" | "FAILED" | "INVALIDATED";
   direction: "SHORT";
   entry: { price: number };
-  target: { price: number; source: "phase-2-safe-target" };
+  target?: { price: number; source: "phase-2-safe-target" };
   market: { bitpinPrice: number; wallexPrice: number; spreadPct: number };
   analysis: { score: number; tests: Record<string, TestResult> };
   outcome: {
@@ -107,7 +107,7 @@ export function Phase3Panel() {
               <div><span>Status</span><strong className={statusClass(open.status)}>{open.status}</strong></div>
               <div><span>Direction</span><strong>{open.direction}</strong></div>
               <div><span>Entry</span><strong>{formatPrice(open.entry.price)}</strong></div>
-              <div><span>Safe Target</span><strong>{formatPrice(open.target.price)}</strong></div>
+              <div><span>Safe Target</span><strong>{formatPrice(open.target?.price ?? null)}</strong></div>
               <div><span>Current Bitpin</span><strong>{formatPrice(open.monitoring.currentBitpinPrice)}</strong></div>
               <div><span>Current Change</span><strong>{
                 open.monitoring.currentBitpinPrice === null
