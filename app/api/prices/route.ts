@@ -18,7 +18,7 @@ function findBitpinPrice(payload: unknown, symbol: string): number | null {
     (item) =>
       typeof item === "object" &&
       item !== null &&
-      String((item as Record<string, unknown>).symbol ?? "") === symbol,
+      String((item as Record<string, unknown>).symbol ?? (item as Record<string, unknown>).code ?? "") === symbol,
   );
 
   if (!row || typeof row !== "object") return null;
@@ -31,7 +31,7 @@ function findBitpinPrice(payload: unknown, symbol: string): number | null {
 async function fetchBitpinPrice(): Promise<number> {
   const baseUrl = env(
     "BITPIN_API_BASE_URL",
-    "https://api.bitpin.org",
+    "https://api.bitpin.ir",
   );
   const url = new URL(
     env(
