@@ -63,6 +63,35 @@ async function fetchBitpinPrice(): Promise<number> {
   return price;
 }
 
+async function fetchWithRetry(
+  url: URL,
+  init: RequestInit,
+  attempts = 3,
+): Promise<Response> {
+  let lastError: unknown;
+
+  for (let attempt = 1; attempt <= attempts; attempt += 1) {
+    try {
+      return await fetch(url, {
+        ...init,
+        signal: AbortSignal.timeout(8000),
+      });
+    } catch (error) {
+      lastError = error;
+
+      if (attempt < attempts) {
+        await new Promise((resolve) =>
+          setTimeout(resolve, 500 * attempt),
+        );
+      }
+    }
+  }
+
+  throw lastError instanceof Error
+    ? lastError
+    : new Error(String(lastError));
+}
+
 async function fetchWallexPrice(): Promise<number> {
   const baseUrl = env(
     "WALLEX_API_BASE_URL",
