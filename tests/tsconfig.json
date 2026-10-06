@@ -14,7 +14,9 @@
     "../lib/candles.ts",
     "../lib/wallex-candles.ts",
     "../lib/opportunity/**/*.ts",
+    "../lib/opportunities/repository.ts",
     "../lib/mongodb.ts",
-    "../lib/opportunities/repository.ts"
+    "../lib/bitpin.ts",
+    "../lib/test-position/**/*.ts"
   ]
 }
