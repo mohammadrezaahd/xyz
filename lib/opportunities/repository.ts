@@ -127,6 +127,7 @@ export async function closeOpportunity(
   id: ObjectId,
   exitPrice: number,
   pnl: LeveragedPnl,
+  priceChangePct: number,
   closedAt: Date,
 ): Promise<boolean> {
   const collection = await getCollection();
@@ -141,7 +142,7 @@ export async function closeOpportunity(
         "outcome.status": "CLOSED",
         "outcome.resolvedAt": closedAt,
         "outcome.exitPrice": exitPrice,
-        "outcome.priceChangePct": null,
+        "outcome.priceChangePct": priceChangePct,
         "outcome.grossPnlToman": pnl.grossPnlToman,
         "outcome.totalFeesToman": pnl.totalFeesToman,
         "outcome.netPnlToman": pnl.netPnlToman,
