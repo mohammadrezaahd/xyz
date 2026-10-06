@@ -1,6 +1,8 @@
 import type { ObjectId } from "mongodb";
 import type { OpportunityAnalysis } from "./types";
 import type { PositionDirection } from "./outcome";
+import type { PositionSimulation } from "./position";
+import { createPositionSimulation } from "./position";
 
 export const PHASE_3_ENGINE_VERSION = "phase-2-opportunity-engine";
 
@@ -18,6 +20,7 @@ export type OpportunityDocument = {
     price: number;
     source: "phase-2-safe-target";
   };
+  simulation: PositionSimulation;
   market: {
     bitpinPrice: number;
     wallexPrice: number;
@@ -43,10 +46,14 @@ export type OpportunityDocument = {
     };
   };
   outcome: {
-    status: "PENDING" | "SUCCESS" | "FAILED" | "INVALIDATED";
+    status: "PENDING" | "SUCCESS" | "FAILED" | "INVALIDATED" | "CLOSED";
     resolvedAt: Date | null;
     exitPrice: number | null;
     priceChangePct: number | null;
+    grossPnlToman: number | null;
+    totalFeesToman: number | null;
+    netPnlToman: number | null;
+    netPnlPct: number | null;
   };
   detection: {
     detectedAt: Date;
@@ -84,6 +91,10 @@ export function buildOpportunityDocument(
       price: analysis.target.safeTarget,
       source: "phase-2-safe-target",
     },
+    simulation: createPositionSimulation(
+      analysis.prices.bitpin,
+      analysis.target.safeTarget,
+    ),
     market: {
       bitpinPrice: analysis.prices.bitpin,
       wallexPrice: analysis.prices.wallex,
@@ -122,6 +133,10 @@ export function buildOpportunityDocument(
       resolvedAt: null,
       exitPrice: null,
       priceChangePct: null,
+      grossPnlToman: null,
+      totalFeesToman: null,
+      netPnlToman: null,
+      netPnlPct: null,
     },
     detection: {
       detectedAt,
