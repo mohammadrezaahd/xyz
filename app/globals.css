@@ -775,6 +775,24 @@ main.dashboardShell {
   font-variant-numeric: tabular-nums;
 }
 
+.phase4AccountNotice {
+  display: flex;
+  gap: 8px;
+  align-items: baseline;
+  margin-top: 12px;
+  padding: 10px 11px;
+  border: 1px solid rgba(124,140,255,.16);
+  border-radius: 10px;
+  background: rgba(124,140,255,.04);
+  color: var(--muted);
+  font-size: 10px;
+  line-height: 1.5;
+}
+
+.phase4AccountNotice strong {
+  color: #cdd4ff;
+}
+
 .phase4Current, .phase4History { margin-top: 18px; }
 .phase4Current h3, .phase4History h3 {
   margin: 0 0 10px;
