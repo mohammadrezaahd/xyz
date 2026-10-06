@@ -8,139 +8,44 @@ let indexesPromise: Promise<void> | undefined;
 async function getCollection(): Promise<Collection<TestPositionDocument>> {
   const db = await getMongoDb();
   const collection = db.collection<TestPositionDocument>(COLLECTION_NAME);
-
   if (!indexesPromise) {
-    indexesPromise = collection
-      .createIndexes([
-        { name: "opportunity-created-at", key: { opportunityId: 1, createdAt: -1 } },
-        { name: "status-updated-at", key: { status: 1, updatedAt: -1 } },
-        { name: "created-at-desc", key: { createdAt: -1 } },
-      ])
-      .then(() => undefined);
+    indexesPromise = collection.createIndexes([
+      { name: "opportunity-created-at", key: { opportunityId: 1, createdAt: -1 } },
+      { name: "status-updated-at", key: { status: 1, updatedAt: -1 } },
+      { name: "created-at-desc", key: { createdAt: -1 } },
+    ]).then(() => undefined);
   }
-
   await indexesPromise;
   return collection;
 }
 
-export async function insertTestPosition(
-  document: TestPositionDocument,
-): Promise<TestPositionDocument> {
+export async function insertTestPosition(document: TestPositionDocument): Promise<TestPositionDocument> {
   const collection = await getCollection();
   const result = await collection.insertOne(document);
   return { ...document, _id: result.insertedId };
 }
-
-export async function findTestPositionById(
-  id: ObjectId,
-): Promise<TestPositionDocument | null> {
-  const collection = await getCollection();
-  return collection.findOne({ _id: id });
+export async function findTestPositionById(id: ObjectId): Promise<TestPositionDocument | null> {
+  return (await getCollection()).findOne({ _id: id });
 }
-
-export async function listTestPositions(
-  limit = 100,
-): Promise<TestPositionDocument[]> {
-  const collection = await getCollection();
-  return collection
-    .find({})
-    .sort({ createdAt: -1 })
-    .limit(Math.max(1, Math.min(limit, 200)))
-    .toArray();
+export async function listTestPositions(limit=100): Promise<TestPositionDocument[]> {
+  return (await getCollection()).find({}).sort({createdAt:-1}).limit(Math.max(1,Math.min(limit,200))).toArray();
 }
-
 export async function listOpenTestPositions(): Promise<TestPositionDocument[]> {
-  const collection = await getCollection();
-  return collection.find({ status: "OPEN" }).sort({ createdAt: 1 }).toArray();
+  return (await getCollection()).find({status:"OPEN"}).sort({createdAt:1}).toArray();
 }
-
-export async function updateOpenMonitoring(
-  id: ObjectId,
-  mark: {
-    currentPrice: number;
-    grossPnl: number;
-    totalFees: number;
-    netPnl: number;
-    currentEquity: number;
-  },
-  checkedAt: Date,
-): Promise<boolean> {
-  const collection = await getCollection();
-  const result = await collection.updateOne(
-    { _id: id, status: "OPEN" },
-    {
-      $set: {
-        currentPrice: mark.currentPrice,
-        grossPnl: mark.grossPnl,
-        totalFees: mark.totalFees,
-        netPnl: mark.netPnl,
-        currentEquity: mark.currentEquity,
-        "monitoring.lastCheckedAt": checkedAt,
-        "monitoring.lastError": null,
-        updatedAt: checkedAt,
-      },
-    },
-  );
-  return result.modifiedCount === 1;
+export async function updateOpenMonitoring(id:ObjectId,mark:{currentPrice:number;grossPnl:number;totalFees:number;netPnl:number;currentEquity:number},checkedAt:Date):Promise<boolean>{
+  const result=await (await getCollection()).updateOne({_id:id,status:"OPEN"},{$set:{currentPrice:mark.currentPrice,grossPnl:mark.grossPnl,totalFees:mark.totalFees,netPnl:mark.netPnl,currentEquity:mark.currentEquity,"monitoring.lastCheckedAt":checkedAt,"monitoring.lastError":null,updatedAt:checkedAt}});
+  return result.modifiedCount===1;
 }
-
-export async function recordOpenMonitoringFailure(
-  id: ObjectId,
-  checkedAt: Date,
-  errorMessage: string,
-): Promise<boolean> {
-  const collection = await getCollection();
-  const result = await collection.updateOne(
-    { _id: id, status: "OPEN" },
-    {
-      $set: {
-        "monitoring.lastCheckedAt": checkedAt,
-        "monitoring.lastError": errorMessage,
-        updatedAt: checkedAt,
-      },
-    },
-  );
-  return result.modifiedCount === 1;
+export async function updateOpenTarget(id:ObjectId,targetPrice:number,updatedAt=new Date()):Promise<boolean>{
+  const result=await (await getCollection()).updateOne({_id:id,status:"OPEN"},{$set:{targetPrice,updatedAt}});
+  return result.modifiedCount===1;
 }
-
-export async function closeOpenTestPosition(
-  id: ObjectId,
-  exitPrice: number,
-  status: Extract<TestPositionDocument["status"], "CLOSED" | "LIQUIDATED">,
-  result: TestPositionDocument["result"],
-  exitReason: TestPositionDocument["exitReason"],
-  mark: {
-    grossPnl: number;
-    exitFee: number;
-    totalFees: number;
-    netPnl: number;
-    finalEquity: number;
-  },
-  closedAt: Date,
-): Promise<boolean> {
-  const collection = await getCollection();
-
-  const update = await collection.updateOne(
-    { _id: id, status: "OPEN" },
-    {
-      $set: {
-        status,
-        result,
-        exitPrice,
-        exitReason,
-        closedAt,
-        grossPnl: mark.grossPnl,
-        exitFee: mark.exitFee,
-        totalFees: mark.totalFees,
-        netPnl: mark.netPnl,
-        currentEquity: mark.finalEquity,
-        currentPrice: exitPrice,
-        "monitoring.lastCheckedAt": closedAt,
-        "monitoring.lastError": null,
-        updatedAt: closedAt,
-      },
-    },
-  );
-
-  return update.modifiedCount === 1;
+export async function recordOpenMonitoringFailure(id:ObjectId,checkedAt:Date,errorMessage:string):Promise<boolean>{
+  const result=await (await getCollection()).updateOne({_id:id,status:"OPEN"},{$set:{"monitoring.lastCheckedAt":checkedAt,"monitoring.lastError":errorMessage,updatedAt:checkedAt}});
+  return result.modifiedCount===1;
+}
+export async function closeOpenTestPosition(id:ObjectId,exitPrice:number,status:Extract<TestPositionDocument["status"],"CLOSED"|"LIQUIDATED">,result:TestPositionDocument["result"],exitReason:TestPositionDocument["exitReason"],mark:{grossPnl:number;exitFee:number;totalFees:number;netPnl:number;finalEquity:number},closedAt:Date):Promise<boolean>{
+  const update=await (await getCollection()).updateOne({_id:id,status:"OPEN"},{$set:{status,result,exitPrice,exitReason,closedAt,grossPnl:mark.grossPnl,exitFee:mark.exitFee,totalFees:mark.totalFees,netPnl:mark.netPnl,currentEquity:mark.finalEquity,currentPrice:exitPrice,"monitoring.lastCheckedAt":closedAt,"monitoring.lastError":null,updatedAt:closedAt}});
+  return update.modifiedCount===1;
 }
