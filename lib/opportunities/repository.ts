@@ -34,6 +34,9 @@ async function getCollection(): Promise<Collection<OpportunityDocument>> {
   return collection;
 }
 
+export async function findOpportunityById(id: ObjectId): Promise<OpportunityDocument | null> {
+  return (await getCollection()).findOne({ _id: id });
+}
 export async function findOpenOpportunity(): Promise<OpportunityDocument | null> {
   const collection = await getCollection();
   return collection.findOne({ status: "OPEN" }, { sort: { createdAt: -1 } });

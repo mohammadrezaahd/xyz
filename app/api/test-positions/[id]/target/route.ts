@@ -1,0 +1,4 @@
+import { NextResponse } from "next/server";
+import { updateTestPositionTarget } from "@/lib/test-position/service";
+export const dynamic = "force-dynamic";
+export async function PATCH(request: Request, { params }: { params: Promise<{ id: string }> }) { try { const { id } = await params; const body = await request.json() as { targetPrice?: unknown }; const targetPrice = Number(body.targetPrice); if (!Number.isFinite(targetPrice) || targetPrice <= 0) return NextResponse.json({ error: "Target price must be positive and finite" }, { status: 400 }); const position = await updateTestPositionTarget(id, targetPrice); return NextResponse.json({ position: position ? { ...position, _id: position._id?.toHexString() ?? null, opportunityId: position.opportunityId?.toHexString() ?? null } : null }, { headers: { "Cache-Control": "no-store" } }); } catch (e) { return NextResponse.json({ error: e instanceof Error ? e.message : "Unable to update target" }, { status: 409 }); } }

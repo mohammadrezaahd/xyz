@@ -1,0 +1,3 @@
+const test=require("node:test"); const assert=require("node:assert/strict"); const {classifyClosedResult}=require("../.test-dist/lib/test-position/calculations.js");
+test("target resolution is a prediction success and liquidation is terminal",()=>{assert.equal(classifyClosedResult(100,110,110,"TARGET_REACHED"),"PREDICT_SUCCESS");assert.equal(classifyClosedResult(100,110,90,"LIQUIDATION"),"LIQUIDATED")});
+test("manual close compares actual result to the original target",()=>{assert.equal(classifyClosedResult(100,110,105,"MANUAL_CLOSE"),"RELATIVELY_SUCCESSFUL");assert.equal(classifyClosedResult(100,110,99,"MANUAL_CLOSE"),"FAILED")});

@@ -1,0 +1,2 @@
+const test=require("node:test"); const assert=require("node:assert/strict"); const {isLiquidationConditionMet}=require("../.test-dist/lib/test-position/calculations.js");
+test("liquidation threshold is margin loss and repeated checks remain deterministic",()=>{assert.equal(isLiquidationConditionMet(-999999,1000000),false);assert.equal(isLiquidationConditionMet(-1000000,1000000),true);assert.equal(isLiquidationConditionMet(-2000000,1000000),true)});
