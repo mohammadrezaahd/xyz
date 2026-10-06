@@ -45,28 +45,31 @@ function normalizePositivePrice(
     : null;
 }
 
-function classifyCandle(
-  candle: Candle,
-  minMovePct: number,
-): { direction: CandleDirection; movementPct: number | null } {
+function movementPct(candle: Candle): number | null {
   if (
     !Number.isFinite(candle.open) ||
     candle.open <= 0 ||
     !Number.isFinite(candle.close)
   ) {
-    return { direction: "NEUTRAL", movementPct: null };
+    return null;
   }
 
-  const movementPct =
-    (Math.abs(candle.close - candle.open) / candle.open) * 100;
+  return (Math.abs(candle.close - candle.open) / candle.open) * 100;
+}
 
-  if (movementPct < minMovePct) {
-    return { direction: "NEUTRAL", movementPct };
+function classifyCandle(
+  candle: Candle,
+  minMovePct: number,
+): { direction: CandleDirection; movementPct: number | null } {
+  const movement = movementPct(candle);
+
+  if (movement === null || movement < minMovePct) {
+    return { direction: "NEUTRAL", movementPct: movement };
   }
 
   return {
     direction: candle.close > candle.open ? "BULLISH" : "BEARISH",
-    movementPct,
+    movementPct: movement,
   };
 }
 
@@ -75,7 +78,7 @@ function direction(candle: Candle, minMovePct: number): CandleDirection {
 }
 
 function movePct(candle: Candle): number | null {
-  return classifyCandle(candle, Number.NEGATIVE_INFINITY).movementPct;
+  return movementPct(candle);
 }
 
 function minuteBucket(time: number): number {
