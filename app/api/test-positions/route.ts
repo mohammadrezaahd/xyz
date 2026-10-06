@@ -22,7 +22,8 @@ export async function GET() {
   try {
     const [positions, account] = await Promise.all([
       listTestPositions(100),
-      getOrCreateTestAccount(),\n    ]);
+      getOrCreateTestAccount(),
+    ]);
     return NextResponse.json(
       {
         open: positions.filter((position) => position.status === "OPEN").map(serialize),
