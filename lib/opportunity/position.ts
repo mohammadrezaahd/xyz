@@ -13,6 +13,10 @@ const TAKER_FEE_RATE = SIMULATION_TAKER_FEE_PCT / 100;
 const MAINTENANCE_MARGIN_RATE =
   SIMULATION_MAINTENANCE_MARGIN_PCT / 100;
 
+function roundMoney(value: number): number {
+  return Math.round((value + Number.EPSILON) * 100) / 100;
+}
+
 export type PositionSimulation = {
   marginToman: number;
   borrowedToman: number;
@@ -107,11 +111,12 @@ export function calculateLeveragedPnl(
   exitPrice: number,
   simulation: PositionSimulation = createPositionSimulation(entryPrice, exitPrice),
 ): LeveragedPnl {
-  const grossPnlToman =
-    simulation.quantity * (exitPrice - entryPrice);
-  const exitFeeToman = simulation.quantity * exitPrice * TAKER_FEE_RATE;
-  const totalFeesToman = simulation.entryFeeToman + exitFeeToman;
-  const netPnlToman = grossPnlToman - totalFeesToman;
+  const grossPnlToman = roundMoney(
+    simulation.quantity * (exitPrice - entryPrice),
+  );
+  const exitFeeToman = roundMoney(simulation.quantity * exitPrice * TAKER_FEE_RATE);
+  const totalFeesToman = roundMoney(simulation.entryFeeToman + exitFeeToman);
+  const netPnlToman = roundMoney(grossPnlToman - totalFeesToman);
 
   return {
     grossPnlToman,
