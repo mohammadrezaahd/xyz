@@ -5,6 +5,20 @@ export type OpportunityLevel = "STRONG" | "MODERATE" | "WEAK" | "NONE";
 export type RiskLevel = "LOW" | "MEDIUM" | "HIGH" | "VERY_HIGH";
 export type CandleDirection = "BULLISH" | "BEARISH" | "NEUTRAL";
 
+export type SelectedCandle = {
+  timestamp: number;
+  open: number;
+  close: number;
+  movementPct: number;
+  direction: CandleDirection;
+};
+
+export type SelectedCandlePair = {
+  timestamp: number;
+  bitpin: SelectedCandle;
+  wallex: SelectedCandle;
+};
+
 export interface TestResult {
   status: TestStatus;
   actual: number | null;
@@ -39,6 +53,7 @@ export interface OpportunityAnalysis {
   candles: {
     lookback: number;
     synchronized: number;
+    selected: SelectedCandlePair[];
     bitpinBullishRatio: number | null;
     wallexBullishRatio: number | null;
     alignmentRatio: number | null;
