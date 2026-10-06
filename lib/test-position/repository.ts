@@ -97,12 +97,16 @@ export async function recordOpenMonitoringFailure(
 export async function closeOpenTestPosition(
   id: ObjectId,
   exitPrice: number,
+  status: Extract<TestPositionDocument["status"], "CLOSED" | "LIQUIDATED">,
   result: TestPositionDocument["result"],
   exitReason: TestPositionDocument["exitReason"],
-  grossPnl: number,
-  exitFee: number,
-  totalFees: number,
-  netPnl: number,
+  mark: {
+    grossPnl: number;
+    exitFee: number;
+    totalFees: number;
+    netPnl: number;
+    finalEquity: number;
+  },
   closedAt: Date,
 ): Promise<boolean> {
   const collection = await getCollection();
@@ -111,15 +115,16 @@ export async function closeOpenTestPosition(
     { _id: id, status: "OPEN" },
     {
       $set: {
-        status: result === "LIQUIDATED" ? "LIQUIDATED" : "CLOSED",
+        status,
         result,
         exitPrice,
         exitReason,
         closedAt,
-        grossPnl,
-        exitFee,
-        totalFees,
-        netPnl,
+        grossPnl: mark.grossPnl,
+        exitFee: mark.exitFee,
+        totalFees: mark.totalFees,
+        netPnl: mark.netPnl,
+        currentEquity: mark.finalEquity,
         "monitoring.currentBitpinPrice": exitPrice,
         "monitoring.lastCheckedAt": closedAt,
         "monitoring.lastError": null,
