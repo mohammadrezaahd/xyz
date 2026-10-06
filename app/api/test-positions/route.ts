@@ -10,6 +10,10 @@ function serialize(position: TestPositionDocument) {
     ...position,
     _id: position._id?.toHexString(),
     opportunityId: position.opportunityId.toHexString(),
+    predictionSnapshot: {
+      ...position.predictionSnapshot,
+      opportunityId: position.predictionSnapshot.opportunityId.toHexString(),
+    },
   };
 }
 
