@@ -24,7 +24,11 @@ type CandleResponse = {
 };
 
 async function fetchInternal<T>(request: Request, path: string): Promise<T> {
-  const url = new URL(path, request.url);
+  const productionHost = process.env.VERCEL_PROJECT_PRODUCTION_URL?.trim();
+  const origin = productionHost
+    ? `https://${productionHost}`
+    : new URL(request.url).origin;
+  const url = new URL(path, origin);
   const response = await fetch(url, { cache: "no-store" });
   const body = await response.text();
 
