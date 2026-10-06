@@ -60,7 +60,7 @@ export async function GET(request: Request) {
         bitpin: prices.bitpin,
         wallex: prices.wallex,
       },
-      externalPrice: null,
+      externalPrice: prices.wallex,
       nowMs: prices.fetchedAt,
     });
 
