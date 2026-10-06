@@ -755,3 +755,168 @@ main.dashboardShell {
   .statCardValue { font-size: 21px; }
   .marketPrice strong { font-size: 16px; }
 }
+
+.phase4 {
+  margin-top: 18px;
+  padding: 20px;
+}
+
+.phase4Config {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 5px 8px;
+  color: var(--muted);
+  font-size: 9px;
+}
+
+.phase4Config strong {
+  color: #d7dee8;
+  font-variant-numeric: tabular-nums;
+}
+
+.phase4Current, .phase4History { margin-top: 18px; }
+.phase4Current h3, .phase4History h3 {
+  margin: 0 0 10px;
+  font-size: 11px;
+  letter-spacing: .04em;
+  text-transform: uppercase;
+  color: #b9c2cf;
+}
+
+.phase4OpenGrid {
+  display: grid;
+  gap: 10px;
+}
+
+.phase4PositionCard {
+  border: 1px solid var(--border);
+  border-radius: 13px;
+  padding: 13px;
+  background: rgba(255,255,255,.015);
+}
+
+.phase4PositionHead {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 10px;
+}
+
+.phase4PositionHead > div {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.phase4PositionHead button,
+.phase4StartButton {
+  border: 1px solid rgba(124,140,255,.3);
+  border-radius: 9px;
+  background: rgba(124,140,255,.08);
+  color: #d9deff;
+  padding: 8px 11px;
+  cursor: pointer;
+  font: inherit;
+  font-size: 10px;
+  font-weight: 800;
+}
+
+.phase4PositionHead button:hover,
+.phase4StartButton:hover {
+  background: rgba(124,140,255,.15);
+}
+
+.phase4Badge, .phase4Result {
+  display: inline-flex;
+  align-items: center;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  padding: 4px 7px;
+  font-size: 9px;
+  font-weight: 800;
+  letter-spacing: .02em;
+}
+
+.phase4Badge.open { color: #aec0ff; border-color: rgba(124,140,255,.24); background: rgba(124,140,255,.05); }
+.phase4Badge.closed { color: var(--success); border-color: rgba(53,201,138,.22); background: rgba(53,201,138,.05); }
+.phase4Badge.liquidated { color: var(--danger); border-color: rgba(255,95,103,.22); background: rgba(255,95,103,.05); }
+
+.phase4Result.predict-success,
+.phase4Result.relatively-successful { color: var(--success); border-color: rgba(53,201,138,.22); background: rgba(53,201,138,.05); }
+.phase4Result.failed,
+.phase4Result.liquidated { color: var(--danger); border-color: rgba(255,95,103,.22); background: rgba(255,95,103,.05); }
+
+.phase4Grid {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.phase4Grid > div {
+  padding: 10px 11px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: rgba(255,255,255,.01);
+}
+
+.phase4Grid span {
+  display: block;
+  color: var(--muted-2);
+  font-size: 9px;
+  margin-bottom: 5px;
+}
+
+.phase4Grid strong {
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+}
+
+.phase4Warning {
+  margin-top: 10px;
+  padding: 8px 10px;
+  border: 1px solid rgba(239,185,77,.22);
+  border-radius: 9px;
+  color: #d8b768;
+  background: rgba(239,185,77,.05);
+  font-size: 10px;
+}
+
+.phase4StartRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px solid var(--border);
+}
+
+.phase4StartRow strong {
+  display: block;
+  font-size: 11px;
+}
+
+.phase4StartRow span {
+  display: block;
+  margin-top: 3px;
+  color: var(--muted);
+  font-size: 9px;
+}
+
+@media (max-width: 1180px) {
+  .phase4Grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+}
+
+@media (max-width: 620px) {
+  .phase4 { padding: 15px; }
+  .phase4Config { justify-content: flex-start; }
+  .phase4Grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .phase4StartRow, .phase4PositionHead { align-items: flex-start; flex-direction: column; }
+  .phase4StartButton, .phase4PositionHead button { width: 100%; }
+}
+
+@media (max-width: 380px) {
+  .phase4Grid { grid-template-columns: 1fr; }
+}
