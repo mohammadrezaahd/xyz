@@ -1,5 +1,5 @@
 import { ObjectId, type Collection } from "mongodb";
-import { getMongoDb } from "@/lib/mongodb";
+import { getMongoDb } from "../mongodb";
 import type { TestPositionDocument } from "./types";
 
 const COLLECTION_NAME = "testPositions";
