@@ -1,5 +1,5 @@
 import type { ObjectId } from "mongodb";
-import type { OpportunityAnalysis } from "./types";
+import type { OpportunityAnalysis, RiskLevel } from "./types";
 import type { PositionDirection } from "./outcome";
 
 export const PHASE_3_ENGINE_VERSION = "phase-2-opportunity-engine";
@@ -11,6 +11,7 @@ export type OpportunityDocument = {
   status: "OPEN" | "SUCCESS" | "FAILED" | "INVALIDATED";
   direction: PositionDirection;
   opportunityStrength: OpportunityAnalysis["opportunity"];
+  riskLevel?: RiskLevel;
   entry: {
     price: number;
     source: "bitpin";
@@ -78,6 +79,7 @@ export function buildOpportunityDocument(
     status: "OPEN",
     direction: "SHORT",
     opportunityStrength: analysis.opportunity,
+    riskLevel: analysis.riskLevel,
     entry: {
       price: analysis.prices.bitpin,
       source: "bitpin",
