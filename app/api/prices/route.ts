@@ -137,12 +137,12 @@ export async function GET() {
   const bitpinPrice =
     bitpin.status === "fulfilled"
       ? bitpin.value
-      : (errors.push(`Bitpin: ${String(bitpin.reason)}`), null);
+      : (errors.push(`Bitpin ticker: ${String(bitpin.reason)}`), null);
 
   const wallexPrice =
     wallex.status === "fulfilled"
       ? wallex.value
-      : (errors.push(`Wallex: ${String(wallex.reason)}`), null);
+      : (errors.push(`Wallex ticker: ${String(wallex.reason)}`), null);
 
   return NextResponse.json({
     bitpin: bitpinPrice,
