@@ -1,4 +1,4 @@
-import { parsePositivePrice } from "@/lib/prices";
+import { parsePositivePrice } from "./prices";
 
 function requireEnv(key: string): string {
   const value = process.env[key]?.trim();
