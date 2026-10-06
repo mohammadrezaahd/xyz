@@ -441,6 +441,22 @@ export function OpportunityPanel({
                 : `${analysis.candles.momentumScore.toFixed(2)} / 5`}
             </strong>
           </div>
+          <div className="metric">
+            <span>Selected synchronized candles</span>
+            <strong>{analysis.candles.selected.length} / {analysis.candles.lookback}</strong>
+          </div>
+          <details>
+            <summary>Inspect selected candle classification</summary>
+            <div>
+              {analysis.candles.selected.map((pair) => (
+                <div key={pair.timestamp}>
+                  <strong>{new Date(pair.timestamp * 1000).toLocaleTimeString("en-US")}</strong>
+                  <span> · Bitpin {pair.bitpin.direction} ({pair.bitpin.movementPct.toFixed(3)}%)</span>
+                  <span> · Wallex {pair.wallex.direction} ({pair.wallex.movementPct.toFixed(3)}%)</span>
+                </div>
+              ))}
+            </div>
+          </details>
         </div>
 
         <div className="opportunityGroup">
