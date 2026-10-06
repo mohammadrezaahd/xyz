@@ -75,7 +75,7 @@ export function buildOpportunityDocument(
     createdAt: detectedAt,
     updatedAt: detectedAt,
     status: "OPEN",
-    direction: "SHORT",
+    direction: "LONG",
     entry: {
       price: analysis.prices.bitpin,
       source: "bitpin",
