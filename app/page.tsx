@@ -197,7 +197,7 @@ export default function Home() {
           label="Opportunity"
           value={analysis.opportunity}
           helper={`Risk level: ${analysis.riskLevel}`}
-          tone={analysis.opportunity === "HIGH" ? "positive" : "neutral"}
+          tone={analysis.opportunity === "STRONG" ? "positive" : "neutral"}
         />
       </section>
 
