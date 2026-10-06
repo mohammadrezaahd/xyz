@@ -21,7 +21,8 @@ function serialize(position: TestPositionDocument) {
 export async function GET() {
   try {
     const [positions, account] = await Promise.all([
-      listTestPositions(100),\n      getOrCreateTestAccount(),\n    ]);
+      listTestPositions(100),
+      getOrCreateTestAccount(),\n    ]);
     return NextResponse.json(
       {
         open: positions.filter((position) => position.status === "OPEN").map(serialize),
