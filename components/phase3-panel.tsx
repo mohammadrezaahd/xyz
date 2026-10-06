@@ -1,6 +1,10 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import {
+  TEST_POSITION_DEFAULT_LEVERAGE,
+  TEST_POSITION_INITIAL_CAPITAL,
+} from "@/lib/test-position/types";
 
 type TestResult = { status: string };
 type Opportunity = {
@@ -52,12 +56,14 @@ const testLabels: Record<string, string> = {
 export function Phase3Panel({
   onStartTest,
 }: {
-  onStartTest?: (opportunityId: string) => void;
+  onStartTest?: (opportunityId: string, initialCapital: number, leverage: number) => void;
 }) {
   const [open, setOpen] = useState<Opportunity | null>(null);
   const [recent, setRecent] = useState<Opportunity[]>([]);
   const [stats, setStats] = useState<Stats | null>(null);
   const [error, setError] = useState("");
+  const [testCapital, setTestCapital] = useState(TEST_POSITION_INITIAL_CAPITAL);
+  const [testLeverage, setTestLeverage] = useState(TEST_POSITION_DEFAULT_LEVERAGE);
 
   useEffect(() => {
     let cancelled = false;
@@ -135,10 +141,31 @@ export function Phase3Panel({
                   <strong>Test this Phase 3 opportunity</strong>
                   <span>Entry will be fetched from the current Bitpin ticker.</span>
                 </div>
+                <label className="phase4Input">
+                  <span>Capital</span>
+                  <input
+                    type="number"
+                    min="1"
+                    step="1"
+                    value={testCapital}
+                    onChange={(event) => setTestCapital(Number(event.target.value))}
+                  />
+                </label>
+                <label className="phase4Input">
+                  <span>Leverage</span>
+                  <input
+                    type="number"
+                    min="1"
+                    step="1"
+                    value={testLeverage}
+                    onChange={(event) => setTestLeverage(Number(event.target.value))}
+                  />
+                </label>
                 <button
                   className="phase4StartButton"
                   type="button"
-                  onClick={() => onStartTest(open._id as string)}
+                  disabled={!Number.isFinite(testCapital) || testCapital <= 0 || !Number.isFinite(testLeverage) || testLeverage <= 0}
+                  onClick={() => onStartTest(open._id as string, testCapital, testLeverage)}
                 >
                   Start Test
                 </button>
