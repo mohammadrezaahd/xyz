@@ -84,6 +84,7 @@ export async function POST(
       open._id,
       currentBitpinPrice,
       pnl,
+      ((currentBitpinPrice - open.entry.price) / open.entry.price) * 100,
       closedAt,
     );
 
