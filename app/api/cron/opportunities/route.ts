@@ -38,16 +38,20 @@ async function fetchInternal<T>(request: Request, path: string): Promise<T> {
 }
 
 export async function GET(request: Request) {
+  let stage = "auth";
+
   if (!isCronAuthorized(request.headers.get("authorization"), process.env.CRON_SECRET)) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
   try {
+    stage = "fetch-market-data";
     const [candles, prices] = await Promise.all([
       fetchInternal<CandleResponse>(request, "/api/candles"),
       fetchInternal<CurrentPricesResponse>(request, "/api/prices"),
     ]);
 
+    stage = "analyze-opportunity";
     const errors = [
       ...(candles.errors ?? []),
       ...(prices.errors ?? []),
@@ -64,9 +68,11 @@ export async function GET(request: Request) {
       nowMs: prices.fetchedAt,
     });
 
+    stage = "find-open-opportunity";
     const open = await findOpenOpportunity();
 
     if (open?._id) {
+      stage = "monitor-open-opportunity";
       await updateOpenMonitoring(
         open._id,
         prices.bitpin,
@@ -153,6 +159,7 @@ export async function GET(request: Request) {
       analysis.target.safeTarget !== null;
 
     if (!validOpportunity) {
+      stage = "return-no-opportunity";
       return NextResponse.json({
         ok: true,
         action: "NO_OPPORTUNITY",
@@ -162,10 +169,12 @@ export async function GET(request: Request) {
       });
     }
 
+    stage = "build-opportunity-document";
     const document = buildOpportunityDocument(
       analysis,
       new Date(prices.fetchedAt),
     );
+    stage = "insert-open-opportunity";
     const created = await insertOpenOpportunity(document);
 
     return NextResponse.json({
@@ -177,9 +186,16 @@ export async function GET(request: Request) {
       errors,
     });
   } catch (error) {
+    console.error("[cron/opportunities] failed", {
+      stage,
+      error: error instanceof Error ? error.message : String(error),
+      stack: error instanceof Error ? error.stack : undefined,
+    });
+
     return NextResponse.json(
       {
         ok: false,
+        stage,
         error: error instanceof Error ? error.message : "Cron evaluation failed",
         stack: error instanceof Error ? error.stack : undefined,
       },
