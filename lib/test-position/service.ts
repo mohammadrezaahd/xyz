@@ -21,7 +21,7 @@ import {
   findTestPositionById,
   insertTestPosition,
   listOpenTestPositions,
-  updateOpenMonitoring,
+  updateOpenMonitoring,\n  recordOpenMonitoringFailure,
 } from "./repository";
 import type { OpportunityDocument } from "../opportunity/snapshot";
 import { TEST_POSITION_INITIAL_CAPITAL, type TestPositionDocument } from "./types";
@@ -304,16 +304,10 @@ export async function recordMonitoringFailure(
   await Promise.all(
     positions.map(async (position) => {
       if (!position._id) return;
-      await updateOpenMonitoring(
+      await recordOpenMonitoringFailure(
         position._id,
-        {
-          currentPrice: position.currentPrice ?? position.entryPrice,
-          grossPnl: position.grossPnl,
-          totalFees: position.totalFees,
-          netPnl: position.netPnl,
-          currentEquity: position.currentEquity,
-        },
         checkedAt,
+        errorMessage,
       );
     }),
   );
