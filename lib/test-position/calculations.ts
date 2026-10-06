@@ -1,3 +1,5 @@
+import type { TestPositionExitReason, TestPositionResult } from "./types";
+
 import {
   TEST_POSITION_DEFAULT_LEVERAGE,
   TEST_POSITION_INITIAL_CAPITAL,
