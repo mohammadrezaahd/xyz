@@ -136,24 +136,6 @@ export default function Home() {
 
   const spread = analysis.spread.percent;
 
-  async function startTestPosition(
-    opportunityId: string,
-    initialCapital: number,
-    leverage: number,
-  ) {
-    try {
-      const response = await fetch("/api/test-positions", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ opportunityId, initialCapital, leverage }),
-      });
-      const payload = (await response.json()) as { error?: string };
-      if (!response.ok) throw new Error(payload.error ?? `HTTP ${response.status}`);
-      setTestPositionRefreshKey((value) => value + 1);
-    } catch (value) {
-      setError(value instanceof Error ? value.message : "Unable to start test position");
-    }
-  }
   const hasMarketData = prices?.bitpin !== null && prices?.wallex !== null;
 
   return (
@@ -285,9 +267,9 @@ export default function Home() {
         onExternalPriceChange={setExternalPrice}
       />
 
-      <Phase3Panel onStartTest={startTestPosition} />
+      <Phase3Panel />
 
-      <TestPositionPanel refreshKey={testPositionRefreshKey} />
+      <TestPositionPanel refreshKey={testPositionRefreshKey} currentPrice={prices?.bitpin ?? null} />
 
       {error && (
         <section className="errorBanner" role="alert">
