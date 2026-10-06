@@ -93,6 +93,8 @@ export function Phase3Panel() {
   const [stats, setStats] = useState<Stats | null>(null);
   const [error, setError] = useState("");
   const [closing, setClosing] = useState(false);
+  const [selectedHistory, setSelectedHistory] = useState<string[]>([]);
+  const [historyStatus, setHistoryStatus] = useState("ALL");
 
   async function load() {
     try {
@@ -171,6 +173,13 @@ export function Phase3Panel() {
   }
 
   const simulation = open?.simulation;
+  const filteredHistory =
+    historyStatus === "ALL"
+      ? recent
+      : recent.filter((item) => item.status === historyStatus);
+  const historyIds = filteredHistory.map(getId).filter(Boolean);
+  const allHistorySelected =
+    historyIds.length > 0 && historyIds.every((id) => selectedHistory.includes(id));
 
   return (
     <section className="phase3 card">
@@ -183,6 +192,159 @@ export function Phase3Panel() {
         </div>
       </div>
 
+      <div className="phase3History">
+        <div className="historyToolbar">
+          <div>
+            <h3>History</h3>
+            <p>Review persisted position outcomes separately from the active simulation.</p>
+          </div>
+          <div className="historyActions">
+            <button type="button" className="historyActionButton" disabled>
+              Delete selected
+            </button>
+            <select
+              className="historyFilter"
+              value={historyStatus}
+              onChange={(event) => setHistoryStatus(event.target.value)}
+              aria-label="Filter history by status"
+            >
+              <option value="ALL">All status</option>
+              <option value="OPEN">Open</option>
+              <option value="SUCCESS">Success</option>
+              <option value="FAILED">Failed</option>
+              <option value="INVALIDATED">Invalidated</option>
+              <option value="CLOSED">Closed</option>
+            </select>
+          </div>
+        </div>
+        {filteredHistory.length > 0 ? (
+          <div className="phase3TableWrap">
+            <table className="phase3Table">
+              <thead>
+                <tr>
+                  <th>
+                    <input
+                      type="checkbox"
+                      checked={allHistorySelected}
+                      onChange={(event) =>
+                        setSelectedHistory(event.target.checked ? historyIds : [])
+                      }
+                      aria-label="Select all history rows"
+                    />
+                  </th>
+                  <th>Status</th>
+                  <th>Entry</th>
+                  <th>Target</th>
+                  <th>Liq.</th>
+                  <th>Exit</th>
+                  <th>Net P&amp;L</th>
+                  <th>Spread</th>
+                  <th>Score</th>
+                  <th>Detected</th>
+                  <th>Resolved</th>
+                  <th>Action</th>
+                </tr>
+              </thead>
+              <tbody>
+                {filteredHistory.map((item, index) => (
+                  <tr
+                    key={
+                      typeof item._id === "string"
+                        ? item._id
+                        : item._id?.$oid ?? index
+                    }
+                  >
+                    <td>
+                      <input
+                        type="checkbox"
+                        checked={selectedHistory.includes(getId(item))}
+                        onChange={(event) => {
+                          const id = getId(item);
+                          setSelectedHistory((current) =>
+                            event.target.checked
+                              ? [...new Set([...current, id])]
+                              : current.filter((selected) => selected !== id),
+                          );
+                        }}
+                        aria-label={`Select history row ${index + 1}`}
+                      />
+                    </td>
+                    <td>
+                      <span className={statusClass(item.status)}>
+                        {item.status}
+                      </span>
+                    </td>
+                    <td>{formatPrice(item.entry.price)}</td>
+                    <td>{formatPrice(item.simulation?.targetPrice ?? item.target?.price ?? null)}</td>
+                    <td>{formatPrice(item.simulation?.liquidationPrice ?? null)}</td>
+                    <td>{formatPrice(item.outcome.exitPrice)}</td>
+                    <td>
+                      {item.outcome.netPnlToman == null
+                        ? "—"
+                        : `${formatToman(item.outcome.netPnlToman)} (${item.outcome.netPnlPct?.toFixed(2) ?? "—"}%)`}
+                    </td>
+                    <td>{item.market.spreadPct.toFixed(2)}%</td>
+                    <td>{item.analysis.score.toFixed(1)}</td>
+                    <td>{formatDate(item.detection.detectedAt)}</td>
+                    <td>{formatDate(item.outcome.resolvedAt)}</td>
+                    <td>
+                      <button
+                        type="button"
+                        className="historyDeleteButton"
+                        disabled
+                        aria-label={`Delete history row ${index + 1}`}
+                      >
+                        Delete
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        ) : (
+          <div className="phase3Empty">No persisted opportunities yet.</div>
+        )}
+      </div>
+
+      {stats && (
+        <div className="phase3Stats">
+          <div><span>Total</span><strong>{stats.total}</strong></div>
+          <div><span>Open</span><strong>{stats.open}</strong></div>
+          <div><span>Success</span><strong>{stats.successful}</strong></div>
+          <div><span>Failed</span><strong>{stats.failed}</strong></div>
+          <div><span>Closed</span><strong>{stats.closed}</strong></div>
+          <div><span>Invalidated</span><strong>{stats.invalidated}</strong></div>
+          <div><span>Resolved</span><strong>{stats.resolved}</strong></div>
+          <div>
+            <span>Success Rate</span>
+            <strong>
+              {stats.successRate === null
+                ? "—"
+                : `${(stats.successRate * 100).toFixed(1)}%`}
+            </strong>
+          </div>
+        </div>
+      )}
+
+      <details className="positionAccordion">
+        <summary>
+          <span>Current Test Position</span>
+          <span className="positionSummaryStatus">
+            {open ? (
+              <>
+                <strong className={statusClass(open.status)}>{open.status}</strong>
+                <span>{formatPrice(open.entry.price)} entry</span>
+              </>
+            ) : (
+              <span>No OPEN position</span>
+            )}
+          </span>
+        </summary>
+        <div className="positionAccordionBody">
+          <div className="positionAccordionHint">
+            Live position details are kept separate from historical outcomes. Expand only when you need the active simulation metrics.
+          </div>
       <div className="phase3Current">
         <h3>Current Test Position</h3>
         {open ? (
@@ -303,81 +465,8 @@ export function Phase3Panel() {
         )}
       </div>
 
-      {stats && (
-        <div className="phase3Stats">
-          <div><span>Total</span><strong>{stats.total}</strong></div>
-          <div><span>Open</span><strong>{stats.open}</strong></div>
-          <div><span>Success</span><strong>{stats.successful}</strong></div>
-          <div><span>Failed</span><strong>{stats.failed}</strong></div>
-          <div><span>Closed</span><strong>{stats.closed}</strong></div>
-          <div><span>Invalidated</span><strong>{stats.invalidated}</strong></div>
-          <div><span>Resolved</span><strong>{stats.resolved}</strong></div>
-          <div>
-            <span>Success Rate</span>
-            <strong>
-              {stats.successRate === null
-                ? "—"
-                : `${(stats.successRate * 100).toFixed(1)}%`}
-            </strong>
-          </div>
         </div>
-      )}
-
-      <div className="phase3History">
-        <h3>History</h3>
-        {recent.length > 0 ? (
-          <div className="phase3TableWrap">
-            <table className="phase3Table">
-              <thead>
-                <tr>
-                  <th>Status</th>
-                  <th>Entry</th>
-                  <th>Target</th>
-                  <th>Liq.</th>
-                  <th>Exit</th>
-                  <th>Net P&amp;L</th>
-                  <th>Spread</th>
-                  <th>Score</th>
-                  <th>Detected</th>
-                  <th>Resolved</th>
-                </tr>
-              </thead>
-              <tbody>
-                {recent.map((item, index) => (
-                  <tr
-                    key={
-                      typeof item._id === "string"
-                        ? item._id
-                        : item._id?.$oid ?? index
-                    }
-                  >
-                    <td>
-                      <span className={statusClass(item.status)}>
-                        {item.status}
-                      </span>
-                    </td>
-                    <td>{formatPrice(item.entry.price)}</td>
-                    <td>{formatPrice(item.simulation?.targetPrice ?? item.target?.price ?? null)}</td>
-                    <td>{formatPrice(item.simulation?.liquidationPrice ?? null)}</td>
-                    <td>{formatPrice(item.outcome.exitPrice)}</td>
-                    <td>
-                      {item.outcome.netPnlToman == null
-                        ? "—"
-                        : `${formatToman(item.outcome.netPnlToman)} (${item.outcome.netPnlPct?.toFixed(2) ?? "—"}%)`}
-                    </td>
-                    <td>{item.market.spreadPct.toFixed(2)}%</td>
-                    <td>{item.analysis.score.toFixed(1)}</td>
-                    <td>{formatDate(item.detection.detectedAt)}</td>
-                    <td>{formatDate(item.outcome.resolvedAt)}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        ) : (
-          <div className="phase3Empty">No persisted opportunities yet.</div>
-        )}
-      </div>
+      </details>
 
       {error && <div className="error">{error}</div>}
     </section>

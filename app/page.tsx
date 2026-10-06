@@ -17,17 +17,13 @@ type CandleResponse = {
 };
 
 function formatPrice(value: number | null): string {
-  return value === null
-    ? "—"
-    : value.toLocaleString("en-US", { maximumFractionDigits: 2 });
+  return value === null ? "—" : value.toLocaleString("en-US", { maximumFractionDigits: 2 });
 }
 
 function formatTime(value: number | undefined): string {
-  return value ? new Date(value).toLocaleTimeString("en-US", {
-    hour: "2-digit",
-    minute: "2-digit",
-    second: "2-digit",
-  }) : "—";
+  return value
+    ? new Date(value).toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit", second: "2-digit" })
+    : "—";
 }
 
 function StatCard({
@@ -56,6 +52,7 @@ export default function Home() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [externalPrice, setExternalPrice] = useState("");
+  const [activeWorkspace, setActiveWorkspace] = useState<"opportunity" | "position">("opportunity");
 
   useEffect(() => {
     let cancelled = false;
@@ -71,27 +68,16 @@ export default function Home() {
         const priceJson = (await priceResponse.json()) as CurrentPricesResponse;
 
         if (!candleResponse.ok) {
-          throw new Error(
-            candleJson.errors?.join("\n") ||
-              `Candle API HTTP ${candleResponse.status}`,
-          );
+          throw new Error(candleJson.errors?.join("\n") || `Candle API HTTP ${candleResponse.status}`);
         }
-
         if (!priceResponse.ok) {
-          throw new Error(
-            priceJson.errors?.join("\n") ||
-              `Price API HTTP ${priceResponse.status}`,
-          );
+          throw new Error(priceJson.errors?.join("\n") || `Price API HTTP ${priceResponse.status}`);
         }
 
         if (!cancelled) {
           setData(candleJson);
           setPrices(priceJson);
-          const errors = [
-            ...(candleJson.errors ?? []),
-            ...(priceJson.errors ?? []),
-          ];
-          setError(errors.join("\n"));
+          setError([...(candleJson.errors ?? []), ...(priceJson.errors ?? [])].join("\n"));
           setLoading(false);
         }
       } catch (e) {
@@ -124,9 +110,7 @@ export default function Home() {
           bitpin: prices?.bitpin ?? null,
           wallex: prices?.wallex ?? null,
         },
-        externalPrice: externalPrice.trim()
-          ? Number(externalPrice)
-          : null,
+        externalPrice: externalPrice.trim() ? Number(externalPrice) : null,
         nowMs: Date.now(),
       }),
     [data, prices, externalPrice],
@@ -162,31 +146,22 @@ export default function Home() {
       <section className="heroStrip">
         <div>
           <div className="heroKicker">1m MARKET SNAPSHOT</div>
-          <h2>Spot spread and stability at a glance.</h2>
+          <h2>One screen for market state, opportunity and simulation.</h2>
           <p>
-            Historical candle analysis powers the opportunity model. This interface
-            keeps decision-critical metrics visible without hiding the underlying detail.
+            Compare both exchanges first, then switch between analysis and the synthetic
+            position workspace. Decision-critical information stays compact and scannable.
           </p>
         </div>
         <div className="heroAside">
-          <div className="heroAsideValue">{analysis.stabilityScore.toFixed(1)}</div>
-          <div className="heroAsideLabel">Stability score / 100</div>
+          <span className="heroAsideLabel">Stability</span>
+          <strong className="heroAsideValue">{analysis.stabilityScore.toFixed(1)}</strong>
+          <span className="heroAsideUnit">/ 100</span>
         </div>
       </section>
 
       <section className="statGrid" aria-label="Market summary">
-        <StatCard
-          label="Bitpin"
-          value={formatPrice(prices?.bitpin ?? null)}
-          helper="Current ticker price"
-          tone="accent"
-        />
-        <StatCard
-          label="Wallex"
-          value={formatPrice(prices?.wallex ?? null)}
-          helper="Current ticker price"
-          tone="positive"
-        />
+        <StatCard label="Bitpin" value={formatPrice(prices?.bitpin ?? null)} helper="Current ticker price" tone="accent" />
+        <StatCard label="Wallex" value={formatPrice(prices?.wallex ?? null)} helper="Current ticker price" tone="positive" />
         <StatCard
           label="Spread"
           value={spread === null ? "—" : `${spread.toFixed(2)}%`}
@@ -201,11 +176,11 @@ export default function Home() {
         />
       </section>
 
-      <section className="sectionBlock">
+      <section className="sectionBlock" aria-labelledby="market-streams">
         <div className="sectionHeading">
           <div>
             <div className="sectionKicker">EXCHANGE COMPARISON</div>
-            <h2>Live candle streams</h2>
+            <h2 id="market-streams">Live candle streams</h2>
           </div>
           <div className="sectionMeta">
             <span className="statusDot" />
@@ -218,18 +193,12 @@ export default function Home() {
             <div className="marketCardHead">
               <div className="exchangeIdentity">
                 <div className="exchangeBadge exchangeBadge--bitpin">B</div>
-                <div>
-                  <h3>Bitpin</h3>
-                  <span>1 minute candles</span>
-                </div>
+                <div><h3>Bitpin</h3><span>1 minute candles</span></div>
               </div>
-              <div className="marketPrice">
-                <span>Ticker</span>
-                <strong>{formatPrice(prices?.bitpin ?? null)}</strong>
-              </div>
+              <div className="marketPrice"><span>Ticker</span><strong>{formatPrice(prices?.bitpin ?? null)}</strong></div>
             </div>
             <div className="chartContext">
-              <span>Historical candle close is independent from ticker price.</span>
+              <span>Historical candle close · ticker shown separately</span>
               <strong>{data?.bitpin.length ?? 0} candles</strong>
             </div>
             <CandleChart candles={data?.bitpin ?? []} />
@@ -239,18 +208,12 @@ export default function Home() {
             <div className="marketCardHead">
               <div className="exchangeIdentity">
                 <div className="exchangeBadge exchangeBadge--wallex">W</div>
-                <div>
-                  <h3>Wallex</h3>
-                  <span>1 minute candles</span>
-                </div>
+                <div><h3>Wallex</h3><span>1 minute candles</span></div>
               </div>
-              <div className="marketPrice">
-                <span>Ticker</span>
-                <strong>{formatPrice(prices?.wallex ?? null)}</strong>
-              </div>
+              <div className="marketPrice"><span>Ticker</span><strong>{formatPrice(prices?.wallex ?? null)}</strong></div>
             </div>
             <div className="chartContext">
-              <span>Historical candle close is independent from ticker price.</span>
+              <span>Historical candle close · ticker shown separately</span>
               <strong>{data?.wallex.length ?? 0} candles</strong>
             </div>
             <CandleChart candles={data?.wallex ?? []} />
@@ -258,21 +221,59 @@ export default function Home() {
         </div>
       </section>
 
-      <OpportunityPanel
-        analysis={analysis}
-        externalPrice={externalPrice}
-        onExternalPriceChange={setExternalPrice}
-      />
+      <section className="workspace" aria-label="Analysis workspaces">
+        <div className="workspaceHeader">
+          <div>
+            <div className="sectionKicker">ANALYSIS WORKSPACE</div>
+            <h2>Decision center</h2>
+            <p>Choose the view you need without mixing historical analysis with the active simulation.</p>
+          </div>
 
-      <Phase3Panel />
+          <div className="workspaceTabs" role="tablist" aria-label="Analysis workspaces">
+            <button
+              type="button"
+              role="tab"
+              aria-selected={activeWorkspace === "opportunity"}
+              className={activeWorkspace === "opportunity" ? "workspaceTab isActive" : "workspaceTab"}
+              onClick={() => setActiveWorkspace("opportunity")}
+            >
+              <span className="tabIndex">01</span>
+              <span><strong>Opportunity / Stability</strong><small>Historical validation · not a guaranteed prediction</small></span>
+            </button>
+            <button
+              type="button"
+              role="tab"
+              aria-selected={activeWorkspace === "position"}
+              className={activeWorkspace === "position" ? "workspaceTab isActive" : "workspaceTab"}
+              onClick={() => setActiveWorkspace("position")}
+            >
+              <span className="tabIndex">02</span>
+              <span><strong>Leveraged Synthetic Position</strong><small>1M margin + 10M borrowed · fee-aware LONG simulation</small></span>
+            </button>
+          </div>
+        </div>
+
+        <div className="workspaceBody">
+          {activeWorkspace === "opportunity" ? (
+            <div role="tabpanel" aria-label="Opportunity and stability">
+              <OpportunityPanel
+                analysis={analysis}
+                externalPrice={externalPrice}
+                onExternalPriceChange={setExternalPrice}
+              />
+            </div>
+          ) : (
+            <div role="tabpanel" aria-label="Leveraged synthetic position">
+              <Phase3Panel />
+            </div>
+          )}
+        </div>
+      </section>
 
       {error && (
         <section className="errorBanner" role="alert">
           <div className="errorBannerIcon">!</div>
-          <div>
-            <strong>Data provider warning</strong>
-            <p>{error}</p>
-          </div>
+          <div><strong>Data provider warning</strong><p>{error}</p></div>
         </section>
       )}
 
