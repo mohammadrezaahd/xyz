@@ -6,7 +6,7 @@ type TestResult = { status: string };
 type Opportunity = {
   _id?: { $oid?: string } | string;
   status: "OPEN" | "SUCCESS" | "FAILED" | "INVALIDATED";
-  direction: "SHORT";
+  direction: "LONG" | "SHORT";
   entry: { price: number };
   target?: { price: number; source: "phase-2-safe-target" };
   market: { bitpinPrice: number; wallexPrice: number; spreadPct: number };
@@ -105,7 +105,7 @@ export function Phase3Panel() {
           <>
             <div className="phase3PositionGrid">
               <div><span>Status</span><strong className={statusClass(open.status)}>{open.status}</strong></div>
-              <div><span>Direction</span><strong>{open.direction}</strong></div>
+              <div><span>Direction</span><strong>{open.direction === "SHORT" ? "LONG" : open.direction}</strong></div>
               <div><span>Entry</span><strong>{formatPrice(open.entry.price)}</strong></div>
               <div><span>Safe Target</span><strong>{formatPrice(open.target?.price ?? null)}</strong></div>
               <div><span>Current Bitpin</span><strong>{formatPrice(open.monitoring.currentBitpinPrice)}</strong></div>
