@@ -56,18 +56,27 @@ export async function listOpenTestPositions(): Promise<TestPositionDocument[]> {
 
 export async function updateOpenMonitoring(
   id: ObjectId,
-  currentBitpinPrice: number | null,
+  mark: {
+    currentPrice: number;
+    grossPnl: number;
+    totalFees: number;
+    netPnl: number;
+    currentEquity: number;
+  },
   checkedAt: Date,
-  lastError: string | null,
 ): Promise<boolean> {
   const collection = await getCollection();
   const result = await collection.updateOne(
     { _id: id, status: "OPEN" },
     {
       $set: {
-        "monitoring.currentBitpinPrice": currentBitpinPrice,
+        currentPrice: mark.currentPrice,
+        grossPnl: mark.grossPnl,
+        totalFees: mark.totalFees,
+        netPnl: mark.netPnl,
+        currentEquity: mark.currentEquity,
         "monitoring.lastCheckedAt": checkedAt,
-        "monitoring.lastError": lastError,
+        "monitoring.lastError": null,
         updatedAt: checkedAt,
       },
     },
@@ -125,7 +134,7 @@ export async function closeOpenTestPosition(
         totalFees: mark.totalFees,
         netPnl: mark.netPnl,
         currentEquity: mark.finalEquity,
-        "monitoring.currentBitpinPrice": exitPrice,
+        currentPrice: exitPrice,
         "monitoring.lastCheckedAt": closedAt,
         "monitoring.lastError": null,
         updatedAt: closedAt,
