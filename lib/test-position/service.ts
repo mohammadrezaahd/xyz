@@ -1,325 +1,149 @@
 import { ObjectId } from "mongodb";
 import { fetchBitpinPrice } from "../bitpin";
 import { findOpportunityById } from "../opportunities/repository";
-import {
-  calculateExitFee,
-  calculateGrossPnl,
-  classifyClosedResult,
-  createPositionTerms,
-  isLiquidationConditionMet,
-  markPosition,
-} from "./calculations";
-import {
-  getOrCreateTestAccount,
-  refundTestMargin,
-  releaseTestMargin,
-  reserveTestMargin,
-  setTestAccountEquity,
-} from "./account";
-import {
-  closeOpenTestPosition,
-  findTestPositionById,
-  insertTestPosition,
-  listOpenTestPositions,
-  updateOpenMonitoring,
-  recordOpenMonitoringFailure,
-} from "./repository";
 import type { OpportunityDocument } from "../opportunity/snapshot";
-import { TEST_POSITION_INITIAL_CAPITAL, type TestPositionDocument } from "./types";
+import { assertSupportedLeverage, classifyClosedResult, createPositionTerms, isLiquidationConditionMet, markPosition } from "./calculations";
+import { closeOpenTestPosition, findTestPositionById, insertTestPosition, listOpenTestPositions, recordOpenMonitoringFailure, updateOpenMonitoring, updateOpenTarget } from "./repository";
+import type { TestPositionDocument, TestPositionLeverage } from "./types";
+import { TEST_POSITION_DEFAULT_LEVERAGE, TEST_POSITION_INITIAL_CAPITAL } from "./types";
 
-function asObjectId(value: string): ObjectId {
-  if (!ObjectId.isValid(value)) throw new Error("Invalid id");
-  return new ObjectId(value);
-}
-
-function buildPredictionSnapshot(
-  opportunity: OpportunityDocument,
-): TestPositionDocument["predictionSnapshot"] {
+function asObjectId(value:string):ObjectId { if(!ObjectId.isValid(value)) throw new Error("Invalid id"); return new ObjectId(value); }
+function riskSnapshot(opportunity:OpportunityDocument|null, now:Date):TestPositionDocument["riskSnapshot"] {
   return {
-    opportunityId: opportunity._id as ObjectId,
-    opportunityStrength: opportunity.opportunityStrength,
-    direction: opportunity.direction,
-    score: opportunity.analysis.score,
-    entry: opportunity.entry,
-    target: opportunity.target,
-    market: opportunity.market,
-    validation: opportunity.analysis.tests,
-    metrics: opportunity.analysis.metrics,
-    detection: opportunity.detection,
+    source: opportunity ? "OPPORTUNITY" : "MANUAL",
+    capturedAt: now,
+    opportunityStrength: opportunity?.opportunityStrength ?? null,
+    score: opportunity?.analysis.score ?? null,
+    riskLevel: null,
+    direction: "SHORT",
   };
 }
-
-async function syncAccountEquity(now = new Date()): Promise<void> {
-  const account = await getOrCreateTestAccount(now);
-  const openPositions = await listOpenTestPositions();
-  const equity =
-    account.availableCapital +
-    openPositions.reduce(
-      (sum, position) => sum + position.currentEquity,
-      0,
-    );
-
-  await setTestAccountEquity(equity, now);
+function buildOpportunitySnapshot(opportunity:OpportunityDocument):TestPositionDocument["opportunitySnapshot"] {
+  if(!opportunity._id) throw new Error("Opportunity id is required");
+  return {
+    opportunityId:opportunity._id,
+    opportunityStrength:opportunity.opportunityStrength,
+    direction:opportunity.direction,
+    score:opportunity.analysis.score,
+    suggestedEntryPrice:opportunity.entry.price,
+    suggestedTargetPrice:opportunity.target.price,
+    riskLevel:"UNKNOWN",
+    market:opportunity.market,
+    validation:opportunity.analysis.tests,
+    metrics:opportunity.analysis.metrics,
+    detection:opportunity.detection,
+  };
 }
 
 export function buildTestPositionDocument(
-  opportunity: OpportunityDocument,
-  entryPrice: number,
-  initialCapital?: number,
-  leverage?: number,
-  now = new Date(),
-): TestPositionDocument {
-  if (!opportunity._id) throw new Error("Opportunity id is required");
-  if (opportunity.direction !== "SHORT") {
-    throw new Error("Phase 4 currently supports SHORT opportunities only");
-  }
-  if (!Number.isFinite(opportunity.target.price) || opportunity.target.price <= 0) {
-    throw new Error("Opportunity target is invalid");
-  }
-
-  const terms = createPositionTerms(entryPrice, initialCapital, leverage);
-
+  opportunity:OpportunityDocument|null,
+  entryPrice:number,
+  targetPrice:number,
+  initialCapital=TEST_POSITION_INITIAL_CAPITAL,
+  leverage:TestPositionLeverage=TEST_POSITION_DEFAULT_LEVERAGE,
+  now=new Date(),
+):TestPositionDocument {
+  if(!Number.isFinite(targetPrice)||targetPrice<=0) throw new Error("Invalid targetPrice");
+  if(opportunity && opportunity.direction!=="SHORT") throw new Error("Phase 4 currently supports SHORT only");
+  const terms=createPositionTerms(entryPrice,initialCapital,leverage);
   return {
-    opportunityId: opportunity._id,
-    status: "OPEN",
-    result: null,
-    direction: "SHORT",
-
-    initialCapital: terms.initialCapital,
-    margin: terms.margin,
-    leverage: terms.leverage,
-    leveragedCredit: terms.leveragedCredit,
-    positionNotional: terms.positionNotional,
-
+    opportunityId: opportunity?._id ?? null,
+    status:"OPEN",
+    result:null,
+    direction:"SHORT",
+    initialCapital:terms.initialCapital,
+    margin:terms.margin,
+    leverage:terms.leverage,
+    leveragedCredit:terms.leveragedCredit,
+    positionNotional:terms.positionNotional,
+    usdtQuantity:terms.usdtQuantity,
     entryPrice,
-    targetPrice: opportunity.target.price,
-    liquidationPrice: terms.liquidationPrice,
-
-    entryFeePct: terms.entryFeePct,
-    exitFeePct: terms.exitFeePct,
-    entryFee: terms.entryFee,
-    exitFee: null,
-    totalFees: terms.entryFee,
-
-    grossPnl: 0,
-    netPnl: -terms.entryFee,
-
-    currentPrice: entryPrice,
-    currentEquity:
-      terms.initialCapital -
-      terms.entryFee -
-      calculateExitFee(
-        entryPrice,
-        entryPrice,
-        terms.positionNotional,
-        terms.exitFeePct,
-      ),
-    exitPrice: null,
-    exitReason: null,
-
-    entryAt: now,
-    closedAt: null,
-
-    opportunityStrength: opportunity.opportunityStrength,
-    predictionSnapshot: buildPredictionSnapshot(opportunity),
-
-    monitoring: {
-      lastCheckedAt: now,
-      lastError: null,
-    },
-
-    createdAt: now,
-    updatedAt: now,
+    targetPrice,
+    liquidationPrice:terms.liquidationPrice,
+    entryFeePct:terms.entryFeePct,
+    exitFeePct:terms.exitFeePct,
+    entryFee:terms.entryFee,
+    exitFee:null,
+    totalFees:terms.entryFee,
+    grossPnl:0,
+    netPnl:-terms.entryFee,
+    currentPrice:entryPrice,
+    currentEquity:terms.initialCapital-terms.entryFee,
+    exitPrice:null,
+    exitReason:null,
+    entryAt:now,
+    closedAt:null,
+    opportunitySnapshot:opportunity?buildOpportunitySnapshot(opportunity):null,
+    riskSnapshot:riskSnapshot(opportunity,now),
+    monitoring:{lastCheckedAt:now,lastError:null},
+    createdAt:now,
+    updatedAt:now,
   };
 }
 
-export async function startTestPosition(
-  opportunityIdValue: string,
-  initialCapital?: number,
-  leverage?: number,
-): Promise<TestPositionDocument> {
-  const opportunityId = asObjectId(opportunityIdValue);
-  const opportunity = await findOpportunityById(opportunityId);
-  if (!opportunity) throw new Error("Opportunity not found");
-
-  const account = await getOrCreateTestAccount();
-  const capital = initialCapital ?? TEST_POSITION_INITIAL_CAPITAL;
-  if (!Number.isFinite(capital) || capital <= 0) {
-    throw new Error("Invalid initialCapital");
+export async function startTestPosition(input:{
+  initialCapital?:number;
+  leverage?:number;
+  targetPrice:number;
+  opportunityId?:string|null;
+}):Promise<TestPositionDocument>{
+  const capital=input.initialCapital??TEST_POSITION_INITIAL_CAPITAL;
+  const leverage=input.leverage??TEST_POSITION_DEFAULT_LEVERAGE;
+  if(!Number.isFinite(capital)||capital<=0) throw new Error("Invalid initialCapital");
+  assertSupportedLeverage(leverage);
+  let opportunity:OpportunityDocument|null=null;
+  if(input.opportunityId){
+    opportunity=await findOpportunityById(asObjectId(input.opportunityId));
+    if(!opportunity) throw new Error("Opportunity not found");
   }
-  if (capital > account.availableCapital) {
-    throw new Error("Insufficient simulated available capital");
-  }
-
-  const entryPrice = await fetchBitpinPrice();
-  const document = buildTestPositionDocument(
-    opportunity,
-    entryPrice,
-    capital,
-    leverage,
-  );
-
-  const reserved = await reserveTestMargin(document.margin, document.entryAt);
-  if (!reserved) {
-    throw new Error("Insufficient simulated available capital");
-  }
-
-  try {
-    const inserted = await insertTestPosition(document);
-    await syncAccountEquity(inserted.createdAt);
-    return inserted;
-  } catch (error) {
-    await refundTestMargin(document.margin);
-    throw error;
-  }
+  const entryPrice=await fetchBitpinPrice();
+  const document=buildTestPositionDocument(opportunity,entryPrice,input.targetPrice,capital,leverage);
+  return insertTestPosition(document);
 }
 
-export async function manuallyCloseTestPosition(
-  idValue: string,
-): Promise<{ closed: boolean; position: TestPositionDocument | null }> {
-  const id = asObjectId(idValue);
-  const position = await findTestPositionById(id);
-
-  if (!position) throw new Error("Test position not found");
-  if (position.status !== "OPEN") {
-    return { closed: false, position };
-  }
-
-  const exitPrice = await fetchBitpinPrice();
-  const mark = markPosition(position, exitPrice);
-
-  const result = classifyClosedResult(
-    position.entryPrice,
-    position.targetPrice,
-    exitPrice,
-    "MANUAL_CLOSE",
-  );
-
-  const closed = await closeOpenTestPosition(
-    id,
-    exitPrice,
-    "CLOSED",
-    result,
-    "MANUAL_CLOSE",
-    {
-      grossPnl: mark.grossPnl,
-      exitFee: mark.estimatedExitFee,
-      totalFees: mark.totalFees,
-      netPnl: mark.netPnl,
-      finalEquity: mark.currentEquity,
-    },
-    new Date(),
-  );
-
-  if (closed) {
-    await releaseTestMargin(mark.currentEquity);
-    await syncAccountEquity();
-  }
-
-  return {
-    closed,
-    position: await findTestPositionById(id),
-  };
+export async function updateTestPositionTarget(idValue:string,targetPrice:number):Promise<TestPositionDocument|null>{
+  const id=asObjectId(idValue);
+  if(!Number.isFinite(targetPrice)||targetPrice<=0) throw new Error("Invalid targetPrice");
+  const updated=await updateOpenTarget(id,targetPrice,new Date());
+  if(!updated) throw new Error("Test position is not OPEN");
+  return findTestPositionById(id);
 }
 
-export async function monitorOpenTestPositions(
-  currentPrice: number,
-  checkedAt = new Date(),
-): Promise<{ checked: number; closed: number; liquidated: number }> {
-  if (!Number.isFinite(currentPrice) || currentPrice <= 0) {
-    throw new Error("Invalid Bitpin current price");
-  }
+export async function manuallyCloseTestPosition(idValue:string):Promise<{closed:boolean;position:TestPositionDocument|null}>{
+  const id=asObjectId(idValue);
+  const position=await findTestPositionById(id);
+  if(!position) throw new Error("Test position not found");
+  if(position.status!=="OPEN") return {closed:false,position};
+  const exitPrice=await fetchBitpinPrice();
+  const mark=markPosition(position,exitPrice);
+  const result=classifyClosedResult(position.entryPrice,position.targetPrice,exitPrice,"MANUAL_CLOSE");
+  const closed=await closeOpenTestPosition(id,exitPrice,"CLOSED",result,"MANUAL_CLOSE",{grossPnl:mark.grossPnl,exitFee:mark.estimatedExitFee,totalFees:mark.totalFees,netPnl:mark.netPnl,finalEquity:mark.currentEquity},new Date());
+  return {closed,position:await findTestPositionById(id)};
+}
 
-  const positions = await listOpenTestPositions();
-  let closed = 0;
-  let liquidated = 0;
-
-  for (const position of positions) {
-    if (!position._id) continue;
-
-    const mark = markPosition(position, currentPrice);
-
-    if (isLiquidationConditionMet(mark.currentEquity, position.initialCapital)) {
-      const didClose = await closeOpenTestPosition(
-        position._id,
-        currentPrice,
-        "LIQUIDATED",
-        "LIQUIDATED",
-        "LIQUIDATION",
-        {
-          grossPnl: mark.grossPnl,
-          exitFee: mark.estimatedExitFee,
-          totalFees: mark.totalFees,
-          netPnl: mark.netPnl,
-          finalEquity: mark.currentEquity,
-        },
-        checkedAt,
-      );
-
-      if (didClose) {
-        await releaseTestMargin(mark.currentEquity, checkedAt);
-        liquidated += 1;
-      }
+export async function monitorOpenTestPositions(currentPrice:number,checkedAt=new Date()):Promise<{checked:number;closed:number;liquidated:number}>{
+  if(!Number.isFinite(currentPrice)||currentPrice<=0) throw new Error("Invalid Bitpin current price");
+  const positions=await listOpenTestPositions(); let closed=0; let liquidated=0;
+  for(const position of positions){
+    if(!position._id) continue;
+    const mark=markPosition(position,currentPrice);
+    if(isLiquidationConditionMet(mark.grossPnl,position.initialCapital)){
+      const didClose=await closeOpenTestPosition(position._id,currentPrice,"LIQUIDATED","LIQUIDATED","LIQUIDATION",{grossPnl:mark.grossPnl,exitFee:mark.estimatedExitFee,totalFees:mark.totalFees,netPnl:mark.netPnl,finalEquity:mark.currentEquity},checkedAt);
+      if(didClose) liquidated++;
       continue;
     }
-
-    if (currentPrice <= position.targetPrice) {
-      const didClose = await closeOpenTestPosition(
-        position._id,
-        currentPrice,
-        "CLOSED",
-        "PREDICT_SUCCESS",
-        "TARGET_REACHED",
-        {
-          grossPnl: mark.grossPnl,
-          exitFee: mark.estimatedExitFee,
-          totalFees: mark.totalFees,
-          netPnl: mark.netPnl,
-          finalEquity: mark.currentEquity,
-        },
-        checkedAt,
-      );
-
-      if (didClose) {
-        await releaseTestMargin(mark.currentEquity, checkedAt);
-        closed += 1;
-      }
+    if(currentPrice<=position.targetPrice){
+      const didClose=await closeOpenTestPosition(position._id,currentPrice,"CLOSED","PREDICT_SUCCESS","TARGET_REACHED",{grossPnl:mark.grossPnl,exitFee:mark.estimatedExitFee,totalFees:mark.totalFees,netPnl:mark.netPnl,finalEquity:mark.currentEquity},checkedAt);
+      if(didClose) closed++;
       continue;
     }
-
-    await updateOpenMonitoring(
-      position._id,
-      {
-        currentPrice,
-        grossPnl: mark.grossPnl,
-        totalFees: mark.totalFees,
-        netPnl: mark.netPnl,
-        currentEquity: mark.currentEquity,
-      },
-      checkedAt,
-    );
+    await updateOpenMonitoring(position._id,{currentPrice,grossPnl:mark.grossPnl,totalFees:mark.totalFees,netPnl:mark.netPnl,currentEquity:mark.currentEquity},checkedAt);
   }
-
-  await syncAccountEquity(checkedAt);
-
-  return { checked: positions.length, closed, liquidated };
+  return {checked:positions.length,closed,liquidated};
 }
 
-export async function recordMonitoringFailure(
-  checkedAt = new Date(),
-  errorMessage = "Bitpin ticker unavailable",
-): Promise<number> {
-  const positions = await listOpenTestPositions();
-  await Promise.all(
-    positions.map(async (position) => {
-      if (!position._id) return;
-      await recordOpenMonitoringFailure(
-        position._id,
-        checkedAt,
-        errorMessage,
-      );
-    }),
-  );
-
+export async function recordMonitoringFailure(checkedAt=new Date(),errorMessage="Bitpin ticker unavailable"):Promise<number>{
+  const positions=await listOpenTestPositions();
+  await Promise.all(positions.map(async position=>{if(position._id) await recordOpenMonitoringFailure(position._id,checkedAt,errorMessage);}));
   return positions.length;
 }
