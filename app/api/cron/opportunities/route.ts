@@ -26,11 +26,22 @@ type CandleResponse = {
 async function fetchInternal<T>(request: Request, path: string): Promise<T> {
   const url = new URL(path, request.url);
   const response = await fetch(url, { cache: "no-store" });
-  const payload = (await response.json()) as T & { errors?: string[] };
+  const body = await response.text();
+
+  let payload: (T & { errors?: string[] }) | null = null;
+
+  try {
+    payload = JSON.parse(body) as T & { errors?: string[] };
+  } catch {
+    throw new Error(
+      `Internal market-data ${path} returned HTTP ${response.status} with non-JSON body: ${body.slice(0, 500)}`,
+    );
+  }
 
   if (!response.ok) {
     throw new Error(
-      payload.errors?.join("; ") ?? `Internal market-data HTTP ${response.status}`,
+      payload?.errors?.join("; ") ??
+        `Internal market-data ${path} HTTP ${response.status}`,
     );
   }
 
