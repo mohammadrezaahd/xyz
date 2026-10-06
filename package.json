@@ -6,7 +6,7 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "test": "npx tsc -p tests/tsconfig.json && node --test tests/phase4-calculations.test.cjs && node --test tests/phase4-opening.test.cjs"
+    "test": "npx tsc -p tests/tsconfig.json && (node --test tests/phase4-calculations.test.cjs & node --test tests/phase4-opening.test.cjs & wait)"
   },
   "dependencies": {
     "@types/node": "^22.15.0",
