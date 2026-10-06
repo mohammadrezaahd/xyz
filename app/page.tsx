@@ -57,7 +57,6 @@ export default function Home() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [externalPrice, setExternalPrice] = useState("");
-  const [testPositionRefreshKey, setTestPositionRefreshKey] = useState(0);
 
   useEffect(() => {
     let cancelled = false;
@@ -269,7 +268,7 @@ export default function Home() {
 
       <Phase3Panel />
 
-      <TestPositionPanel refreshKey={testPositionRefreshKey} currentPrice={prices?.bitpin ?? null} />
+      <TestPositionPanel refreshKey={0} currentPrice={prices?.bitpin ?? null} />
 
       {error && (
         <section className="errorBanner" role="alert">
