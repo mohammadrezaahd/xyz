@@ -27,7 +27,7 @@ function buildOpportunitySnapshot(opportunity:OpportunityDocument):TestPositionD
     score:opportunity.analysis.score,
     suggestedEntryPrice:opportunity.entry.price,
     suggestedTargetPrice:opportunity.target.price,
-    riskLevel:null,
+    riskLevel:opportunity?.riskLevel??null,
     market:opportunity.market,
     validation:opportunity.analysis.tests,
     metrics:opportunity.analysis.metrics,
