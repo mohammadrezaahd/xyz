@@ -6,6 +6,7 @@ import {
 
 export type PositionTerms = {
   initialCapital: number;
+  margin: number;
   leverage: number;
   leveragedCredit: number;
   positionNotional: number;
@@ -36,14 +37,16 @@ export function createPositionTerms(
   const exitFeePct = TEST_POSITION_TAKER_FEE_PCT;
   const entryFee = positionNotional * (entryFeePct / 100);
 
-  // This is the price boundary produced by the project's explicit
-  // initial-position-value liquidation equation, including fees.
+  // This is the exact price boundary implied by:
+  // initialCapital - entryFee + grossPnl - estimatedExitFee = initialCapital.
+  // See the Phase 4 business-rule note about the resulting boundary.
   const liquidationPrice =
     (entryPrice * (1 - entryFeePct / 100)) /
     (1 + exitFeePct / 100);
 
   return {
     initialCapital,
+    margin: initialCapital,
     leverage,
     leveragedCredit,
     positionNotional,
@@ -81,82 +84,82 @@ export function calculateExitFee(
   return exitNotional * (exitFeePct / 100);
 }
 
+export type PositionMark = {
+  grossPnl: number;
+  estimatedExitFee: number;
+  totalFees: number;
+  netPnl: number;
+  currentEquity: number;
+};
+
+export function markPosition(
+  position: Pick<
+    PositionTerms,
+    "initialCapital" | "positionNotional" | "entryFee" | "exitFeePct"
+  > & { entryPrice: number },
+  currentPrice: number,
+): PositionMark {
+  const grossPnl = calculateGrossPnl(
+    position.entryPrice,
+    currentPrice,
+    position.positionNotional,
+  );
+  const estimatedExitFee = calculateExitFee(
+    position.entryPrice,
+    currentPrice,
+    position.positionNotional,
+    position.exitFeePct,
+  );
+  const totalFees = position.entryFee + estimatedExitFee;
+  const netPnl = grossPnl - totalFees;
+  const currentEquity =
+    position.initialCapital + grossPnl - totalFees;
+
+  return {
+    grossPnl,
+    estimatedExitFee,
+    totalFees,
+    netPnl,
+    currentEquity,
+  };
+}
+
 export function calculateNetPnl(
   entryPrice: number,
   currentPrice: number,
   positionNotional: number,
   entryFee: number,
   exitFeePct: number,
-): {
-  grossPnl: number;
-  exitFee: number;
-  totalFees: number;
-  netPnl: number;
-  currentNetPositionValue: number;
-} {
-  const grossPnl = calculateGrossPnl(
-    entryPrice,
+  initialCapital = positionNotional,
+): PositionMark {
+  return markPosition(
+    {
+      entryPrice,
+      positionNotional,
+      entryFee,
+      exitFeePct,
+      initialCapital,
+    },
     currentPrice,
-    positionNotional,
   );
-  const exitFee = calculateExitFee(
-    entryPrice,
-    currentPrice,
-    positionNotional,
-    exitFeePct,
-  );
-  const totalFees = entryFee + exitFee;
-  const netPnl = grossPnl - totalFees;
-  const initialPositionValue = positionNotional;
-  const currentNetPositionValue =
-    initialPositionValue + grossPnl - totalFees;
-
-  return {
-    grossPnl,
-    exitFee,
-    totalFees,
-    netPnl,
-    currentNetPositionValue,
-  };
 }
 
 export function isLiquidationConditionMet(
-  entryPrice: number,
-  currentPrice: number,
-  positionNotional: number,
-  entryFee: number,
-  exitFeePct: number,
+  currentEquity: number,
+  initialCapital: number,
 ): boolean {
-  if (!Number.isFinite(currentPrice) || currentPrice <= 0) return false;
-
-  const { currentNetPositionValue } = calculateNetPnl(
-    entryPrice,
-    currentPrice,
-    positionNotional,
-    entryFee,
-    exitFeePct,
-  );
-
-  // Phase 4 is SHORT-only. Keep liquidation on the adverse side of Entry
-  // while applying the authoritative initial-position-value threshold.
-  return (
-    currentPrice > entryPrice &&
-    currentNetPositionValue < positionNotional
-  );
+  assertPositiveFinite(initialCapital, "initialCapital");
+  return Number.isFinite(currentEquity) && currentEquity < initialCapital;
 }
 
 export function classifyClosedResult(
   entryPrice: number,
   targetPrice: number,
   exitPrice: number,
-  exitReason: "TARGET_REACHED" | "MANUAL_CLOSE" | "LIQUIDATION",
-): "PREDICT_SUCCESS" | "RELATIVELY_SUCCESSFUL" | "FAILED" | "LIQUIDATED" {
+  exitReason: TestPositionExitReason,
+): TestPositionResult {
   if (exitReason === "LIQUIDATION") return "LIQUIDATED";
   if (exitPrice <= targetPrice) return "PREDICT_SUCCESS";
-
-  if (exitPrice < entryPrice && exitPrice > targetPrice) {
-    return "RELATIVELY_SUCCESSFUL";
-  }
-
+  if (exitPrice < entryPrice) return "RELATIVELY_SUCCESSFUL";
   return "FAILED";
 }
