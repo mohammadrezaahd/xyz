@@ -10,6 +10,7 @@ export type OpportunityDocument = {
   updatedAt: Date;
   status: "OPEN" | "SUCCESS" | "FAILED" | "INVALIDATED";
   direction: PositionDirection;
+  opportunityStrength: OpportunityAnalysis["opportunity"];
   entry: {
     price: number;
     source: "bitpin";
@@ -76,6 +77,7 @@ export function buildOpportunityDocument(
     updatedAt: detectedAt,
     status: "OPEN",
     direction: "SHORT",
+    opportunityStrength: analysis.opportunity,
     entry: {
       price: analysis.prices.bitpin,
       source: "bitpin",
