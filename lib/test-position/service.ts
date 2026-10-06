@@ -21,7 +21,8 @@ import {
   findTestPositionById,
   insertTestPosition,
   listOpenTestPositions,
-  updateOpenMonitoring,\n  recordOpenMonitoringFailure,
+  updateOpenMonitoring,
+  recordOpenMonitoringFailure,
 } from "./repository";
 import type { OpportunityDocument } from "../opportunity/snapshot";
 import { TEST_POSITION_INITIAL_CAPITAL, type TestPositionDocument } from "./types";
