@@ -152,7 +152,7 @@ export function classifyClosedResult(
   exitReason: "TARGET_REACHED" | "MANUAL_CLOSE" | "LIQUIDATION",
 ): "PREDICT_SUCCESS" | "RELATIVELY_SUCCESSFUL" | "FAILED" | "LIQUIDATED" {
   if (exitReason === "LIQUIDATION") return "LIQUIDATED";
-  if (exitReason === "TARGET_REACHED") return "PREDICT_SUCCESS";
+  if (exitPrice <= targetPrice) return "PREDICT_SUCCESS";
 
   if (exitPrice < entryPrice && exitPrice > targetPrice) {
     return "RELATIVELY_SUCCESSFUL";
