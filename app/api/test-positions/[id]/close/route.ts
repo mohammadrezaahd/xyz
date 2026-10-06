@@ -1,0 +1,4 @@
+import { NextResponse } from "next/server";
+import { manuallyCloseTestPosition } from "@/lib/test-position/service";
+export const dynamic = "force-dynamic";
+export async function POST(_request: Request, { params }: { params: Promise<{ id: string }> }) { try { const { id } = await params; const outcome = await manuallyCloseTestPosition(id); if (!outcome.position) return NextResponse.json({ error: "Paper position not found" }, { status: 404 }); if (!outcome.closed) return NextResponse.json({ error: "Paper position is already closed" }, { status: 409 }); return NextResponse.json({ closed: true, position: { ...outcome.position, _id: outcome.position._id?.toHexString() ?? null, opportunityId: outcome.position.opportunityId?.toHexString() ?? null } }, { headers: { "Cache-Control": "no-store" } }); } catch (e) { return NextResponse.json({ error: e instanceof Error ? e.message : "Unable to close paper position" }, { status: 400 }); } }
