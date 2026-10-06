@@ -24,7 +24,7 @@ import {
   updateOpenMonitoring,
 } from "./repository";
 import type { OpportunityDocument } from "../opportunity/snapshot";
-import type { TestPositionDocument } from "./types";
+import { TEST_POSITION_INITIAL_CAPITAL, type TestPositionDocument } from "./types";
 
 function asObjectId(value: string): ObjectId {
   if (!ObjectId.isValid(value)) throw new Error("Invalid id");
