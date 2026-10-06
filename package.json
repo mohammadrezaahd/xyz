@@ -6,7 +6,7 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "test": "tsc -p tests/tsconfig.json && node --test tests/opportunity-engine.test.cjs tests/wallex-candles.test.cjs tests/phase3-outcome.test.cjs tests/phase3-persistence.test.cjs"
+    "test": "tsc -p tests/tsconfig.json && node --test tests/opportunity-engine.test.cjs tests/wallex-candles.test.cjs tests/phase3-outcome.test.cjs tests/phase3-persistence.test.cjs tests/phase4-position.test.cjs"
   },
   "dependencies": {
     "@types/node": "^22.15.0",
