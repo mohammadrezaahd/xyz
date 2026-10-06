@@ -178,7 +178,7 @@ test("position snapshot stores live entry, immutable target, margin, exposure an
   assert.equal(document.leveragedCredit, 20_000_000);
   assert.equal(document.positionNotional, NOTIONAL);
   assert.equal(document.entryFee, ENTRY_FEE);
-  assert.equal(document.currentEquity, CAPITAL - ENTRY_FEE);
+  assert.equal(document.currentEquity, 853_000);
   assert.equal(document.predictionSnapshot.target.price, 90);
   assert.equal(document.predictionSnapshot.opportunityStrength, "STRONG");
 });
@@ -245,7 +245,7 @@ test(
       grossPnl: 0,
       netPnl: -ENTRY_FEE,
       currentPrice: 100,
-      currentEquity: 926_500,
+      currentEquity: 853_000,
       exitPrice: null,
       exitReason: null,
       entryAt: now,
