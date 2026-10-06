@@ -12,6 +12,7 @@
   },
   "include": [
     "../lib/candles.ts",
+    "../lib/wallex-candles.ts",
     "../lib/opportunity/**/*.ts",
     "../lib/mongodb.ts",
     "../lib/opportunities/repository.ts"
