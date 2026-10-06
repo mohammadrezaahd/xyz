@@ -223,3 +223,7 @@ main.dashboardShell { width: min(1540px, calc(100% - 40px)); margin: 0 auto; pad
   .statCardValue { font-size:21px; }
   .marketPrice strong { font-size:16px; }
 }
+
+.positionSummaryStatus { display:inline-flex; align-items:center; gap:9px; color:var(--muted); font-size:10px; font-weight:600; }
+.positionSummaryStatus .phase3Status { margin:0; }
+.positionAccordion[open] summary { background:rgba(255,255,255,.018); }
