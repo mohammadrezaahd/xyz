@@ -905,6 +905,33 @@ main.dashboardShell {
   font-size: 9px;
 }
 
+.phase4Input {
+  display: grid;
+  gap: 4px;
+  min-width: 130px;
+}
+
+.phase4Input input {
+  width: 100%;
+  box-sizing: border-box;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: rgba(255,255,255,.02);
+  color: #d7dee8;
+  padding: 8px 9px;
+  font: inherit;
+  font-size: 10px;
+}
+
+.phase4Input input:focus {
+  outline: 1px solid rgba(124,140,255,.45);
+}
+
+.phase4StartButton:disabled {
+  cursor: not-allowed;
+  opacity: .45;
+}
+
 @media (max-width: 1180px) {
   .phase4Grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
 }
