@@ -97,6 +97,7 @@ test("net PnL includes both entry and estimated exit fees", () => {
 
 test("target reached is classified as PREDICT_SUCCESS", () => {
   assert.equal(classifyClosedResult(100, 90, 90, "TARGET_REACHED"), "PREDICT_SUCCESS");
+  assert.equal(classifyClosedResult(100, 90, 89, "MANUAL_CLOSE"), "PREDICT_SUCCESS");
 });
 
 test("manual close below entry but above target is RELATIVELY_SUCCESSFUL", () => {
@@ -282,3 +283,202 @@ test(
     }
   },
 );
+
+test(
+  "automatic target and liquidation monitoring close OPEN positions exactly once",
+  { skip: !mongoEnabled ? "Set MONGODB_URI and MONGODB_DB_NAME to run MongoDB integration tests." : false },
+  async () => {
+    const { ObjectId } = require("mongodb");
+    const { getMongoDb, closeMongoClient } = require("../.test-dist/lib/mongodb.js");
+    const {
+      insertTestPosition,
+      findTestPositionById,
+    } = require("../.test-dist/lib/test-position/repository.js");
+    const { monitorOpenTestPositions } = require("../.test-dist/lib/test-position/service.js");
+
+    const db = await getMongoDb();
+    const collection = db.collection("testPositions");
+    const now = new Date();
+    const base = {
+      status: "OPEN",
+      result: null,
+      direction: "SHORT",
+      entryPrice: 100,
+      targetPrice: 90,
+      liquidationPrice: 100,
+      exitPrice: null,
+      initialCapital: CAPITAL,
+      leverage: LEVERAGE,
+      leveragedCredit: 20_000_000,
+      positionNotional: NOTIONAL,
+      entryFeePct: 0.35,
+      exitFeePct: 0.35,
+      entryFee: 73_500,
+      exitFee: null,
+      totalFees: 73_500,
+      grossPnl: 0,
+      netPnl: -73_500,
+      opportunityStrength: "STRONG",
+      predictionSnapshot: {
+        opportunityStrength: "STRONG",
+        direction: "SHORT",
+        score: 88,
+        entry: { price: 100, source: "bitpin" },
+        target: { price: 90, source: "phase-2-safe-target" },
+        market: { bitpinPrice: 100, wallexPrice: 102, spreadPct: 2 },
+        validation: {},
+        metrics: {
+          bitpinBullishPct: 90,
+          wallexBullishPct: 90,
+          candleAlignmentPct: 90,
+          averageDirectionalMovePct: 0.1,
+          momentumScore: 2.5,
+        },
+        detection: {
+          detectedAt: now,
+          engineVersion: "phase4-monitor-test",
+        },
+      },
+      entryAt: now,
+      closedAt: null,
+      exitReason: null,
+      monitoring: {
+        currentBitpinPrice: 100,
+        lastCheckedAt: now,
+        lastError: null,
+      },
+      createdAt: now,
+      updatedAt: now,
+    };
+
+    try {
+      await collection.deleteMany({ "predictionSnapshot.detection.engineVersion": "phase4-monitor-test" });
+
+      const targetPosition = await insertTestPosition({
+        ...base,
+        opportunityId: new ObjectId(),
+      });
+      const liquidationPosition = await insertTestPosition({
+        ...base,
+        opportunityId: new ObjectId(),
+      });
+
+      const targetResult = await monitorOpenTestPositions(90, new Date(now.getTime() + 1000));
+      assert.equal(targetResult.closed, 1);
+
+      const liquidationResult = await monitorOpenTestPositions(100.01, new Date(now.getTime() + 2000));
+      assert.equal(liquidationResult.liquidated, 1);
+
+      const target = await findTestPositionById(targetPosition._id);
+      const liquidation = await findTestPositionById(liquidationPosition._id);
+
+      assert.equal(target?.status, "CLOSED");
+      assert.equal(target?.result, "PREDICT_SUCCESS");
+      assert.equal(target?.exitReason, "TARGET_REACHED");
+      assert.equal(liquidation?.status, "LIQUIDATED");
+      assert.equal(liquidation?.result, "LIQUIDATED");
+      assert.equal(liquidation?.exitReason, "LIQUIDATION");
+
+      const secondTargetRun = await monitorOpenTestPositions(90, new Date(now.getTime() + 3000));
+      assert.equal(secondTargetRun.closed, 0);
+      assert.equal(secondTargetRun.liquidated, 0);
+
+      await collection.deleteMany({ "predictionSnapshot.detection.engineVersion": "phase4-monitor-test" });
+    } finally {
+      await closeMongoClient();
+    }
+  },
+);
+
+test(
+  "missing Bitpin price leaves positions OPEN and records a monitoring error",
+  { skip: !mongoEnabled ? "Set MONGODB_URI and MONGODB_DB_NAME to run MongoDB integration tests." : false },
+  async () => {
+    const { ObjectId } = require("mongodb");
+    const { getMongoDb, closeMongoClient } = require("../.test-dist/lib/mongodb.js");
+    const {
+      insertTestPosition,
+      findTestPositionById,
+    } = require("../.test-dist/lib/test-position/repository.js");
+    const { recordMonitoringFailure } = require("../.test-dist/lib/test-position/service.js");
+
+    const db = await getMongoDb();
+    const collection = db.collection("testPositions");
+    const now = new Date();
+
+    try {
+      await collection.deleteMany({ "predictionSnapshot.detection.engineVersion": "phase4-missing-price-test" });
+
+      const position = await insertTestPosition({
+        ...baseMissingPriceDocument(CAPITAL, LEVERAGE, NOTIONAL, now),
+        opportunityId: new ObjectId(),
+      });
+
+      await recordMonitoringFailure(new Date(now.getTime() + 1000), "Bitpin unavailable");
+      const persisted = await findTestPositionById(position._id);
+
+      assert.equal(persisted?.status, "OPEN");
+      assert.equal(persisted?.monitoring.currentBitpinPrice, null);
+      assert.equal(persisted?.monitoring.lastError, "Bitpin unavailable");
+
+      await collection.deleteOne({ _id: position._id });
+    } finally {
+      await closeMongoClient();
+    }
+  },
+);
+
+function baseMissingPriceDocument(capital, leverage, notional, now) {
+  return {
+    status: "OPEN",
+    result: null,
+    direction: "SHORT",
+    entryPrice: 100,
+    targetPrice: 90,
+    liquidationPrice: 100,
+    exitPrice: null,
+    initialCapital: capital,
+    leverage,
+    leveragedCredit: 20_000_000,
+    positionNotional: notional,
+    entryFeePct: 0.35,
+    exitFeePct: 0.35,
+    entryFee: 73_500,
+    exitFee: null,
+    totalFees: 73_500,
+    grossPnl: 0,
+    netPnl: -73_500,
+    opportunityStrength: "STRONG",
+    predictionSnapshot: {
+      opportunityStrength: "STRONG",
+      direction: "SHORT",
+      score: 88,
+      entry: { price: 100, source: "bitpin" },
+      target: { price: 90, source: "phase-2-safe-target" },
+      market: { bitpinPrice: 100, wallexPrice: 102, spreadPct: 2 },
+      validation: {},
+      metrics: {
+        bitpinBullishPct: 90,
+        wallexBullishPct: 90,
+        candleAlignmentPct: 90,
+        averageDirectionalMovePct: 0.1,
+        momentumScore: 2.5,
+      },
+      detection: {
+        detectedAt: now,
+        engineVersion: "phase4-missing-price-test",
+      },
+    },
+    entryAt: now,
+    closedAt: null,
+    exitReason: null,
+    monitoring: {
+      currentBitpinPrice: 100,
+      lastCheckedAt: now,
+      lastError: null,
+    },
+    createdAt: now,
+    updatedAt: now,
+  };
+}
+
