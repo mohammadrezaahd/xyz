@@ -360,6 +360,7 @@ test(
       });
       const liquidationPosition = await insertTestPosition({
         ...base,
+        targetPrice: 80,
         opportunityId: new ObjectId(),
       });
 
