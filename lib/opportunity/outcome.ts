@@ -1,4 +1,4 @@
-export type PositionDirection = "SHORT";
+export type PositionDirection = "LONG" | "SHORT";
 export type SyntheticOutcomeStatus = "OPEN" | "SUCCESS" | "FAILED" | "INVALIDATED";
 
 export type SyntheticOutcomeEvaluation = {
@@ -49,7 +49,7 @@ export function evaluateSyntheticOutcome(
     };
   }
 
-  if (direction === "SHORT") {
+  if (direction === "LONG" || direction === "SHORT") {
     if (currentPrice >= targetPrice) {
       return {
         status: "SUCCESS",
