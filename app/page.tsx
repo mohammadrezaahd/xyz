@@ -16,10 +16,43 @@ type CandleResponse = {
   refreshMs: number;
 };
 
+function formatPrice(value: number | null): string {
+  return value === null
+    ? "—"
+    : value.toLocaleString("en-US", { maximumFractionDigits: 2 });
+}
+
+function formatTime(value: number | undefined): string {
+  return value ? new Date(value).toLocaleTimeString("en-US", {
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit",
+  }) : "—";
+}
+
+function StatCard({
+  label,
+  value,
+  helper,
+  tone = "neutral",
+}: {
+  label: string;
+  value: string;
+  helper: string;
+  tone?: "neutral" | "positive" | "negative" | "accent";
+}) {
+  return (
+    <article className={`statCard statCard--${tone}`}>
+      <div className="statCardLabel">{label}</div>
+      <div className="statCardValue">{value}</div>
+      <div className="statCardHelper">{helper}</div>
+    </article>
+  );
+}
+
 export default function Home() {
   const [data, setData] = useState<CandleResponse | null>(null);
-  const [prices, setPrices] =
-    useState<CurrentPricesResponse | null>(null);
+  const [prices, setPrices] = useState<CurrentPricesResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [externalPrice, setExternalPrice] = useState("");
@@ -29,16 +62,13 @@ export default function Home() {
 
     const load = async () => {
       try {
-        const [candleResponse, priceResponse] =
-          await Promise.all([
-            fetch("/api/candles", { cache: "no-store" }),
-            fetch("/api/prices", { cache: "no-store" }),
-          ]);
+        const [candleResponse, priceResponse] = await Promise.all([
+          fetch("/api/candles", { cache: "no-store" }),
+          fetch("/api/prices", { cache: "no-store" }),
+        ]);
 
-        const candleJson =
-          (await candleResponse.json()) as CandleResponse;
-        const priceJson =
-          (await priceResponse.json()) as CurrentPricesResponse;
+        const candleJson = (await candleResponse.json()) as CandleResponse;
+        const priceJson = (await priceResponse.json()) as CurrentPricesResponse;
 
         if (!candleResponse.ok) {
           throw new Error(
@@ -57,7 +87,6 @@ export default function Home() {
         if (!cancelled) {
           setData(candleJson);
           setPrices(priceJson);
-
           const errors = [
             ...(candleJson.errors ?? []),
             ...(priceJson.errors ?? []),
@@ -67,9 +96,7 @@ export default function Home() {
         }
       } catch (e) {
         if (!cancelled) {
-          setError(
-            e instanceof Error ? e.message : "Unknown error",
-          );
+          setError(e instanceof Error ? e.message : "Unknown error");
           setLoading(false);
         }
       }
@@ -79,9 +106,7 @@ export default function Home() {
 
     const timer = window.setInterval(
       load,
-      Number(
-        process.env.NEXT_PUBLIC_CANDLE_REFRESH_MS ?? 15000,
-      ),
+      Number(process.env.NEXT_PUBLIC_CANDLE_REFRESH_MS ?? 15000),
     );
 
     return () => {
@@ -107,64 +132,131 @@ export default function Home() {
     [data, prices, externalPrice],
   );
 
+  const spread = analysis.spread.percent;
+  const hasMarketData = prices?.bitpin !== null && prices?.wallex !== null;
+
   return (
-    <main>
-      <header>
-        <div>
-          <h1>Tether / Toman</h1>
-          <div className="subtitle">
-            Bitpin vs Wallex · 1 minute candles
+    <main className="dashboardShell">
+      <header className="topbar">
+        <div className="brandBlock">
+          <div className="brandMark">X</div>
+          <div>
+            <div className="eyebrow">MARKET INTELLIGENCE</div>
+            <h1>XYZ Exchange Monitor</h1>
+            <p>Real-time Tether / Toman analysis across Bitpin and Wallex</p>
           </div>
         </div>
-        <div className="badge">
-          {loading
-            ? "Loading…"
-            : `Updated ${prices ? new Date(prices.fetchedAt).toLocaleTimeString() : "—"}`}
+
+        <div className="topbarMeta">
+          <div className={`livePill ${loading ? "isLoading" : ""}`}>
+            <span className="liveDot" />
+            {loading ? "Syncing market data" : "Live monitoring"}
+          </div>
+          <div className="updatedMeta">
+            <span>Last update</span>
+            <strong>{formatTime(prices?.fetchedAt)}</strong>
+          </div>
         </div>
       </header>
 
-      <section className="grid">
-        <article className="card">
-          <div className="cardHead">
-            <div>
-              <div className="exchange">Bitpin</div>
-              <div className="symbol">Current Market Price</div>
-            </div>
-            <div className="status">
-              {prices?.bitpin
-                ? prices.bitpin.toLocaleString("en-US")
-                : "—"}
-            </div>
-          </div>
-          <div className="chartPriceNote">
-            Current ticker price is independent from the 1m candle close.
-          </div>
-          <CandleChart candles={data?.bitpin ?? []} />
-        </article>
-
-        <article className="card">
-          <div className="cardHead">
-            <div>
-              <div className="exchange">Wallex</div>
-              <div className="symbol">Current Market Price</div>
-            </div>
-            <div className="status">
-              {prices?.wallex
-                ? prices.wallex.toLocaleString("en-US")
-                : "—"}
-            </div>
-          </div>
-          <div className="chartPriceNote">
-            Current ticker price is independent from the 1m candle close.
-          </div>
-          <CandleChart candles={data?.wallex ?? []} />
-        </article>
+      <section className="heroStrip">
+        <div>
+          <div className="heroKicker">1m MARKET SNAPSHOT</div>
+          <h2>Spot spread and stability at a glance.</h2>
+          <p>
+            Historical candle analysis powers the opportunity model. This interface
+            keeps decision-critical metrics visible without hiding the underlying detail.
+          </p>
+        </div>
+        <div className="heroAside">
+          <div className="heroAsideValue">{analysis.stabilityScore.toFixed(1)}</div>
+          <div className="heroAsideLabel">Stability score / 100</div>
+        </div>
       </section>
 
-      <div className="candleDataBadge">
-        Historical 1m Candle Data · Bitpin: {data?.bitpin.length ?? 0} ·
-        Wallex: {data?.wallex.length ?? 0}
-      </div>
+      <section className="statGrid" aria-label="Market summary">
+        <StatCard
+          label="Bitpin"
+          value={formatPrice(prices?.bitpin ?? null)}
+          helper="Current ticker price"
+          tone="accent"
+        />
+        <StatCard
+          label="Wallex"
+          value={formatPrice(prices?.wallex ?? null)}
+          helper="Current ticker price"
+          tone="positive"
+        />
+        <StatCard
+          label="Spread"
+          value={spread === null ? "—" : `${spread.toFixed(2)}%`}
+          helper={spread === null ? "Waiting for price data" : "Current exchange spread"}
+          tone={spread !== null && spread > 0 ? "positive" : "neutral"}
+        />
+        <StatCard
+          label="Opportunity"
+          value={analysis.opportunity}
+          helper={`Risk level: ${analysis.riskLevel}`}
+          tone={analysis.opportunity === "HIGH" ? "positive" : "neutral"}
+        />
+      </section>
+
+      <section className="sectionBlock">
+        <div className="sectionHeading">
+          <div>
+            <div className="sectionKicker">EXCHANGE COMPARISON</div>
+            <h2>Live candle streams</h2>
+          </div>
+          <div className="sectionMeta">
+            <span className="statusDot" />
+            {hasMarketData ? "Market data available" : "Waiting for market data"}
+          </div>
+        </div>
+
+        <div className="chartGrid">
+          <article className="marketCard">
+            <div className="marketCardHead">
+              <div className="exchangeIdentity">
+                <div className="exchangeBadge exchangeBadge--bitpin">B</div>
+                <div>
+                  <h3>Bitpin</h3>
+                  <span>1 minute candles</span>
+                </div>
+              </div>
+              <div className="marketPrice">
+                <span>Ticker</span>
+                <strong>{formatPrice(prices?.bitpin ?? null)}</strong>
+              </div>
+            </div>
+            <div className="chartContext">
+              <span>Historical candle close is independent from ticker price.</span>
+              <strong>{data?.bitpin.length ?? 0} candles</strong>
+            </div>
+            <CandleChart candles={data?.bitpin ?? []} />
+          </article>
+
+          <article className="marketCard">
+            <div className="marketCardHead">
+              <div className="exchangeIdentity">
+                <div className="exchangeBadge exchangeBadge--wallex">W</div>
+                <div>
+                  <h3>Wallex</h3>
+                  <span>1 minute candles</span>
+                </div>
+              </div>
+              <div className="marketPrice">
+                <span>Ticker</span>
+                <strong>{formatPrice(prices?.wallex ?? null)}</strong>
+              </div>
+            </div>
+            <div className="chartContext">
+              <span>Historical candle close is independent from ticker price.</span>
+              <strong>{data?.wallex.length ?? 0} candles</strong>
+            </div>
+            <CandleChart candles={data?.wallex ?? []} />
+          </article>
+        </div>
+      </section>
 
       <OpportunityPanel
         analysis={analysis}
@@ -174,11 +266,20 @@ export default function Home() {
 
       <Phase3Panel />
 
-      {error && <div className="error">{error}</div>}
-      <div className="footer">
-        Phase 2 provides historical opportunity/stability analysis; it
-        does not execute trades or guarantee outcomes.
-      </div>
+      {error && (
+        <section className="errorBanner" role="alert">
+          <div className="errorBannerIcon">!</div>
+          <div>
+            <strong>Data provider warning</strong>
+            <p>{error}</p>
+          </div>
+        </section>
+      )}
+
+      <footer className="dashboardFooter">
+        <span>XYZ Market Intelligence</span>
+        <span>Analysis only · no automated trading execution</span>
+      </footer>
     </main>
   );
 }
