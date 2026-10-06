@@ -14,6 +14,7 @@ import {
   listOpenTestPositions,
   updateOpenMonitoring,
 } from "./repository";
+import type { OpportunityDocument } from "@/lib/opportunity/snapshot";
 import type { TestPositionDocument } from "./types";
 
 function asObjectId(value: string): ObjectId {
@@ -21,14 +22,11 @@ function asObjectId(value: string): ObjectId {
   return new ObjectId(value);
 }
 
-function serializeValidation(
-  opportunity: NonNullable<Awaited<ReturnType<typeof findOpportunityById>>>,
+function buildPredictionSnapshot(
+  opportunity: OpportunityDocument,
 ): TestPositionDocument["predictionSnapshot"] {
   return {
-    opportunityStrength:
-      opportunity.analysis.tests.targetViability.status === "SUCCESS"
-        ? "VALIDATED"
-        : "UNSPECIFIED",
+    opportunityStrength: opportunity.opportunityStrength,
     direction: opportunity.direction,
     score: opportunity.analysis.score,
     entry: opportunity.entry,
@@ -40,25 +38,14 @@ function serializeValidation(
   };
 }
 
-function getOpportunityStrength(
-  opportunity: NonNullable<Awaited<ReturnType<typeof findOpportunityById>>>,
-): string {
-  const score = opportunity.analysis.score;
-  if (score >= 80) return "STRONG";
-  if (score >= 60) return "MODERATE";
-  if (score >= 40) return "WEAK";
-  return "NONE";
-}
-
-export async function startTestPosition(
-  opportunityIdValue: string,
+export function buildTestPositionDocument(
+  opportunity: OpportunityDocument,
+  entryPrice: number,
   initialCapital?: number,
   leverage?: number,
-): Promise<TestPositionDocument> {
-  const opportunityId = asObjectId(opportunityIdValue);
-  const opportunity = await findOpportunityById(opportunityId);
-
-  if (!opportunity) throw new Error("Opportunity not found");
+  now = new Date(),
+): TestPositionDocument {
+  if (!opportunity._id) throw new Error("Opportunity id is required");
   if (opportunity.direction !== "SHORT") {
     throw new Error("Phase 4 currently supports SHORT opportunities only");
   }
@@ -66,12 +53,10 @@ export async function startTestPosition(
     throw new Error("Opportunity target is invalid");
   }
 
-  const entryPrice = await fetchBitpinPrice();
   const terms = createPositionTerms(entryPrice, initialCapital, leverage);
-  const now = new Date();
 
-  const document: TestPositionDocument = {
-    opportunityId,
+  return {
+    opportunityId: opportunity._id,
     status: "OPEN",
     result: null,
     direction: "SHORT",
@@ -90,8 +75,8 @@ export async function startTestPosition(
     totalFees: terms.entryFee,
     grossPnl: 0,
     netPnl: -terms.entryFee,
-    opportunityStrength: getOpportunityStrength(opportunity),
-    predictionSnapshot: serializeValidation(opportunity),
+    opportunityStrength: opportunity.opportunityStrength,
+    predictionSnapshot: buildPredictionSnapshot(opportunity),
     entryAt: now,
     closedAt: null,
     exitReason: null,
@@ -103,6 +88,25 @@ export async function startTestPosition(
     createdAt: now,
     updatedAt: now,
   };
+}
+
+export async function startTestPosition(
+  opportunityIdValue: string,
+  initialCapital?: number,
+  leverage?: number,
+): Promise<TestPositionDocument> {
+  const opportunityId = asObjectId(opportunityIdValue);
+  const opportunity = await findOpportunityById(opportunityId);
+
+  if (!opportunity) throw new Error("Opportunity not found");
+
+  const entryPrice = await fetchBitpinPrice();
+  const document = buildTestPositionDocument(
+    opportunity,
+    entryPrice,
+    initialCapital,
+    leverage,
+  );
 
   return insertTestPosition(document);
 }
@@ -147,7 +151,7 @@ export async function manuallyCloseTestPosition(
 
   return {
     closed,
-    position: closed ? await findTestPositionById(id) : await findTestPositionById(id),
+    position: await findTestPositionById(id),
   };
 }
 
@@ -155,11 +159,17 @@ export async function monitorOpenTestPositions(
   currentPrice: number,
   checkedAt = new Date(),
 ): Promise<{ checked: number; closed: number; liquidated: number }> {
+  if (!Number.isFinite(currentPrice) || currentPrice <= 0) {
+    throw new Error("Invalid Bitpin current price");
+  }
+
   const positions = await listOpenTestPositions();
   let closed = 0;
   let liquidated = 0;
 
   for (const position of positions) {
+    if (!position._id) continue;
+
     const pnl = calculateNetPnl(
       position.entryPrice,
       currentPrice,
@@ -178,7 +188,7 @@ export async function monitorOpenTestPositions(
       )
     ) {
       const didClose = await closeOpenTestPosition(
-        position._id as ObjectId,
+        position._id,
         currentPrice,
         "LIQUIDATED",
         "LIQUIDATION",
@@ -194,7 +204,7 @@ export async function monitorOpenTestPositions(
 
     if (currentPrice <= position.targetPrice) {
       const didClose = await closeOpenTestPosition(
-        position._id as ObjectId,
+        position._id,
         currentPrice,
         "PREDICT_SUCCESS",
         "TARGET_REACHED",
@@ -208,14 +218,10 @@ export async function monitorOpenTestPositions(
       continue;
     }
 
-    await updateOpenMonitoring(position._id as ObjectId, currentPrice, checkedAt, null);
+    await updateOpenMonitoring(position._id, currentPrice, checkedAt, null);
   }
 
-  return {
-    checked: positions.length,
-    closed,
-    liquidated,
-  };
+  return { checked: positions.length, closed, liquidated };
 }
 
 export async function recordMonitoringFailure(
@@ -223,15 +229,21 @@ export async function recordMonitoringFailure(
   errorMessage = "Bitpin ticker unavailable",
 ): Promise<number> {
   const positions = await listOpenTestPositions();
+
   await Promise.all(
-    positions.map((position) =>
-      updateOpenMonitoring(
-        position._id as ObjectId,
-        null,
-        checkedAt,
-        errorMessage,
-      ),
+    positions.flatMap((position) =>
+      position._id
+        ? [
+            updateOpenMonitoring(
+              position._id,
+              null,
+              checkedAt,
+              errorMessage,
+            ),
+          ]
+        : [],
     ),
   );
+
   return positions.length;
 }
