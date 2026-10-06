@@ -181,6 +181,7 @@ export async function GET(request: Request) {
       {
         ok: false,
         error: error instanceof Error ? error.message : "Cron evaluation failed",
+        stack: error instanceof Error ? error.stack : undefined,
       },
       { status: 500 },
     );
