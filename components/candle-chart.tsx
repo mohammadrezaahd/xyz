@@ -23,20 +23,20 @@ export function CandleChart({ candles }: { candles: Candle[] }) {
     const chart = createChart(ref.current, {
       autoSize: true,
       layout: {
-        background: { type: ColorType.Solid, color: "#0d1118" },
-        textColor: "#738095",
+        background: { type: ColorType.Solid, color: "#0c1118" },
+        textColor: "#718096",
         fontFamily: "Inter, ui-sans-serif, system-ui, sans-serif",
         attributionLogo: true,
       },
       grid: {
-        vertLines: { color: "rgba(255,255,255,.035)" },
-        horzLines: { color: "rgba(255,255,255,.035)" },
+        vertLines: { color: "rgba(148,163,184,.08)" },
+        horzLines: { color: "rgba(148,163,184,.08)" },
       },
       rightPriceScale: {
-        borderColor: "rgba(255,255,255,.08)",
+        borderColor: "rgba(148,163,184,.16)",
       },
       timeScale: {
-        borderColor: "rgba(255,255,255,.08)",
+        borderColor: "rgba(148,163,184,.16)",
         timeVisible: true,
         secondsVisible: false,
       },
@@ -99,5 +99,15 @@ export function CandleChart({ candles }: { candles: Candle[] }) {
     chartRef.current?.timeScale().fitContent();
   }, [candles]);
 
-  return <div ref={ref} className="chart" aria-label="Candlestick market chart" />;
+  return (
+    <div className="chartFrame">
+      <div ref={ref} className="chart" aria-label="Candlestick market chart" role="img" />
+      {!candles.length && (
+        <div className="chartEmpty" role="status">
+          <strong>No synchronized candles available</strong>
+          <span>The analysis requires 10 closed candle pairs.</span>
+        </div>
+      )}
+    </div>
+  );
 }
