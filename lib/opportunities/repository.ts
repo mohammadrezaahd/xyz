@@ -5,6 +5,7 @@ import {
 } from "mongodb";
 import { getMongoDb } from "../mongodb";
 import type { OpportunityDocument } from "../opportunity/snapshot";
+import type { LeveragedPnl } from "../opportunity/position";
 
 const COLLECTION_NAME = "opportunities";
 let indexesPromise: Promise<void> | undefined;
@@ -80,6 +81,7 @@ export async function resolveOpportunity(
   priceChangePct: number,
   resolvedAt: Date,
   status: "SUCCESS" | "FAILED",
+  pnl: Pick<LeveragedPnl, "grossPnlToman" | "totalFeesToman" | "netPnlToman" | "netPnlPct">,
 ): Promise<boolean> {
   const collection = await getCollection();
   const result = await collection.updateOne(
@@ -92,6 +94,10 @@ export async function resolveOpportunity(
         "outcome.resolvedAt": resolvedAt,
         "outcome.exitPrice": exitPrice,
         "outcome.priceChangePct": priceChangePct,
+        "outcome.grossPnlToman": pnl.grossPnlToman,
+        "outcome.totalFeesToman": pnl.totalFeesToman,
+        "outcome.netPnlToman": pnl.netPnlToman,
+        "outcome.netPnlPct": pnl.netPnlPct,
       },
     },
   );
@@ -117,6 +123,35 @@ export async function invalidateOpportunity(
   return result.modifiedCount === 1;
 }
 
+export async function closeOpportunity(
+  id: ObjectId,
+  exitPrice: number,
+  pnl: LeveragedPnl,
+  closedAt: Date,
+): Promise<boolean> {
+  const collection = await getCollection();
+  const result = await collection.updateOne(
+    { _id: id, status: "OPEN" },
+    {
+      $set: {
+        status: "CLOSED",
+        updatedAt: closedAt,
+        "monitoring.currentBitpinPrice": exitPrice,
+        "monitoring.updatedAt": closedAt,
+        "outcome.status": "CLOSED",
+        "outcome.resolvedAt": closedAt,
+        "outcome.exitPrice": exitPrice,
+        "outcome.priceChangePct": null,
+        "outcome.grossPnlToman": pnl.grossPnlToman,
+        "outcome.totalFeesToman": pnl.totalFeesToman,
+        "outcome.netPnlToman": pnl.netPnlToman,
+        "outcome.netPnlPct": pnl.netPnlPct,
+      },
+    },
+  );
+  return result.modifiedCount === 1;
+}
+
 export async function listRecentOpportunities(
   limit = 20,
 ): Promise<OpportunityDocument[]> {
@@ -130,12 +165,13 @@ export async function listRecentOpportunities(
 
 export async function getOpportunityStats() {
   const collection = await getCollection();
-  const [total, open, successful, failed, invalidated] = await Promise.all([
+  const [total, open, successful, failed, invalidated, closed] = await Promise.all([
     collection.countDocuments({}),
     collection.countDocuments({ status: "OPEN" }),
     collection.countDocuments({ status: "SUCCESS" }),
     collection.countDocuments({ status: "FAILED" }),
     collection.countDocuments({ status: "INVALIDATED" }),
+    collection.countDocuments({ status: "CLOSED" }),
   ]);
 
   const resolved = successful + failed;
@@ -146,6 +182,7 @@ export async function getOpportunityStats() {
     successful,
     failed,
     invalidated,
+    closed,
     resolved,
     successRate: resolved > 0 ? successful / resolved : null,
   };
