@@ -10,7 +10,7 @@ export type OpportunityDocument = {
   _id?: ObjectId;
   createdAt: Date;
   updatedAt: Date;
-  status: "OPEN" | "SUCCESS" | "FAILED" | "INVALIDATED";
+  status: "OPEN" | "SUCCESS" | "FAILED" | "INVALIDATED" | "CLOSED";
   direction: PositionDirection;
   entry: {
     price: number;
