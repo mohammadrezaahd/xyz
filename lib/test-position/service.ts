@@ -104,7 +104,15 @@ export function buildTestPositionDocument(
     netPnl: -terms.entryFee,
 
     currentPrice: entryPrice,
-    currentEquity: terms.initialCapital - terms.entryFee,
+    currentEquity:
+      terms.initialCapital -
+      terms.entryFee -
+      calculateExitFee(
+        entryPrice,
+        entryPrice,
+        terms.positionNotional,
+        terms.exitFeePct,
+      ),
     exitPrice: null,
     exitReason: null,
 
