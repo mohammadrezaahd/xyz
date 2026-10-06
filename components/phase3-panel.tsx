@@ -93,12 +93,17 @@ export function Phase3Panel() {
   const [stats, setStats] = useState<Stats | null>(null);
   const [error, setError] = useState("");
   const [closing, setClosing] = useState(false);
+  const [deletingHistory, setDeletingHistory] = useState(false);
   const [selectedHistory, setSelectedHistory] = useState<string[]>([]);
   const [historyStatus, setHistoryStatus] = useState("ALL");
 
-  async function load() {
+  async function load(status = historyStatus) {
     try {
-      const response = await fetch("/api/opportunities", {
+      const query =
+        status === "ALL"
+          ? ""
+          : `?status=${encodeURIComponent(status)}`;
+      const response = await fetch(`/api/opportunities${query}`, {
         cache: "no-store",
       });
       const data = (await response.json()) as {
@@ -115,6 +120,9 @@ export function Phase3Panel() {
       setOpen(data.open ?? null);
       setRecent(data.recent ?? []);
       setStats(data.stats ?? null);
+      setSelectedHistory((current) =>
+        current.filter((id) => (data.recent ?? []).some((item) => getId(item) === id)),
+      );
       setError("");
     } catch (value) {
       setError(
@@ -172,6 +180,50 @@ export function Phase3Panel() {
     }
   }
 
+  async function deleteHistory(ids: string[]) {
+    if (ids.length === 0) return;
+
+    const confirmed = window.confirm(
+      ids.length === 1
+        ? "Delete this history record permanently?"
+        : `Delete ${ids.length} selected history records permanently?`,
+    );
+    if (!confirmed) return;
+
+    setDeletingHistory(true);
+    setError("");
+
+    try {
+      const response =
+        ids.length === 1
+          ? await fetch(`/api/opportunities/${ids[0]}`, { method: "DELETE" })
+          : await fetch("/api/opportunities", {
+              method: "DELETE",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ ids }),
+            });
+
+      const data = (await response.json()) as {
+        error?: string;
+        deletedCount?: number;
+        skippedOpenIds?: string[];
+      };
+
+      if (!response.ok) {
+        throw new Error(data.error ?? `HTTP ${response.status}`);
+      }
+
+      setSelectedHistory([]);
+      await load();
+    } catch (value) {
+      setError(
+        value instanceof Error ? value.message : "Unable to delete history",
+      );
+    } finally {
+      setDeletingHistory(false);
+    }
+  }
+
   const simulation = open?.simulation;
   const filteredHistory =
     historyStatus === "ALL"
@@ -199,13 +251,23 @@ export function Phase3Panel() {
             <p>Review persisted position outcomes separately from the active simulation.</p>
           </div>
           <div className="historyActions">
-            <button type="button" className="historyActionButton" disabled>
-              Delete selected
+            <button
+              type="button"
+              className="historyActionButton"
+              disabled={selectedHistory.length === 0 || deletingHistory}
+              onClick={() => deleteHistory(selectedHistory)}
+            >
+              {deletingHistory ? "Deleting…" : `Delete selected${selectedHistory.length ? ` (${selectedHistory.length})` : ""}`}
             </button>
             <select
               className="historyFilter"
               value={historyStatus}
-              onChange={(event) => setHistoryStatus(event.target.value)}
+              onChange={(event) => {
+                const nextStatus = event.target.value;
+                setHistoryStatus(nextStatus);
+                setSelectedHistory([]);
+                void load(nextStatus);
+              }}
               aria-label="Filter history by status"
             >
               <option value="ALL">All status</option>
@@ -291,7 +353,8 @@ export function Phase3Panel() {
                       <button
                         type="button"
                         className="historyDeleteButton"
-                        disabled
+                        disabled={deletingHistory}
+                        onClick={() => deleteHistory([getId(item)])}
                         aria-label={`Delete history row ${index + 1}`}
                       >
                         Delete
