@@ -6,10 +6,12 @@ const page = fs.readFileSync("app/page.tsx", "utf8");
 const phase3 = fs.readFileSync("components/phase3-panel.tsx", "utf8");
 const phase4 = fs.readFileSync("components/test-position-panel.tsx", "utf8");
 
-test("navigation uses distinct Phase 4 and Phase 3 labels", () => {
-  assert.match(page, /Phase 4 Paper Position/);
-  assert.match(page, /Phase 3 History/);
-  assert.match(page, /Phase 3 Opportunity History/);
+test("navigation uses simplified user-facing labels", () => {
+  assert.match(page, /\["position", "Paper Position", "Paper Position", "03"\]/);
+  assert.match(page, /\["history", "History", "History", "04"\]/);
+  assert.doesNotMatch(page, /Phase 4 Paper Position/);
+  assert.doesNotMatch(page, /Phase 3 History/);
+  assert.doesNotMatch(page, /Phase 3 Opportunity History/);
 });
 
 test("Phase 4 position view renders only the Phase 4 panel", () => {
