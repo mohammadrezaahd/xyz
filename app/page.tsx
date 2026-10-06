@@ -23,6 +23,18 @@ function StatusBadge({ kind, children }: { kind: "live" | "partial" | "stale" | 
 function Metric({ label, value, state, helper }: { label: string; value: string; state: string; helper: string }) {
   return <article className="metricTile"><div className="metricLabel">{label}</div><strong className="metricValue">{value}</strong><div className="metricState">{state}</div><div className="metricHelper">{helper}</div></article>;
 }
+const viewCopy: Record<View, { breadcrumb: string; title: string; footer: string }> = {
+  overview: { breadcrumb: "OVERVIEW", title: "Market overview", footer: "Phase 4 Paper Research · No automated trading execution" },
+  opportunity: { breadcrumb: "OPPORTUNITY", title: "Opportunity diagnostics", footer: "Phase 3 Opportunity Cron Results · Analysis and simulation only" },
+  position: { breadcrumb: "PHASE 4 PAPER POSITION", title: "Phase 4 Paper Position", footer: "Phase 4 Paper Research · No automated trading execution" },
+  history: { breadcrumb: "PHASE 3 HISTORY", title: "Phase 3 Opportunity History", footer: "Phase 3 Opportunity Cron Results · Analysis and simulation only" },
+};
+const navigation: Array<[View, string, string, string]> = [
+  ["overview", "Overview", "Overview", "01"],
+  ["opportunity", "Opportunity", "Opportunity", "02"],
+  ["position", "Phase 4 Paper Position", "Paper Position", "03"],
+  ["history", "Phase 3 History", "History", "04"],
+];
 
 export default function Home() {
   const [data, setData] = useState<CandleResponse | null>(null);
@@ -57,19 +69,20 @@ export default function Home() {
   const statusKind = loading ? "neutral" : error ? "error" : hasPrices && hasCandles ? "live" : hasPrices ? "partial" : "stale";
   const statusText = loading ? "Syncing market data" : error ? "Provider warning" : hasPrices && hasCandles ? "Live data" : hasPrices ? "Partial data" : "Waiting for market data";
 
+  const copy = viewCopy[view];
   const nav = (next: View) => setView(next);
   return <div className="consoleApp">
     <aside className="sidebar">
       <div className="brandLockup"><div className="brandMark" aria-hidden="true">X</div><div><strong>XYZ</strong><span>RESEARCH CONSOLE</span></div></div>
       <div className="marketIdentity"><span className="marketIdentityLabel">MARKET</span><strong>USDT / TOMAN</strong><span>Bitpin ↔ Wallex</span></div>
       <nav className="primaryNav" aria-label="Research areas">
-        {([ ["overview", "Overview", "01"], ["opportunity", "Opportunity", "02"], ["position", "Paper Position", "03"], ["history", "History", "04"] ] as const).map(([id, label, number]) => <button key={id} type="button" className={`navItem ${view === id ? "isActive" : ""}`} aria-current={view === id ? "page" : undefined} onClick={() => nav(id)}><span>{number}</span><strong>{label}</strong></button>)}
+        {navigation.map(([id, desktopLabel, mobileLabel, number]) => <button key={id} type="button" className={`navItem ${view === id ? "isActive" : ""}`} aria-label={id === "history" ? "Phase 3 Opportunity History" : desktopLabel} aria-current={view === id ? "page" : undefined} onClick={() => nav(id)}><span>{number}</span><strong><span className="navLabelDesktop">{desktopLabel}</span><span className="navLabelMobile">{mobileLabel}</span></strong></button>)}
       </nav>
-      <div className="sidebarFoot"><StatusBadge kind={statusKind}>{statusText}</StatusBadge><p>Phase 4 · Paper Research</p><p>Analysis only. No real trades.</p></div>
+      <div className="sidebarFoot"><StatusBadge kind={statusKind}>{statusText}</StatusBadge><p>{view === "history" || view === "opportunity" ? "Phase 3 Opportunity Cron" : "Phase 4 · Paper Research"}</p><p>Analysis only. No real trades.</p></div>
     </aside>
 
     <main className="mainContent">
-      <header className="consoleHeader"><div><div className="breadcrumb">XYZ / {view.toUpperCase()}</div><h1>{view === "overview" ? "Market overview" : view === "opportunity" ? "Opportunity diagnostics" : view === "position" ? "Paper position" : "Position history"}</h1><p>Quantitative comparison for Bitpin and Wallex Tether markets.</p></div><div className="headerActions"><StatusBadge kind={statusKind}>{statusText}</StatusBadge><div className="updateMeta"><span>Last successful update</span><strong>{time(prices?.fetchedAt)}</strong></div><button className="refreshButton" type="button" onClick={() => setRefreshTick((tick) => tick + 1)} disabled={loading}>{loading ? "Updating…" : "Refresh"}</button></div></header>
+      <header className="consoleHeader"><div><div className="breadcrumb">XYZ / {copy.breadcrumb}</div><h1>{copy.title}</h1><p>Quantitative comparison for Bitpin and Wallex Tether markets.</p></div><div className="headerActions"><StatusBadge kind={statusKind}>{statusText}</StatusBadge><div className="updateMeta"><span>Last successful update</span><strong>{time(prices?.fetchedAt)}</strong></div><button className="refreshButton" type="button" onClick={() => setRefreshTick((tick) => tick + 1)} disabled={loading}>{loading ? "Updating…" : "Refresh"}</button></div></header>
       <div className="dataStatusBar" role="status"><div><span className="statusMarker" aria-hidden="true" /><strong>{loading ? "Loading synchronized market history…" : hasPrices && hasCandles ? `Live data · Bitpin and Wallex updated ${time(prices?.fetchedAt)}` : hasPrices ? "Partial data · candle history is incomplete · analysis may be limited" : "Insufficient data · waiting for provider responses"}</strong></div><span>{analysis.candles.synchronized} / {analysis.candles.lookback} synchronized candle pairs</span></div>
 
       {view === "overview" && <>
@@ -80,10 +93,10 @@ export default function Home() {
       </>}
 
       {view === "opportunity" && <section className="workspacePage"><div className="pageIntro"><div className="sectionEyebrow">RESEARCH WORKSPACE</div><h2>Opportunity and stability</h2><p>Inspect every validation test, threshold, price input, and target calculation without losing the underlying API behavior.</p></div><OpportunityPanel analysis={analysis} externalPrice={externalPrice} onExternalPriceChange={setExternalPrice} /></section>}
-      {view === "position" && <section className="workspacePage"><div className="pageIntro"><div className="sectionEyebrow">PHASE 4 WORKSPACE</div><h2>Paper position monitoring</h2><p>Simulation-only position state. No real funds are used and no trading orders are sent.</p></div><TestPositionPanel currentPrice={prices?.bitpin ?? null} /></section>}
-      {view === "history" && <section className="workspacePage"><div className="pageIntro"><div className="sectionEyebrow">PERFORMANCE REVIEW</div><h2>Position history</h2><p>Review resolved research positions, filter outcomes, and remove records using the existing API behavior.</p></div><TestPositionPanel currentPrice={prices?.bitpin ?? null} /></section>}
+      {view === "position" && <section className="workspacePage"><div className="pageIntro"><div className="sectionEyebrow">PHASE 4 WORKSPACE</div><h2>Phase 4 Paper Position</h2><p>Run and monitor a research-only paper position using the Phase 4 lifecycle. No real funds or exchange orders are used.</p></div><TestPositionPanel currentPrice={prices?.bitpin ?? null} /></section>}
+      {view === "history" && <section className="workspacePage"><div className="pageIntro"><div className="sectionEyebrow">PHASE 3 RESULTS</div><h2>Phase 3 Opportunity History</h2><p>Review opportunities created by the Phase 3 market-analysis cron and their simulated outcomes.</p></div><Phase3Panel /></section>}
       {error && <div className="errorBanner" role="alert"><strong>Provider warning</strong><span>{error}</span></div>}
-      <footer className="consoleFooter"><span>XYZ Research Console</span><span>Phase 4 · Paper Research · No automated trading execution</span></footer>
+      <footer className="consoleFooter"><span>XYZ Research Console</span><span>{copy.footer}</span></footer>
     </main>
   </div>;
 }
