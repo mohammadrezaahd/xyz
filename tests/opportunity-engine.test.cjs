@@ -282,6 +282,22 @@ test("selected candle diagnostics preserve the exact bullish classification", ()
   );
 });
 
+test("red candle below the minimum movement remains NEUTRAL in diagnostics", () => {
+  const bitpin = candles(Array(10).fill("up"));
+  bitpin[0] = candle(60, 270000, 269950);
+
+  const analysis = analyzeOpportunity({
+    bitpinCandles: bitpin,
+    wallexCandles: candles(Array(10).fill("up")),
+    currentPrices: { bitpin: 271000, wallex: 280000 },
+    externalPrice: 280000,
+    nowMs,
+  });
+
+  assert.equal(analysis.candles.selected[0].bitpin.direction, "NEUTRAL");
+  assert.ok(analysis.candles.selected[0].bitpin.movementPct < 0.05);
+});
+
 test("green candle below the minimum movement remains NEUTRAL in diagnostics", () => {
   const bitpin = candles(Array(10).fill("up"));
   bitpin[0] = candle(60, 270000, 270050);
