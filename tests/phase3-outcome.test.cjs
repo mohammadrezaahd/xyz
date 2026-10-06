@@ -6,6 +6,12 @@ const {
 } = require("../.test-dist/lib/opportunity/outcome.js");
 const { buildOpportunityDocument } = require("../.test-dist/lib/opportunity/snapshot.js");
 const { isCronAuthorized } = require("../.test-dist/lib/opportunity/cron-auth.js");
+const {
+  createPositionSimulation,
+  calculateBreakEvenPrice,
+  calculateLiquidationPrice,
+  calculateLeveragedPnl,
+} = require("../.test-dist/lib/opportunity/position.js");
 
 const ENTRY = 269000;
 const TARGET = 272000;
@@ -15,8 +21,21 @@ test("current Bitpin at or above target resolves SUCCESS", () => {
   assert.equal(evaluateSyntheticOutcome(ENTRY, TARGET, TARGET, "SHORT").status, "SUCCESS");
 });
 
-test("current Bitpin below entry resolves FAILED", () => {
-  assert.equal(evaluateSyntheticOutcome(ENTRY, TARGET, 268999, "SHORT").status, "FAILED");
+test("small move below entry remains OPEN", () => {
+  assert.equal(evaluateSyntheticOutcome(ENTRY, TARGET, 268999, "LONG").status, "OPEN");
+});
+
+test("liquidation threshold resolves FAILED", () => {
+  const simulation = createPositionSimulation(ENTRY, TARGET);
+  const evaluation = evaluateSyntheticOutcome(
+    ENTRY,
+    TARGET,
+    simulation.liquidationPrice - 1,
+    "LONG",
+    simulation,
+  );
+  assert.equal(evaluation.status, "FAILED");
+  assert.equal(evaluation.exitPrice, simulation.liquidationPrice);
 });
 
 test("current Bitpin between entry and target remains OPEN", () => {
@@ -27,16 +46,29 @@ test("exact entry price does not count as FAILED", () => {
   assert.equal(evaluateSyntheticOutcome(ENTRY, TARGET, ENTRY, "SHORT").status, "OPEN");
 });
 
-test("successful position stores exit price and price change", () => {
-  const outcome = evaluateSyntheticOutcome(ENTRY, TARGET, 272500, "SHORT");
-  assert.equal(outcome.exitPrice, 272500);
-  assert.equal(outcome.priceChangePct, ((272500 - ENTRY) / ENTRY) * 100);
+test("successful position uses fee-aware target and stores leveraged PnL", () => {
+  const simulation = createPositionSimulation(ENTRY, TARGET);
+  const outcome = evaluateSyntheticOutcome(
+    ENTRY,
+    TARGET,
+    simulation.targetPrice,
+    "LONG",
+    simulation,
+  );
+  assert.equal(outcome.exitPrice, simulation.targetPrice);
+  assert.equal(outcome.netPnlToman !== null, true);
+  assert.equal(outcome.totalFeesToman !== null, true);
 });
 
-test("failed position stores exit price and price change", () => {
-  const outcome = evaluateSyntheticOutcome(ENTRY, TARGET, 268500, "SHORT");
-  assert.equal(outcome.exitPrice, 268500);
-  assert.equal(outcome.priceChangePct, ((268500 - ENTRY) / ENTRY) * 100);
+test("manual close PnL includes both entry and exit taker fees", () => {
+  const simulation = createPositionSimulation(ENTRY, TARGET);
+  const pnl = calculateLeveragedPnl(ENTRY, ENTRY, simulation);
+  assert.equal(pnl.grossPnlToman, 0);
+  assert.equal(
+    pnl.totalFeesToman,
+    simulation.entryFeeToman + simulation.quantity * ENTRY * 0.0035,
+  );
+  assert.equal(pnl.netPnlToman < 0, true);
 });
 
 test("invalid entry is INVALIDATED", () => {
@@ -59,6 +91,7 @@ test("success rate excludes OPEN and INVALIDATED and uses successful/(successful
   const stats = calculateOpportunityStats([
     "OPEN",
     "INVALIDATED",
+    "CLOSED",
     "SUCCESS",
     "SUCCESS",
     "FAILED",
@@ -68,7 +101,7 @@ test("success rate excludes OPEN and INVALIDATED and uses successful/(successful
 });
 
 test("success rate is null when there are no resolved opportunities", () => {
-  const stats = calculateOpportunityStats(["OPEN", "INVALIDATED"]);
+  const stats = calculateOpportunityStats(["OPEN", "INVALIDATED", "CLOSED"]);
   assert.equal(stats.resolved, 0);
   assert.equal(stats.successRate, null);
 });
@@ -110,15 +143,32 @@ test("valid Phase 2 analysis snapshot uses Bitpin entry and exact Safe Target", 
 
   const document = buildOpportunityDocument(analysis, new Date("2026-10-05T20:00:00Z"));
   assert.equal(document.status, "OPEN");
-  assert.equal(document.direction, "SHORT");
+  assert.equal(document.direction, "LONG");
   assert.equal(document.entry.price, 269000);
   assert.equal(document.entry.source, "bitpin");
   assert.equal(document.target.price, 272000);
   assert.equal(document.target.source, "phase-2-safe-target");
+  assert.equal(document.simulation.marginToman, 1000000);
+  assert.equal(document.simulation.borrowedToman, 10000000);
+  assert.equal(document.simulation.notionalToman, 11000000);
+  assert.equal(document.simulation.leverage, 10);
+  assert.equal(document.simulation.effectiveLeverage, 11);
+  assert.equal(document.simulation.takerFeePct, 0.35);
+  assert.equal(document.simulation.maintenanceMarginPct, 0.5);
+  assert.equal(document.simulation.targetPrice >= document.simulation.breakEvenPrice, true);
+  assert.equal(document.simulation.liquidationPrice < document.entry.price, true);
   assert.equal(document.market.bitpinPrice, 269000);
   assert.equal(document.market.wallexPrice, 272800);
   assert.equal(document.monitoring.currentBitpinPrice, 269000);
   assert.equal(document.outcome.status, "PENDING");
+});
+
+test("break-even price covers both taker fees", () => {
+  const breakEven = calculateBreakEvenPrice(ENTRY);
+  assert.equal(breakEven > ENTRY, true);
+  const simulation = createPositionSimulation(ENTRY, TARGET);
+  const pnl = calculateLeveragedPnl(ENTRY, breakEven, simulation);
+  assert.ok(Math.abs(pnl.netPnlToman) < 1);
 });
 
 test("cron endpoint authorization accepts only the configured bearer secret", () => {
