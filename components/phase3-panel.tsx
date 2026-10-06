@@ -49,7 +49,11 @@ const testLabels: Record<string, string> = {
   targetViability: "Target",
 };
 
-export function Phase3Panel() {
+export function Phase3Panel({
+  onStartTest,
+}: {
+  onStartTest?: (opportunityId: string) => void;
+}) {
   const [open, setOpen] = useState<Opportunity | null>(null);
   const [recent, setRecent] = useState<Opportunity[]>([]);
   const [stats, setStats] = useState<Stats | null>(null);
@@ -125,6 +129,21 @@ export function Phase3Panel() {
                 </span>
               ))}
             </div>
+            {onStartTest && typeof open._id === "string" && (
+              <div className="phase4StartRow">
+                <div>
+                  <strong>Test this Phase 3 opportunity</strong>
+                  <span>Entry will be fetched from the current Bitpin ticker.</span>
+                </div>
+                <button
+                  className="phase4StartButton"
+                  type="button"
+                  onClick={() => onStartTest(open._id as string)}
+                >
+                  Start Test
+                </button>
+              </div>
+            )}
           </>
         ) : (
           <div className="phase3Empty">No OPEN synthetic position.</div>
