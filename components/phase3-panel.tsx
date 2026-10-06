@@ -93,6 +93,8 @@ export function Phase3Panel() {
   const [stats, setStats] = useState<Stats | null>(null);
   const [error, setError] = useState("");
   const [closing, setClosing] = useState(false);
+  const [selectedHistory, setSelectedHistory] = useState<string[]>([]);
+  const [historyStatus, setHistoryStatus] = useState("ALL");
 
   async function load() {
     try {
@@ -171,6 +173,13 @@ export function Phase3Panel() {
   }
 
   const simulation = open?.simulation;
+  const filteredHistory =
+    historyStatus === "ALL"
+      ? recent
+      : recent.filter((item) => item.status === historyStatus);
+  const historyIds = filteredHistory.map(getId).filter(Boolean);
+  const allHistorySelected =
+    historyIds.length > 0 && historyIds.every((id) => selectedHistory.includes(id));
 
   return (
     <section className="phase3 card">
@@ -184,12 +193,45 @@ export function Phase3Panel() {
       </div>
 
       <div className="phase3History">
-        <h3>History</h3>
-        {recent.length > 0 ? (
+        <div className="historyToolbar">
+          <div>
+            <h3>History</h3>
+            <p>Review persisted position outcomes separately from the active simulation.</p>
+          </div>
+          <div className="historyActions">
+            <button type="button" className="historyActionButton" disabled>
+              Delete selected
+            </button>
+            <select
+              className="historyFilter"
+              value={historyStatus}
+              onChange={(event) => setHistoryStatus(event.target.value)}
+              aria-label="Filter history by status"
+            >
+              <option value="ALL">All status</option>
+              <option value="OPEN">Open</option>
+              <option value="SUCCESS">Success</option>
+              <option value="FAILED">Failed</option>
+              <option value="INVALIDATED">Invalidated</option>
+              <option value="CLOSED">Closed</option>
+            </select>
+          </div>
+        </div>
+        {filteredHistory.length > 0 ? (
           <div className="phase3TableWrap">
             <table className="phase3Table">
               <thead>
                 <tr>
+                  <th>
+                    <input
+                      type="checkbox"
+                      checked={allHistorySelected}
+                      onChange={(event) =>
+                        setSelectedHistory(event.target.checked ? historyIds : [])
+                      }
+                      aria-label="Select all history rows"
+                    />
+                  </th>
                   <th>Status</th>
                   <th>Entry</th>
                   <th>Target</th>
@@ -200,10 +242,11 @@ export function Phase3Panel() {
                   <th>Score</th>
                   <th>Detected</th>
                   <th>Resolved</th>
+                  <th>Action</th>
                 </tr>
               </thead>
               <tbody>
-                {recent.map((item, index) => (
+                {filteredHistory.map((item, index) => (
                   <tr
                     key={
                       typeof item._id === "string"
@@ -211,6 +254,21 @@ export function Phase3Panel() {
                         : item._id?.$oid ?? index
                     }
                   >
+                    <td>
+                      <input
+                        type="checkbox"
+                        checked={selectedHistory.includes(getId(item))}
+                        onChange={(event) => {
+                          const id = getId(item);
+                          setSelectedHistory((current) =>
+                            event.target.checked
+                              ? [...new Set([...current, id])]
+                              : current.filter((selected) => selected !== id),
+                          );
+                        }}
+                        aria-label={`Select history row ${index + 1}`}
+                      />
+                    </td>
                     <td>
                       <span className={statusClass(item.status)}>
                         {item.status}
@@ -229,6 +287,16 @@ export function Phase3Panel() {
                     <td>{item.analysis.score.toFixed(1)}</td>
                     <td>{formatDate(item.detection.detectedAt)}</td>
                     <td>{formatDate(item.outcome.resolvedAt)}</td>
+                    <td>
+                      <button
+                        type="button"
+                        className="historyDeleteButton"
+                        disabled
+                        aria-label={`Delete history row ${index + 1}`}
+                      >
+                        Delete
+                      </button>
+                    </td>
                   </tr>
                 ))}
               </tbody>
