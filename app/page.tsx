@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import { CandleChart } from "@/components/candle-chart";
 import { OpportunityPanel } from "@/components/opportunity-panel";
 import { Phase3Panel } from "@/components/phase3-panel";
+import { TestPositionPanel } from "@/components/test-position-panel";
 import { analyzeOpportunity } from "@/lib/opportunity/engine";
 import type { Candle } from "@/lib/candles";
 import type { CurrentPricesResponse } from "@/lib/prices";
@@ -56,6 +57,7 @@ export default function Home() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [externalPrice, setExternalPrice] = useState("");
+  const [testPositionRefreshKey, setTestPositionRefreshKey] = useState(0);
 
   useEffect(() => {
     let cancelled = false;
@@ -133,6 +135,21 @@ export default function Home() {
   );
 
   const spread = analysis.spread.percent;
+
+  async function startTestPosition(opportunityId: string) {
+    try {
+      const response = await fetch("/api/test-positions", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ opportunityId }),
+      });
+      const payload = (await response.json()) as { error?: string };
+      if (!response.ok) throw new Error(payload.error ?? `HTTP ${response.status}`);
+      setTestPositionRefreshKey((value) => value + 1);
+    } catch (value) {
+      setError(value instanceof Error ? value.message : "Unable to start test position");
+    }
+  }
   const hasMarketData = prices?.bitpin !== null && prices?.wallex !== null;
 
   return (
@@ -264,7 +281,9 @@ export default function Home() {
         onExternalPriceChange={setExternalPrice}
       />
 
-      <Phase3Panel />
+      <Phase3Panel onStartTest={startTestPosition} />
+
+      <TestPositionPanel refreshKey={testPositionRefreshKey} />
 
       {error && (
         <section className="errorBanner" role="alert">
