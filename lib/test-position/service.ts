@@ -1,6 +1,6 @@
 import { ObjectId } from "mongodb";
-import { fetchBitpinPrice } from "@/lib/bitpin";
-import { findOpportunityById } from "@/lib/opportunities/repository";
+import { fetchBitpinPrice } from "../bitpin";
+import { findOpportunityById } from "../opportunities/repository";
 import {
   calculateNetPnl,
   classifyClosedResult,
@@ -14,7 +14,7 @@ import {
   listOpenTestPositions,
   updateOpenMonitoring,
 } from "./repository";
-import type { OpportunityDocument } from "@/lib/opportunity/snapshot";
+import type { OpportunityDocument } from "../opportunity/snapshot";
 import type { TestPositionDocument } from "./types";
 
 function asObjectId(value: string): ObjectId {
