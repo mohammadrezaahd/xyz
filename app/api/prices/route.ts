@@ -105,7 +105,7 @@ async function fetchWallexPrice(): Promise<number> {
     throw new Error("Wallex API key is not configured");
   }
 
-  const response = await fetch(url, {
+  const response = await fetchWithRetry(url, {
     headers: {
       "x-api-key": apiKey,
     },
