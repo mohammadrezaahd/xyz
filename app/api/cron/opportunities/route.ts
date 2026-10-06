@@ -3,6 +3,7 @@ import { analyzeOpportunity } from "@/lib/opportunity/engine";
 import { isCronAuthorized } from "@/lib/opportunity/cron-auth";
 import { evaluateSyntheticOutcome } from "@/lib/opportunity/outcome";
 import { buildOpportunityDocument } from "@/lib/opportunity/snapshot";
+import { createPositionSimulation } from "@/lib/opportunity/position";
 import {
   findOpenOpportunity,
   insertOpenOpportunity,
@@ -94,11 +95,16 @@ export async function GET(request: Request) {
         new Date(prices.fetchedAt),
       );
 
+      const simulation =
+        open.simulation ??
+        createPositionSimulation(open.entry.price, open.target.price);
+
       const evaluation = evaluateSyntheticOutcome(
         open.entry.price,
         open.target.price,
         prices.bitpin,
         open.direction,
+        simulation,
       );
 
       if (
@@ -112,6 +118,12 @@ export async function GET(request: Request) {
           evaluation.priceChangePct,
           new Date(prices.fetchedAt),
           "SUCCESS",
+          {
+            grossPnlToman: evaluation.grossPnlToman!,
+            totalFeesToman: evaluation.totalFeesToman!,
+            netPnlToman: evaluation.netPnlToman!,
+            netPnlPct: evaluation.netPnlPct!,
+          },
         );
 
         return NextResponse.json({
@@ -134,6 +146,12 @@ export async function GET(request: Request) {
           evaluation.priceChangePct,
           new Date(prices.fetchedAt),
           "FAILED",
+          {
+            grossPnlToman: evaluation.grossPnlToman!,
+            totalFeesToman: evaluation.totalFeesToman!,
+            netPnlToman: evaluation.netPnlToman!,
+            netPnlPct: evaluation.netPnlPct!,
+          },
         );
 
         return NextResponse.json({
