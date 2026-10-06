@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { CandleChart } from "@/components/candle-chart";
 import { OpportunityPanel } from "@/components/opportunity-panel";
 import { Phase3Panel } from "@/components/phase3-panel";
+import { TestPositionPanel } from "@/components/test-position-panel";
 import { analyzeOpportunity } from "@/lib/opportunity/engine";
 import type { Candle } from "@/lib/candles";
 import type { CurrentPricesResponse } from "@/lib/prices";
@@ -79,8 +80,8 @@ export default function Home() {
       </>}
 
       {view === "opportunity" && <section className="workspacePage"><div className="pageIntro"><div className="sectionEyebrow">RESEARCH WORKSPACE</div><h2>Opportunity and stability</h2><p>Inspect every validation test, threshold, price input, and target calculation without losing the underlying API behavior.</p></div><OpportunityPanel analysis={analysis} externalPrice={externalPrice} onExternalPriceChange={setExternalPrice} /></section>}
-      {view === "position" && <section className="workspacePage"><div className="pageIntro"><div className="sectionEyebrow">PHASE 4 WORKSPACE</div><h2>Paper position monitoring</h2><p>Simulation-only position state. No real funds are used and no trading orders are sent.</p></div><Phase3Panel /></section>}
-      {view === "history" && <section className="workspacePage"><div className="pageIntro"><div className="sectionEyebrow">PERFORMANCE REVIEW</div><h2>Position history</h2><p>Review resolved research positions, filter outcomes, and remove records using the existing API behavior.</p></div><Phase3Panel /></section>}
+      {view === "position" && <section className="workspacePage"><div className="pageIntro"><div className="sectionEyebrow">PHASE 4 WORKSPACE</div><h2>Paper position monitoring</h2><p>Simulation-only position state. No real funds are used and no trading orders are sent.</p></div><TestPositionPanel currentPrice={prices?.bitpin ?? null} /></section>}
+      {view === "history" && <section className="workspacePage"><div className="pageIntro"><div className="sectionEyebrow">PERFORMANCE REVIEW</div><h2>Position history</h2><p>Review resolved research positions, filter outcomes, and remove records using the existing API behavior.</p></div><TestPositionPanel currentPrice={prices?.bitpin ?? null} /></section>}
       {error && <div className="errorBanner" role="alert"><strong>Provider warning</strong><span>{error}</span></div>}
       <footer className="consoleFooter"><span>XYZ Research Console</span><span>Phase 4 · Paper Research · No automated trading execution</span></footer>
     </main>
