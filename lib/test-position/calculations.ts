@@ -159,7 +159,9 @@ export function classifyClosedResult(
   exitReason: TestPositionExitReason,
 ): TestPositionResult {
   if (exitReason === "LIQUIDATION") return "LIQUIDATED";
-  if (exitPrice <= targetPrice) return "PREDICT_SUCCESS";
-  if (exitPrice < entryPrice) return "RELATIVELY_SUCCESSFUL";
+  if (exitReason === "TARGET_REACHED") return "PREDICT_SUCCESS";
+  if (exitPrice < entryPrice && exitPrice > targetPrice) {
+    return "RELATIVELY_SUCCESSFUL";
+  }
   return "FAILED";
 }
