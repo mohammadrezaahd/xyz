@@ -1,5 +1,10 @@
 import { NextResponse } from "next/server";
 import { dedupeSort, parseCandles, type Candle } from "@/lib/candles";
+import {
+  fetchWallexChunks,
+  type WallexChunk,
+  type WallexChunkFailure,
+} from "@/lib/wallex-candles";
 
 const env = (key: string, fallback = "") => process.env[key] ?? fallback;
 const WALLEX_CHUNK_SECONDS = 6 * 60 * 60;
@@ -73,7 +78,10 @@ async function fetchWallexChunk(
   return dedupeSort(parseCandles(payload));
 }
 
-async function fetchWallex(): Promise<Candle[]> {
+async function fetchWallex(): Promise<{
+  candles: Candle[];
+  failures: WallexChunkFailure[];
+}> {
   const baseUrl = env(
     "WALLEX_CANDLES_URL",
     "https://api.wallex.ir/v1/udf/history",
@@ -89,28 +97,37 @@ async function fetchWallex(): Promise<Candle[]> {
 
   const now = Math.floor(Date.now() / 1000);
   const from = now - days * 86400;
-  const candles: Candle[] = [];
+  const chunks: WallexChunk[] = [];
 
   for (
     let chunkFrom = from;
     chunkFrom < now;
     chunkFrom += WALLEX_CHUNK_SECONDS
   ) {
-    const chunkTo = Math.min(chunkFrom + WALLEX_CHUNK_SECONDS, now);
-
-    const chunk = await fetchWallexChunk(
-      baseUrl,
-      symbol,
-      resolution,
-      chunkFrom,
-      chunkTo,
-      apiKey,
-    );
-
-    candles.push(...chunk);
+    chunks.push({
+      from: chunkFrom,
+      to: Math.min(chunkFrom + WALLEX_CHUNK_SECONDS, now),
+    });
   }
 
-  return dedupeSort(candles);
+  const result = await fetchWallexChunks(
+    chunks,
+    (chunk) =>
+      fetchWallexChunk(
+        baseUrl,
+        symbol,
+        resolution,
+        chunk.from,
+        chunk.to,
+        apiKey,
+      ),
+    4,
+  );
+
+  return {
+    candles: dedupeSort(result.candles),
+    failures: result.failures,
+  };
 }
 
 export async function GET() {
@@ -125,14 +142,38 @@ export async function GET() {
     ? bitpin.value
     : (errors.push(`Bitpin: ${String(bitpin.reason)}`), []);
 
-  const wallexData = wallex.status === "fulfilled"
-    ? wallex.value
-    : (errors.push(`Wallex: ${String(wallex.reason)}`), []);
+  const wallexData =
+    wallex.status === "fulfilled"
+      ? wallex.value.candles
+      : (errors.push(`Wallex historical candles: ${String(wallex.reason)}`), []);
+
+  const wallexChunkFailures =
+    wallex.status === "fulfilled" ? wallex.value.failures : [];
+
+  if (wallexChunkFailures.length > 0) {
+    const failedRanges = wallexChunkFailures
+      .map((failure) => `${failure.from}-${failure.to}`)
+      .join(", ");
+
+    errors.push(
+      `Wallex historical candles: ${wallexChunkFailures.length} chunk(s) failed (${failedRanges}). Successful chunks were retained.`,
+    );
+  }
 
   return NextResponse.json({
     bitpin: bitpinData,
     wallex: wallexData,
     errors,
+    providers: {
+      wallexHistorical:
+        wallex.status !== "fulfilled"
+          ? "FAILED"
+          : wallexChunkFailures.length === 0
+            ? "SUCCESS"
+            : wallexData.length > 0
+              ? "PARTIAL"
+              : "FAILED",
+    },
     fetchedAt: Date.now(),
     refreshMs: Number(env("CANDLE_REFRESH_MS", "15000")),
   });

@@ -45,22 +45,7 @@ function normalizePositivePrice(
     : null;
 }
 
-function direction(candle: Candle, minMovePct: number): CandleDirection {
-  if (
-    !Number.isFinite(candle.open) ||
-    candle.open <= 0 ||
-    !Number.isFinite(candle.close)
-  ) {
-    return "NEUTRAL";
-  }
-
-  const changePct = (Math.abs(candle.close - candle.open) / candle.open) * 100;
-
-  if (changePct < minMovePct) return "NEUTRAL";
-  return candle.close > candle.open ? "BULLISH" : "BEARISH";
-}
-
-function movePct(candle: Candle): number | null {
+function movementPct(candle: Candle): number | null {
   if (
     !Number.isFinite(candle.open) ||
     candle.open <= 0 ||
@@ -70,6 +55,30 @@ function movePct(candle: Candle): number | null {
   }
 
   return (Math.abs(candle.close - candle.open) / candle.open) * 100;
+}
+
+function classifyCandle(
+  candle: Candle,
+  minMovePct: number,
+): { direction: CandleDirection; movementPct: number | null } {
+  const movement = movementPct(candle);
+
+  if (movement === null || movement < minMovePct) {
+    return { direction: "NEUTRAL", movementPct: movement };
+  }
+
+  return {
+    direction: candle.close > candle.open ? "BULLISH" : "BEARISH",
+    movementPct: movement,
+  };
+}
+
+function direction(candle: Candle, minMovePct: number): CandleDirection {
+  return classifyCandle(candle, minMovePct).direction;
+}
+
+function movePct(candle: Candle): number | null {
+  return movementPct(candle);
 }
 
 function minuteBucket(time: number): number {
@@ -129,6 +138,22 @@ function ratio(candles: Candle[], minMovePct: number): number | null {
   ).length;
 
   return bullish / candles.length;
+}
+
+function selectedCandle(
+  timestamp: number,
+  candle: Candle,
+  minMovePct: number,
+) {
+  const classification = classifyCandle(candle, minMovePct);
+
+  return {
+    timestamp,
+    open: candle.open,
+    close: candle.close,
+    movementPct: classification.movementPct ?? 0,
+    direction: classification.direction,
+  } as const;
 }
 
 function alignment(
@@ -451,6 +476,19 @@ export function analyzeOpportunity({
     candles: {
       lookback: config.lookbackCandles,
       synchronized: pairs.length,
+      selected: pairs.map(({ bitpin, wallex }) => ({
+        timestamp: minuteBucket(bitpin.time),
+        bitpin: selectedCandle(
+          minuteBucket(bitpin.time),
+          bitpin,
+          config.minCandleMovePct,
+        ),
+        wallex: selectedCandle(
+          minuteBucket(wallex.time),
+          wallex,
+          config.minCandleMovePct,
+        ),
+      })),
       bitpinBullishRatio,
       wallexBullishRatio,
       alignmentRatio,
