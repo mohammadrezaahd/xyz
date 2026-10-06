@@ -75,6 +75,25 @@ export async function updateOpenMonitoring(
   return result.modifiedCount === 1;
 }
 
+export async function recordOpenMonitoringFailure(
+  id: ObjectId,
+  checkedAt: Date,
+  errorMessage: string,
+): Promise<boolean> {
+  const collection = await getCollection();
+  const result = await collection.updateOne(
+    { _id: id, status: "OPEN" },
+    {
+      $set: {
+        "monitoring.lastCheckedAt": checkedAt,
+        "monitoring.lastError": errorMessage,
+        updatedAt: checkedAt,
+      },
+    },
+  );
+  return result.modifiedCount === 1;
+}
+
 export async function closeOpenTestPosition(
   id: ObjectId,
   exitPrice: number,
