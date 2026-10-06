@@ -153,15 +153,68 @@ export async function closeOpportunity(
   return result.modifiedCount === 1;
 }
 
+export type OpportunityHistoryStatus =
+  | "OPEN"
+  | "SUCCESS"
+  | "FAILED"
+  | "INVALIDATED"
+  | "CLOSED";
+
 export async function listRecentOpportunities(
   limit = 20,
+  status?: OpportunityHistoryStatus,
 ): Promise<OpportunityDocument[]> {
   const collection = await getCollection();
+  const filter = status ? { status } : {};
   return collection
-    .find({})
+    .find(filter)
     .sort({ createdAt: -1 })
     .limit(Math.max(1, Math.min(limit, 100)))
     .toArray();
+}
+
+export async function deleteOpportunity(id: ObjectId): Promise<"deleted" | "open" | "missing"> {
+  const collection = await getCollection();
+  const result = await collection.deleteOne({
+    _id: id,
+    status: { $ne: "OPEN" },
+  });
+
+  if (result.deletedCount === 1) return "deleted";
+
+  const existing = await collection.findOne({ _id: id }, { projection: { status: 1 } });
+  if (existing?.status === "OPEN") return "open";
+  return "missing";
+}
+
+export async function deleteOpportunities(
+  ids: ObjectId[],
+): Promise<{ deletedCount: number; openIds: string[]; missingCount: number }> {
+  const collection = await getCollection();
+  const uniqueIds = [...new Map(ids.map((id) => [id.toHexString(), id])).values()];
+
+  if (uniqueIds.length === 0) {
+    return { deletedCount: 0, openIds: [], missingCount: 0 };
+  }
+
+  const open = await collection
+    .find(
+      { _id: { $in: uniqueIds }, status: "OPEN" },
+      { projection: { _id: 1 } },
+    )
+    .toArray();
+  const openIds = open.map((item) => item._id.toHexString());
+
+  const result = await collection.deleteMany({
+    _id: { $in: uniqueIds },
+    status: { $ne: "OPEN" },
+  });
+
+  return {
+    deletedCount: result.deletedCount,
+    openIds,
+    missingCount: uniqueIds.length - openIds.length - result.deletedCount,
+  };
 }
 
 export async function getOpportunityStats() {
