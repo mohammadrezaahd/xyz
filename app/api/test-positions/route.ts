@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { startTestPosition } from "@/lib/test-position/service";
+import { startTestPosition } from "@/lib/test-position/service";\nimport { getOrCreateTestAccount } from "@/lib/test-position/account";
 import { listTestPositions } from "@/lib/test-position/repository";
 import type { TestPositionDocument } from "@/lib/test-position/types";
 
@@ -15,14 +15,14 @@ function serialize(position: TestPositionDocument) {
 
 export async function GET() {
   try {
-    const positions = await listTestPositions(100);
+    const [positions, account] = await Promise.all([\n      listTestPositions(100),\n      getOrCreateTestAccount(),\n    ]);
     return NextResponse.json(
       {
         open: positions.filter((position) => position.status === "OPEN").map(serialize),
         history: positions
           .filter((position) => position.status !== "OPEN")
           .map(serialize),
-        all: positions.map(serialize),
+        all: positions.map(serialize),\n        account,
       },
       { headers: { "Cache-Control": "no-store" } },
     );
