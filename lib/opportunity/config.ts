@@ -1,4 +1,23 @@
-export interface OpportunityConfiguration {\n  version: string;\n  description: string;\n  externalValidationPct: number;\n  spreadTriggerPct: number;\n  lookbackCandles: number;\n  minBullishRatio: number;\n  minAlignmentRatio: number;\n  minCandleMovePct: number;\n  momentumReferencePct: number;\n  safetyMarginPct: number;\n  targetHorizonMinutes: number;\n  takerFeePct: number;\n  makerFeePct: number;\n  scoreWeights: OpportunityConfig["scoreWeights"];\n  riskThresholds: OpportunityConfig["riskThresholds"];\n  opportunityThresholds: OpportunityConfig["opportunityThresholds"];\n}\n\nexport interface OpportunityConfig {
+export interface OpportunityConfiguration {
+  version: string;
+  description: string;
+  externalValidationPct: number;
+  spreadTriggerPct: number;
+  lookbackCandles: number;
+  minBullishRatio: number;
+  minAlignmentRatio: number;
+  minCandleMovePct: number;
+  momentumReferencePct: number;
+  safetyMarginPct: number;
+  targetHorizonMinutes: number;
+  takerFeePct: number;
+  makerFeePct: number;
+  scoreWeights: OpportunityConfig["scoreWeights"];
+  riskThresholds: OpportunityConfig["riskThresholds"];
+  opportunityThresholds: OpportunityConfig["opportunityThresholds"];
+}
+
+export interface OpportunityConfig {
   externalValidationPct: number;
   spreadTriggerPct: number;
   lookbackCandles: number;
@@ -30,7 +49,9 @@ export interface OpportunityConfiguration {\n  version: string;\n  description: 
   };
 }
 
-export const DEFAULT_OPPORTUNITY_CONFIG: OpportunityConfig & Pick<OpportunityConfiguration, "version" | "description"> = {\n  version: "phase-5a-live-default-v1",\n  description: "Immutable Phase 5A live baseline configuration",
+export const DEFAULT_OPPORTUNITY_CONFIG: OpportunityConfig & Pick<OpportunityConfiguration, "version" | "description"> = {
+  version: "phase-5a-live-default-v1",
+  description: "Immutable Phase 5A live baseline configuration",
   externalValidationPct: 0.4,
   spreadTriggerPct: 1,
   lookbackCandles: 10,
@@ -62,4 +83,5 @@ export const DEFAULT_OPPORTUNITY_CONFIG: OpportunityConfig & Pick<OpportunityCon
   },
 };
 
-export const PHASE_5A_LIVE_DEFAULT_V1: OpportunityConfiguration = DEFAULT_OPPORTUNITY_CONFIG;\nexport const PHASE_2_CONFIG = DEFAULT_OPPORTUNITY_CONFIG;
+export const PHASE_5A_LIVE_DEFAULT_V1: OpportunityConfiguration = DEFAULT_OPPORTUNITY_CONFIG;
+export const PHASE_2_CONFIG = DEFAULT_OPPORTUNITY_CONFIG;
