@@ -10,3 +10,32 @@
 
 .navLabelMobile{display:none}
 @media(max-width:760px){.navLabelDesktop{display:none}.navLabelMobile{display:inline}}
+
+.snapshotIntroRow,.snapshotDetailHeader{display:flex;justify-content:space-between;align-items:flex-start;gap:18px}
+.snapshotIntroActions{display:flex;gap:8px;flex:0 0 auto}
+.snapshotLayout{display:grid;grid-template-columns:minmax(260px,360px) minmax(0,1fr);gap:14px}
+.snapshotList,.snapshotDetail{min-width:0;border:1px solid var(--color-border);border-radius:12px;background:var(--color-surface-raised)}
+.snapshotList{overflow:hidden}.snapshotListHeader{display:flex;justify-content:space-between;gap:10px;padding:15px 16px;border-bottom:1px solid var(--color-border);color:var(--color-text-muted);font-size:11px}
+.snapshotListHeader strong{color:var(--color-text)}
+.snapshotListItem{display:grid;width:100%;gap:7px;padding:15px 16px;border:0;border-bottom:1px solid rgba(148,163,184,.1);background:transparent;color:var(--color-text);text-align:left}
+.snapshotListItem:last-child{border-bottom:0}.snapshotListItem:hover{background:rgba(255,255,255,.025)}.snapshotListItem.isActive{background:rgba(124,131,255,.09);box-shadow:inset 2px 0 0 var(--color-accent)}
+.snapshotListItem strong{font-size:12px}.snapshotListItem small{color:var(--color-text-muted);font:11px var(--mono);line-height:1.5}
+.snapshotTrend{display:inline-flex;justify-self:start;padding:5px 8px;border:1px solid var(--color-border);border-radius:999px;font-size:10px;font-weight:800}
+.snapshotTrend--strongly_bullish,.snapshotTrend--bullish{color:var(--color-positive);background:rgba(53,211,145,.06)}.snapshotTrend--stable{color:var(--color-info);background:rgba(99,164,255,.06)}.snapshotTrend--bearish,.snapshotTrend--strongly_bearish{color:var(--color-negative);background:rgba(255,107,114,.06)}
+.snapshotDetail{padding:20px}.snapshotDetailHeader h3{margin:8px 0 4px;font-size:22px}.snapshotDetailHeader p{margin:0;color:var(--color-text-secondary);font-size:12px}
+.snapshotMetrics{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px;margin-top:18px}
+.snapshotMetrics>div{padding:13px;border:1px solid var(--color-border);border-radius:9px;background:var(--color-surface)}
+.snapshotMetrics span{display:block;color:var(--color-text-muted);font-size:11px}.snapshotMetrics strong{display:block;margin-top:7px;font:600 14px var(--mono)}
+.snapshotPayload{margin-top:14px;border:1px solid var(--color-border);border-radius:10px;overflow:hidden;background:#0b0f15}
+.snapshotPayloadHeader{padding:13px;border-bottom:1px solid var(--color-border)}.snapshotPayloadHeader strong,.snapshotPayloadHeader span{display:block}.snapshotPayloadHeader strong{font-size:12px}.snapshotPayloadHeader span{margin-top:4px;color:var(--color-text-muted);font-size:11px}
+.snapshotPayload pre{max-height:620px;margin:0;padding:15px;overflow:auto;color:var(--color-text-secondary);font:11px/1.6 var(--mono);white-space:pre-wrap;overflow-wrap:anywhere}
+.snapshotEmpty{padding:28px 16px;color:var(--color-text-muted);font-size:12px}.snapshotEmpty--detail{min-height:280px;display:grid;place-items:center;text-align:center}
+.commandFooterActions{display:flex;gap:8px;align-items:center}
+.snapshotDialogBackdrop{position:fixed;inset:0;z-index:30;display:grid;place-items:center;padding:18px;background:rgba(2,5,9,.74);backdrop-filter:blur(8px)}
+.snapshotDialog{width:min(620px,100%);padding:22px;border:1px solid var(--color-border-strong);border-radius:14px;background:var(--color-surface);box-shadow:0 30px 80px rgba(0,0,0,.55)}
+.snapshotDialogHeader{display:flex;justify-content:space-between;gap:14px}.snapshotDialogHeader h2{margin:8px 0 0;font-size:24px;letter-spacing:-.04em}.snapshotDialogHeader p{margin:8px 0 0;color:var(--color-text-secondary);line-height:1.5}
+.snapshotDialogClose{width:38px;height:38px;border:1px solid var(--color-border);border-radius:9px;background:var(--color-surface-raised);color:var(--color-text-secondary);font-size:22px}
+.snapshotTrendGrid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;margin-top:20px}.snapshotTrendButton{display:grid;gap:6px;min-height:76px;padding:14px;border:1px solid var(--color-border-strong);border-radius:10px;background:var(--color-surface-raised);color:var(--color-text);text-align:left}.snapshotTrendButton:hover{border-color:rgba(124,131,255,.55);background:rgba(124,131,255,.09)}.snapshotTrendButton:disabled{opacity:.55;cursor:wait}.snapshotTrendButton span{color:var(--color-text-muted);font:10px var(--mono)}.snapshotDialogStatus{margin-top:12px;color:var(--color-text-secondary);font-size:11px}
+@media(max-width:900px){.snapshotIntroRow{display:block}.snapshotIntroActions{margin-top:14px}.snapshotLayout{grid-template-columns:1fr}.snapshotList{max-height:380px;overflow:auto}.snapshotMetrics{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(max-width:760px){.commandFooterActions{width:100%;flex-wrap:wrap}.commandFooterActions button{flex:1}.snapshotDialog{padding:18px}.snapshotTrendGrid{grid-template-columns:1fr}}
+@media(max-width:420px){.snapshotMetrics{grid-template-columns:1fr}.snapshotIntroActions{display:grid}.snapshotIntroActions button{width:100%}}
