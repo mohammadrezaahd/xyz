@@ -6,7 +6,9 @@ import { evaluateSyntheticOutcome } from "@/lib/opportunity/outcome";
 import { buildOpportunityDocument } from "@/lib/opportunity/snapshot";
 import { createPositionSimulation } from "@/lib/opportunity/position";
 import {
-  findOpenOpportunity,\n  listOpenOpportunities,\n  findOpportunityByObservationKey,
+  findOpenOpportunity,
+  listOpenOpportunities,
+  findOpportunityByObservationKey,
   insertOpenOpportunity,
   invalidateOpportunity,
   updateOpenMonitoring,
