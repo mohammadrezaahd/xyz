@@ -10,7 +10,8 @@ async function getCollection(): Promise<Collection<TestPositionDocument>> {
   const collection = db.collection<TestPositionDocument>(COLLECTION_NAME);
   if (!indexesPromise) {
     indexesPromise = collection.createIndexes([
-      { name: "opportunity-created-at", key: { opportunityId: 1, createdAt: -1 } },\n      { name: "one-open-per-opportunity", key: { opportunityId: 1 }, unique: true, partialFilterExpression: { status: "OPEN", opportunityId: { $type: "objectId" } } },
+      { name: "opportunity-created-at", key: { opportunityId: 1, createdAt: -1 } },
+      { name: "one-open-per-opportunity", key: { opportunityId: 1 }, unique: true, partialFilterExpression: { status: "OPEN", opportunityId: { $type: "objectId" } } },
       { name: "status-updated-at", key: { status: 1, updatedAt: -1 } },
       { name: "created-at-desc", key: { createdAt: -1 } },
     ]).then(() => undefined);
