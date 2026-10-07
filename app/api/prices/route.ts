@@ -66,15 +66,19 @@ async function fetchBitpinPrice(): Promise<number> {
 async function fetchWithRetry(
   url: URL,
   init: RequestInit,
-  attempts = 3,
+  attempts = 2,
 ): Promise<Response> {
+  const configuredTimeoutMs = Number(env("WALLEX_TICKER_TIMEOUT_MS", "3500"));
+  const timeoutMs = Number.isFinite(configuredTimeoutMs)
+    ? Math.min(10_000, Math.max(1_500, configuredTimeoutMs))
+    : 3_500;
   let lastError: unknown;
 
   for (let attempt = 1; attempt <= attempts; attempt += 1) {
     try {
       return await fetch(url, {
         ...init,
-        signal: AbortSignal.timeout(8000),
+        signal: AbortSignal.timeout(timeoutMs),
       });
     } catch (error) {
       lastError = error;
