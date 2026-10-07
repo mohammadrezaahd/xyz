@@ -2,7 +2,9 @@ import type { ObjectId } from "mongodb";
 import type { OpportunityAnalysis } from "./types";
 import type { PositionDirection } from "./outcome";
 import type { PositionSimulation } from "./position";
-import { createPositionSimulation } from "./position";\nimport { PHASE_5A_LIVE_DEFAULT_V1 } from "./config";\nimport { createHash } from "node:crypto";
+import { createPositionSimulation } from "./position";
+import { PHASE_5A_LIVE_DEFAULT_V1 } from "./config";
+import { createHash } from "node:crypto";
 
 export const PHASE_3_ENGINE_VERSION = "phase-2-opportunity-engine";
 
