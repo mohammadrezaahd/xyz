@@ -30,6 +30,7 @@ const viewCopy: Record<View, { breadcrumb: string; title: string; footer: string
   opportunity: { breadcrumb: "OPPORTUNITY", title: "Opportunity diagnostics", footer: "Analysis and simulation only" },
   position: { breadcrumb: "PAPER POSITION", title: "Paper Position", footer: "Paper research · No automated trading execution" },
   history: { breadcrumb: "HISTORY", title: "History", footer: "Opportunity cron results · Analysis and simulation only" },
+  signals: { breadcrumb: "SIGNALS", title: "Signals", footer: "Research signals only" },
 };
 const navigation: Array<[View, string, string, string]> = [
   ["overview", "Overview", "Overview", "01"],
