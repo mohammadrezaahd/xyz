@@ -16,6 +16,7 @@
     "../lib/opportunity/**/*.ts",
     "../lib/mongodb.ts",
     "../lib/opportunities/repository.ts",
+    "../lib/research/**/*.ts",
     "../lib/test-position/**/*.ts",
     "../lib/bitpin.ts"
   ]
