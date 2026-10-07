@@ -318,7 +318,7 @@ export function OpportunityPanel({
               onChange={(event) =>
                 onExternalPriceChange(event.target.value)
               }
-              placeholder="e.g. 280000"
+              placeholder="Wallex ticker"
             />
           </label>
           <div className="metric">
