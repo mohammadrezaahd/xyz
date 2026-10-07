@@ -9,6 +9,7 @@ function observation(result = "PREDICT_SUCCESS", version = "phase-5a-live-defaul
     actual: { resolvedAt: new Date(), result, netPnl: 10, roi: 1, durationMs: 60000 },
     prediction: { riskLevel: "LOW", stabilityScore: 80 },
     market: { spreadPct: 0.5 },
+    candles: { lookback: 10 },
   };
 }
 
