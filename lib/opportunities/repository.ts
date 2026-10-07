@@ -37,7 +37,15 @@ async function getCollection(): Promise<Collection<OpportunityDocument>> {
 export async function findOpportunityById(id: ObjectId): Promise<OpportunityDocument | null> {
   return (await getCollection()).findOne({ _id: id });
 }
-export async function listOpenOpportunities(limit = 100): Promise<OpportunityDocument[]> {\n  return (await getCollection()).find({ status: "OPEN" }).sort({ createdAt: -1 }).limit(Math.max(1, Math.min(limit, 200))).toArray();\n}\n\nexport async function findOpportunityByObservationKey(observationKey: string): Promise<OpportunityDocument | null> {\n  return (await getCollection()).findOne({ observationKey });\n}\n\nexport async function findOpenOpportunity(): Promise<OpportunityDocument | null> {
+export async function listOpenOpportunities(limit = 100): Promise<OpportunityDocument[]> {
+  return (await getCollection()).find({ status: "OPEN" }).sort({ createdAt: -1 }).limit(Math.max(1, Math.min(limit, 200))).toArray();
+}
+
+export async function findOpportunityByObservationKey(observationKey: string): Promise<OpportunityDocument | null> {
+  return (await getCollection()).findOne({ observationKey });
+}
+
+export async function findOpenOpportunity(): Promise<OpportunityDocument | null> {
   const collection = await getCollection();
   return collection.findOne({ status: "OPEN" }, { sort: { createdAt: -1 } });
 }
@@ -51,7 +59,10 @@ export async function insertOpenOpportunity(
     const result = await collection.insertOne(document);
     return { ...document, _id: result.insertedId };
   } catch (error) {
-    if (error instanceof MongoServerError && error.code === 11000 && document.observationKey) {\n      const existing = await findOpportunityByObservationKey(document.observationKey);\n      if (existing) return existing;\n    }
+    if (error instanceof MongoServerError && error.code === 11000 && document.observationKey) {
+      const existing = await findOpportunityByObservationKey(document.observationKey);
+      if (existing) return existing;
+    }
     throw error;
   }
 }
