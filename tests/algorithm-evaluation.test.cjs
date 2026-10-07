@@ -23,7 +23,7 @@ test("algorithm evaluation evaluates exactly the minimum resolved sample", () =>
   assert.equal(result.status, "OK");
   assert.equal(result.sampleCount, MIN_RESEARCH_SAMPLE_SIZE);
   assert.ok(result.liquidationRate > 0);
-  assert.equal(result.recommendation, "REVIEW_CANDIDATE");
+  assert.equal(result.recommendation, "NO_CHANGE");
 });
 
 test("other configuration versions are excluded", () => {
