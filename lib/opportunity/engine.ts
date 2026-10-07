@@ -472,6 +472,7 @@ export function analyzeOpportunity({
       bitpinBullish,
       wallexBullish,
       targetViability,
+      momentum: momentumTest,
     },
     candles: {
       lookback: config.lookbackCandles,
