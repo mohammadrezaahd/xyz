@@ -1,4 +1,4 @@
-export interface OpportunityConfig {
+export interface OpportunityConfiguration {\n  version: string;\n  description: string;\n  externalValidationPct: number;\n  spreadTriggerPct: number;\n  lookbackCandles: number;\n  minBullishRatio: number;\n  minAlignmentRatio: number;\n  minCandleMovePct: number;\n  momentumReferencePct: number;\n  safetyMarginPct: number;\n  targetHorizonMinutes: number;\n  takerFeePct: number;\n  makerFeePct: number;\n  scoreWeights: OpportunityConfig["scoreWeights"];\n  riskThresholds: OpportunityConfig["riskThresholds"];\n  opportunityThresholds: OpportunityConfig["opportunityThresholds"];\n}\n\nexport interface OpportunityConfig {
   externalValidationPct: number;
   spreadTriggerPct: number;
   lookbackCandles: number;
@@ -30,7 +30,7 @@ export interface OpportunityConfig {
   };
 }
 
-export const DEFAULT_OPPORTUNITY_CONFIG: OpportunityConfig = {
+export const DEFAULT_OPPORTUNITY_CONFIG: OpportunityConfig & Pick<OpportunityConfiguration, "version" | "description"> = {\n  version: "phase-5a-live-default-v1",\n  description: "Immutable Phase 5A live baseline configuration",
   externalValidationPct: 0.4,
   spreadTriggerPct: 1,
   lookbackCandles: 10,
@@ -62,4 +62,4 @@ export const DEFAULT_OPPORTUNITY_CONFIG: OpportunityConfig = {
   },
 };
 
-export const PHASE_2_CONFIG = DEFAULT_OPPORTUNITY_CONFIG;
+export const PHASE_5A_LIVE_DEFAULT_V1: OpportunityConfiguration = DEFAULT_OPPORTUNITY_CONFIG;\nexport const PHASE_2_CONFIG = DEFAULT_OPPORTUNITY_CONFIG;
