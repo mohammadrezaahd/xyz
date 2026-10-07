@@ -56,6 +56,7 @@ export default function Home() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [externalPrice, setExternalPrice] = useState("");
+  const [externalPriceCustomized, setExternalPriceCustomized] = useState(false);
   const [view, setView] = useState<View>("overview");
   const [refreshTick, setRefreshTick] = useState(0);
   const [snapshotDialogOpen, setSnapshotDialogOpen] = useState(false);
@@ -79,6 +80,12 @@ export default function Home() {
   }, []);
 
   useEffect(() => { void load(); const timer = window.setInterval(load, Number(process.env.NEXT_PUBLIC_CANDLE_REFRESH_MS ?? 15000)); return () => window.clearInterval(timer); }, [load, refreshTick]);
+
+  useEffect(() => {
+    if (!externalPriceCustomized && prices?.wallex != null) {
+      setExternalPrice(String(prices.wallex));
+    }
+  }, [prices?.wallex, externalPriceCustomized]);
 
   const analysis = useMemo(() => analyzeOpportunity({ bitpinCandles: data?.bitpin ?? [], wallexCandles: data?.wallex ?? [], currentPrices: { bitpin: prices?.bitpin ?? null, wallex: prices?.wallex ?? null }, externalPrice: externalPrice.trim() ? Number(externalPrice) : null, nowMs: Date.now() }), [data, prices, externalPrice]);
   const hasPrices = prices?.bitpin != null && prices?.wallex != null;
@@ -135,7 +142,7 @@ export default function Home() {
         <section className="chartSection" aria-labelledby="chart-title"><div className="sectionHeader"><div><div className="sectionEyebrow">PRICE RELATIONSHIP</div><h2 id="chart-title">Synchronized candle history</h2></div><span className="sectionNote">1 minute · {data?.bitpin.length ?? 0} Bitpin / {data?.wallex.length ?? 0} Wallex candles</span></div><div className="chartPair"><div className="chartPane"><div className="chartPaneHeader"><div><strong>Bitpin</strong><span>{price(prices?.bitpin)} Toman</span></div><span>{data?.bitpin.length ?? 0} candles</span></div><CandleChart candles={data?.bitpin ?? []} /></div><div className="chartPane"><div className="chartPaneHeader"><div><strong>Wallex</strong><span>{price(prices?.wallex)} Toman</span></div><span>{data?.wallex.length ?? 0} candles</span></div><CandleChart candles={data?.wallex ?? []} /></div></div></section>
       </>}
 
-      {view === "opportunity" && <section className="workspacePage"><div className="pageIntro"><div className="sectionEyebrow">RESEARCH WORKSPACE</div><h2>Opportunity and stability</h2><p>Inspect every validation test, threshold, price input, and target calculation without losing the underlying API behavior.</p></div><OpportunityPanel analysis={analysis} externalPrice={externalPrice} onExternalPriceChange={setExternalPrice} /></section>}
+      {view === "opportunity" && <section className="workspacePage"><div className="pageIntro"><div className="sectionEyebrow">RESEARCH WORKSPACE</div><h2>Opportunity and stability</h2><p>Inspect every validation test, threshold, price input, and target calculation without losing the underlying API behavior.</p></div><OpportunityPanel analysis={analysis} externalPrice={externalPrice} onExternalPriceChange={(value) => { setExternalPriceCustomized(true); setExternalPrice(value); }} /></section>}
       {view === "position" && <section className="workspacePage"><div className="pageIntro"><div className="sectionEyebrow">PHASE 4 WORKSPACE</div><h2>Paper Position</h2><p>Run and monitor a research-only paper position. No real funds or exchange orders are used.</p></div><TestPositionPanel currentPrice={prices?.bitpin ?? null} /></section>}
       {view === "history" && <section className="workspacePage"><div className="pageIntro"><div className="sectionEyebrow">PHASE 3 RESULTS</div><h2>History</h2><p>Review opportunity cron results, validation scores, and simulated outcomes.</p></div><Phase3Panel /></section>}
       {view === "snapshots" && <SnapshotPage />}
