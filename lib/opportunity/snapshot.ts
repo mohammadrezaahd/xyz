@@ -10,6 +10,8 @@ export const PHASE_3_ENGINE_VERSION = "phase-2-opportunity-engine";
 
 export type OpportunityDocument = {
   _id?: ObjectId;
+  observationKey: string;
+  configurationVersion: string;
   createdAt: Date;
   updatedAt: Date;
   status: "OPEN" | "SUCCESS" | "FAILED" | "INVALIDATED" | "CLOSED";
@@ -80,7 +82,11 @@ export function buildOpportunityDocument(
     throw new Error("Cannot persist an opportunity without valid ticker/spread/target data.");
   }
 
+  const observationKey = `opportunity:${detectedAt.getTime()}:${analysis.prices.bitpin}:${analysis.prices.wallex}:${analysis.target.safeTarget}`;
+
   return {
+    observationKey,
+    configurationVersion: "phase-5a-live-default-v1",
     createdAt: detectedAt,
     updatedAt: detectedAt,
     status: "OPEN",
