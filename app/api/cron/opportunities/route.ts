@@ -6,7 +6,7 @@ import { evaluateSyntheticOutcome } from "@/lib/opportunity/outcome";
 import { buildOpportunityDocument } from "@/lib/opportunity/snapshot";
 import { createPositionSimulation } from "@/lib/opportunity/position";
 import {
-  findOpenOpportunity,
+  findOpenOpportunity,\n  listOpenOpportunities,\n  findOpportunityByObservationKey,
   insertOpenOpportunity,
   invalidateOpportunity,
   updateOpenMonitoring,
@@ -118,113 +118,53 @@ export async function GET(request: Request) {
       }
     }
 
-    stage = "find-open-opportunity";
-    const open = await findOpenOpportunity();
+    stage = "monitor-open-opportunities";
+    const openOpportunities = await listOpenOpportunities(100);
+    const monitored: Array<{ opportunityId: string; action: string; research?: unknown; error?: string }> = [];
 
-    if (open?._id) {
-      const research = await collectResearch(open._id);
-      stage = "monitor-open-opportunity";
-      await updateOpenMonitoring(
-        open._id,
-        prices.bitpin,
-        new Date(prices.fetchedAt),
-      );
+    for (const open of openOpportunities) {
+      if (!open._id) continue;
+      try {
+        const research = await collectResearch(open._id);
+        await updateOpenMonitoring(open._id, prices.bitpin, detectedAt);
+        const simulation = open.simulation ?? createPositionSimulation(open.entry.price, open.target.price);
+        const evaluation = evaluateSyntheticOutcome(
+          open.entry.price,
+          open.target.price,
+          prices.bitpin,
+          open.direction,
+          simulation,
+        );
 
-      const simulation =
-        open.simulation ??
-        createPositionSimulation(open.entry.price, open.target.price);
-
-      const evaluation = evaluateSyntheticOutcome(
-        open.entry.price,
-        open.target.price,
-        prices.bitpin,
-        open.direction,
-        simulation,
-      );
-
-      if (
-        evaluation.status === "SUCCESS" &&
-        evaluation.exitPrice !== null &&
-        evaluation.priceChangePct !== null
-      ) {
-        await resolveOpportunity(
-          open._id,
-          evaluation.exitPrice,
-          evaluation.priceChangePct,
-          new Date(prices.fetchedAt),
-          "SUCCESS",
-          {
+        if (evaluation.status === "SUCCESS" && evaluation.exitPrice !== null && evaluation.priceChangePct !== null) {
+          await resolveOpportunity(open._id, evaluation.exitPrice, evaluation.priceChangePct, detectedAt, "SUCCESS", {
             grossPnlToman: evaluation.grossPnlToman!,
             totalFeesToman: evaluation.totalFeesToman!,
             netPnlToman: evaluation.netPnlToman!,
             netPnlPct: evaluation.netPnlPct!,
-          },
-        );
-
-        return NextResponse.json({
-          ok: true,
-          action: "RESOLVED_SUCCESS",
-          opportunityId: open._id.toHexString(),
-          currentBitpinPrice: prices.bitpin,
-          errors,
-          research,
-          researchError,
-        });
-      }
-
-      if (
-        evaluation.status === "FAILED" &&
-        evaluation.exitPrice !== null &&
-        evaluation.priceChangePct !== null
-      ) {
-        await resolveOpportunity(
-          open._id,
-          evaluation.exitPrice,
-          evaluation.priceChangePct,
-          new Date(prices.fetchedAt),
-          "FAILED",
-          {
+          });
+          monitored.push({ opportunityId: open._id.toHexString(), action: "RESOLVED_SUCCESS", research });
+        } else if (evaluation.status === "FAILED" && evaluation.exitPrice !== null && evaluation.priceChangePct !== null) {
+          await resolveOpportunity(open._id, evaluation.exitPrice, evaluation.priceChangePct, detectedAt, "FAILED", {
             grossPnlToman: evaluation.grossPnlToman!,
             totalFeesToman: evaluation.totalFeesToman!,
             netPnlToman: evaluation.netPnlToman!,
             netPnlPct: evaluation.netPnlPct!,
-          },
-        );
-
-        return NextResponse.json({
-          ok: true,
-          action: "RESOLVED_FAILED",
+          });
+          monitored.push({ opportunityId: open._id.toHexString(), action: "RESOLVED_FAILED", research });
+        } else if (evaluation.status === "INVALIDATED") {
+          await invalidateOpportunity(open._id, detectedAt);
+          monitored.push({ opportunityId: open._id.toHexString(), action: "INVALIDATED", research });
+        } else {
+          monitored.push({ opportunityId: open._id.toHexString(), action: "MONITORED_OPEN", research });
+        }
+      } catch (error) {
+        monitored.push({
           opportunityId: open._id.toHexString(),
-          currentBitpinPrice: prices.bitpin,
-          errors,
-          research,
-          researchError,
+          action: "ERROR",
+          error: error instanceof Error ? error.message : String(error),
         });
       }
-
-      if (evaluation.status === "INVALIDATED") {
-        await invalidateOpportunity(open._id, new Date(prices.fetchedAt));
-
-        return NextResponse.json({
-          ok: true,
-          action: "INVALIDATED",
-          opportunityId: open._id.toHexString(),
-          currentBitpinPrice: prices.bitpin,
-          errors,
-          research,
-          researchError,
-        });
-      }
-
-      return NextResponse.json({
-        ok: true,
-        action: "MONITORED_OPEN",
-        opportunityId: open._id.toHexString(),
-        currentBitpinPrice: prices.bitpin,
-        errors,
-        research,
-        researchError,
-      });
     }
 
     if (!validOpportunity) {
@@ -245,6 +185,15 @@ export async function GET(request: Request) {
       new Date(prices.fetchedAt),
     );
     stage = "insert-open-opportunity";
+    if (document.observationKey && await findOpportunityByObservationKey(document.observationKey)) {
+      return NextResponse.json({
+        ok: true,
+        action: "DUPLICATE_OPPORTUNITY",
+        openProcessed: monitored.length,
+        monitored,
+        errors,
+      });
+    }
     const created = await insertOpenOpportunity(document);
     const research = await collectResearch(created._id ?? null);
 
@@ -254,6 +203,8 @@ export async function GET(request: Request) {
       opportunityId: created._id?.toHexString(),
       opportunity: analysis.opportunity,
       score: analysis.stabilityScore,
+      openProcessed: monitored.length,
+      monitored,
       errors,
       research,
       researchError,
