@@ -24,8 +24,9 @@ function serializeOpportunity(opportunity: OpportunityDocument) {
 
 export async function GET() {
   try {
-    const [open, recent, stats] = await Promise.all([
+    const [open, openList, recent, stats] = await Promise.all([
       findOpenOpportunity(),
+      listOpenOpportunities(100),
       listRecentOpportunities(20),
       getOpportunityStats(),
     ]);
