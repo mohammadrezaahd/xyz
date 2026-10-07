@@ -1,7 +1,8 @@
 import { NextResponse } from "next/server";
 import { ObjectId } from "mongodb";
 import {
-  findOpenOpportunity,\n  listOpenOpportunities,
+  findOpenOpportunity,
+  listOpenOpportunities,
   getOpportunityStats,
   listRecentOpportunities,
 } from "@/lib/opportunities/repository";
@@ -31,7 +32,8 @@ export async function GET() {
 
     return NextResponse.json(
       {
-        open: open ? serializeOpportunity(open) : null,\n        openList: openList.map(serializeOpportunity),
+        open: open ? serializeOpportunity(open) : null,
+        openList: openList.map(serializeOpportunity),
         recent: recent.map(serializeOpportunity),
         stats,
       },
