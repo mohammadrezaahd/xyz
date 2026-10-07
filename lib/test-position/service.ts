@@ -23,6 +23,11 @@ import {
   TEST_POSITION_DEFAULT_LEVERAGE,
   TEST_POSITION_INITIAL_CAPITAL,
 } from "./types";
+import {
+  linkTestPositionToResearchObservation,
+  logResearchSyncFailure,
+  synchronizeResolvedTestPosition,
+} from "../research/service";
 
 function asObjectId(value: string): ObjectId {
   if (!ObjectId.isValid(value)) throw new Error("Invalid id");
@@ -165,7 +170,15 @@ export async function startTestPosition(input: {
     leverage,
   );
 
-  return insertTestPosition(document);
+  const inserted = await insertTestPosition(document);
+  if (opportunity?._id && inserted._id) {
+    try {
+      await linkTestPositionToResearchObservation(opportunity._id, inserted._id, inserted.entryAt);
+    } catch (error) {
+      logResearchSyncFailure("paper-position link", error);
+    }
+  }
+  return inserted;
 }
 
 export async function updateTestPositionTarget(
@@ -232,10 +245,18 @@ export async function manuallyCloseTestPosition(
     },
     new Date(),
   );
+  const updated = await findTestPositionById(id);
+  if (closed && updated) {
+    try {
+      await synchronizeResolvedTestPosition(updated);
+    } catch (error) {
+      logResearchSyncFailure("manual-close outcome", error);
+    }
+  }
 
   return {
     closed,
-    position: await findTestPositionById(id),
+    position: updated,
   };
 }
 
@@ -273,7 +294,15 @@ export async function monitorOpenTestPositions(
         },
         checkedAt,
       );
-      if (didClose) liquidated++;
+      if (didClose) {
+        liquidated++;
+        try {
+          const updated = await findTestPositionById(position._id);
+          if (updated) await synchronizeResolvedTestPosition(updated);
+        } catch (error) {
+          logResearchSyncFailure("liquidation outcome", error);
+        }
+      }
       continue;
     }
 
@@ -294,7 +323,15 @@ export async function monitorOpenTestPositions(
         },
         checkedAt,
       );
-      if (didClose) closed++;
+      if (didClose) {
+        closed++;
+        try {
+          const updated = await findTestPositionById(position._id);
+          if (updated) await synchronizeResolvedTestPosition(updated);
+        } catch (error) {
+          logResearchSyncFailure("target outcome", error);
+        }
+      }
       continue;
     }
 

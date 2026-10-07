@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import type { ObjectId } from "mongodb";
 import { analyzeOpportunity } from "@/lib/opportunity/engine";
 import { isCronAuthorized } from "@/lib/opportunity/cron-auth";
 import { evaluateSyntheticOutcome } from "@/lib/opportunity/outcome";
@@ -13,6 +14,8 @@ import {
 } from "@/lib/opportunities/repository";
 import type { Candle } from "@/lib/candles";
 import type { CurrentPricesResponse } from "@/lib/prices";
+import { buildResearchObservation } from "@/lib/research/snapshot";
+import { createResearchObservation, linkSourceOpportunity } from "@/lib/research/repository";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 60;
@@ -84,10 +87,42 @@ export async function GET(request: Request) {
       nowMs: prices.fetchedAt,
     });
 
+    const detectedAt = new Date(prices.fetchedAt);
+    const validOpportunity =
+      analysis.opportunity !== "NONE" &&
+      analysis.prices.wallex !== null &&
+      analysis.prices.bitpin !== null &&
+      analysis.spread.percent !== null &&
+      analysis.target.safeTarget !== null;
+    let researchError: string | null = null;
+    async function collectResearch(sourceOpportunityId: ObjectId | null) {
+      if (!validOpportunity) return null;
+      try {
+        const result = await createResearchObservation(
+          buildResearchObservation({
+            analysis,
+            detectedAt,
+            fetchedAt: detectedAt,
+            source: "LIVE_CRON",
+            sourceOpportunityId,
+          }),
+        );
+        if (sourceOpportunityId && result.observation._id && !result.observation.sourceOpportunityId) {
+          await linkSourceOpportunity(result.observation._id, sourceOpportunityId, detectedAt);
+        }
+        return { id: result.observation._id?.toHexString() ?? null, created: result.created };
+      } catch (error) {
+        researchError = error instanceof Error ? error.message : "Unable to collect research observation";
+        console.error("[cron/opportunities] research collection failed", researchError);
+        return null;
+      }
+    }
+
     stage = "find-open-opportunity";
     const open = await findOpenOpportunity();
 
     if (open?._id) {
+      const research = await collectResearch(open._id);
       stage = "monitor-open-opportunity";
       await updateOpenMonitoring(
         open._id,
@@ -132,6 +167,8 @@ export async function GET(request: Request) {
           opportunityId: open._id.toHexString(),
           currentBitpinPrice: prices.bitpin,
           errors,
+          research,
+          researchError,
         });
       }
 
@@ -160,6 +197,8 @@ export async function GET(request: Request) {
           opportunityId: open._id.toHexString(),
           currentBitpinPrice: prices.bitpin,
           errors,
+          research,
+          researchError,
         });
       }
 
@@ -172,6 +211,8 @@ export async function GET(request: Request) {
           opportunityId: open._id.toHexString(),
           currentBitpinPrice: prices.bitpin,
           errors,
+          research,
+          researchError,
         });
       }
 
@@ -181,15 +222,10 @@ export async function GET(request: Request) {
         opportunityId: open._id.toHexString(),
         currentBitpinPrice: prices.bitpin,
         errors,
+        research,
+        researchError,
       });
     }
-
-    const validOpportunity =
-      analysis.opportunity !== "NONE" &&
-      analysis.prices.wallex !== null &&
-      analysis.prices.bitpin !== null &&
-      analysis.spread.percent !== null &&
-      analysis.target.safeTarget !== null;
 
     if (!validOpportunity) {
       stage = "return-no-opportunity";
@@ -199,6 +235,7 @@ export async function GET(request: Request) {
         opportunity: analysis.opportunity,
         score: analysis.stabilityScore,
         errors,
+        research: null,
       });
     }
 
@@ -209,6 +246,7 @@ export async function GET(request: Request) {
     );
     stage = "insert-open-opportunity";
     const created = await insertOpenOpportunity(document);
+    const research = await collectResearch(created._id ?? null);
 
     return NextResponse.json({
       ok: true,
@@ -217,6 +255,8 @@ export async function GET(request: Request) {
       opportunity: analysis.opportunity,
       score: analysis.stabilityScore,
       errors,
+      research,
+      researchError,
     });
   } catch (error) {
     console.error("[cron/opportunities] failed", {

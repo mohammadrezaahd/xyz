@@ -49,6 +49,7 @@ export interface OpportunityAnalysis {
     bitpinBullish: TestResult;
     wallexBullish: TestResult;
     targetViability: TestResult;
+    momentum: TestResult;
   };
   candles: {
     lookback: number;
