@@ -4,13 +4,23 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { CandleChart } from "@/components/candle-chart";
 import { OpportunityPanel } from "@/components/opportunity-panel";
 import { Phase3Panel } from "@/components/phase3-panel";
+import { SnapshotPage } from "@/components/snapshot-page";
 import { TestPositionPanel } from "@/components/test-position-panel";
 import { analyzeOpportunity } from "@/lib/opportunity/engine";
 import type { Candle } from "@/lib/candles";
 import type { CurrentPricesResponse } from "@/lib/prices";
+import type { MarketSnapshotTrend } from "@/lib/market-snapshots/types";
 
 type CandleResponse = { bitpin: Candle[]; wallex: Candle[]; errors: string[]; fetchedAt: number; refreshMs: number };
-type View = "overview" | "opportunity" | "position" | "history";
+type View = "overview" | "opportunity" | "position" | "history" | "snapshots";
+
+const snapshotTrends: Array<{ value: MarketSnapshotTrend; label: string }> = [
+  { value: "STRONGLY_BULLISH", label: "Strongly Bullish" },
+  { value: "BULLISH", label: "Bullish" },
+  { value: "STABLE", label: "Stable" },
+  { value: "BEARISH", label: "Bearish" },
+  { value: "STRONGLY_BEARISH", label: "Strongly Bearish" },
+];
 
 function price(value: number | null | undefined) { return value == null ? "—" : value.toLocaleString("en-US", { maximumFractionDigits: 2 }); }
 function time(value: number | undefined) { return value ? new Date(value).toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit", second: "2-digit" }) : "—"; }
@@ -23,17 +33,21 @@ function StatusBadge({ kind, children }: { kind: "live" | "partial" | "stale" | 
 function Metric({ label, value, state, helper }: { label: string; value: string; state: string; helper: string }) {
   return <article className="metricTile"><div className="metricLabel">{label}</div><strong className="metricValue">{value}</strong><div className="metricState">{state}</div><div className="metricHelper">{helper}</div></article>;
 }
+
 const viewCopy: Record<View, { breadcrumb: string; title: string; footer: string }> = {
   overview: { breadcrumb: "OVERVIEW", title: "Market overview", footer: "Analysis and simulation only" },
   opportunity: { breadcrumb: "OPPORTUNITY", title: "Opportunity diagnostics", footer: "Analysis and simulation only" },
   position: { breadcrumb: "PAPER POSITION", title: "Paper Position", footer: "Paper research · No automated trading execution" },
   history: { breadcrumb: "HISTORY", title: "History", footer: "Opportunity cron results · Analysis and simulation only" },
+  snapshots: { breadcrumb: "SNAPSHOTS", title: "Market snapshots", footer: "Point-in-time research archive" },
 };
+
 const navigation: Array<[View, string, string, string]> = [
   ["overview", "Overview", "Overview", "01"],
   ["opportunity", "Opportunity", "Opportunity", "02"],
   ["position", "Paper Position", "Paper Position", "03"],
   ["history", "History", "History", "04"],
+  ["snapshots", "Snapshots", "Snapshots", "05"],
 ];
 
 export default function Home() {
@@ -44,6 +58,9 @@ export default function Home() {
   const [externalPrice, setExternalPrice] = useState("");
   const [view, setView] = useState<View>("overview");
   const [refreshTick, setRefreshTick] = useState(0);
+  const [snapshotDialogOpen, setSnapshotDialogOpen] = useState(false);
+  const [snapshotSaving, setSnapshotSaving] = useState(false);
+  const [snapshotError, setSnapshotError] = useState("");
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -54,9 +71,9 @@ export default function Home() {
       ]);
       const candleJson = (await candleResponse.json()) as CandleResponse;
       const priceJson = (await priceResponse.json()) as CurrentPricesResponse;
-      if (!candleResponse.ok) throw new Error(candleJson.errors?.join("\n") || `Candle API HTTP ${candleResponse.status}`);
-      if (!priceResponse.ok) throw new Error(priceJson.errors?.join("\n") || `Price API HTTP ${priceResponse.status}`);
-      setData(candleJson); setPrices(priceJson); setError([...(candleJson.errors ?? []), ...(priceJson.errors ?? [])].join("\n"));
+      if (!candleResponse.ok) throw new Error(candleJson.errors?.join("\\n") || `Candle API HTTP ${candleResponse.status}`);
+      if (!priceResponse.ok) throw new Error(priceJson.errors?.join("\\n") || `Price API HTTP ${priceResponse.status}`);
+      setData(candleJson); setPrices(priceJson); setError([...(candleJson.errors ?? []), ...(priceJson.errors ?? [])].join("\\n"));
     } catch (value) { setError(value instanceof Error ? value.message : "Unable to load market data"); }
     finally { setLoading(false); }
   }, []);
@@ -71,6 +88,32 @@ export default function Home() {
 
   const copy = viewCopy[view];
   const nav = (next: View) => setView(next);
+
+  const openSnapshotDialog = () => {
+    setSnapshotError("");
+    setSnapshotDialogOpen(true);
+  };
+
+  const saveSnapshot = async (trend: MarketSnapshotTrend) => {
+    setSnapshotSaving(true);
+    setSnapshotError("");
+    try {
+      const response = await fetch("/api/snapshots", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ trend, analysis }),
+      });
+      const payload = (await response.json()) as { error?: string };
+      if (!response.ok) throw new Error(payload.error ?? `Snapshot API HTTP ${response.status}`);
+      setSnapshotDialogOpen(false);
+      nav("snapshots");
+    } catch (value) {
+      setSnapshotError(value instanceof Error ? value.message : "Unable to save snapshot");
+    } finally {
+      setSnapshotSaving(false);
+    }
+  };
+
   return <div className="consoleApp">
     <aside className="sidebar">
       <div className="brandLockup"><div className="brandMark" aria-hidden="true">X</div><div><strong>XYZ</strong><span>RESEARCH CONSOLE</span></div></div>
@@ -78,7 +121,7 @@ export default function Home() {
       <nav className="primaryNav" aria-label="Research areas">
         {navigation.map(([id, desktopLabel, mobileLabel, number]) => <button key={id} type="button" className={`navItem ${view === id ? "isActive" : ""}`} aria-label={desktopLabel} aria-current={view === id ? "page" : undefined} onClick={() => nav(id)}><span>{number}</span><strong><span className="navLabelDesktop">{desktopLabel}</span><span className="navLabelMobile">{mobileLabel}</span></strong></button>)}
       </nav>
-      <div className="sidebarFoot"><StatusBadge kind={statusKind}>{statusText}</StatusBadge><p>{view === "history" || view === "opportunity" ? "Phase 3 Opportunity Cron" : "Phase 4 · Paper Research"}</p><p>Analysis only. No real trades.</p></div>
+      <div className="sidebarFoot"><StatusBadge kind={statusKind}>{statusText}</StatusBadge><p>{view === "history" || view === "opportunity" ? "Phase 3 Opportunity Cron" : view === "snapshots" ? "Point-in-time archive" : "Phase 4 · Paper Research"}</p><p>Analysis only. No real trades.</p></div>
     </aside>
 
     <main className="mainContent">
@@ -86,7 +129,7 @@ export default function Home() {
       <div className="dataStatusBar" role="status"><div><span className="statusMarker" aria-hidden="true" /><strong>{loading ? "Loading synchronized market history…" : hasPrices && hasCandles ? `Live data · Bitpin and Wallex updated ${time(prices?.fetchedAt)}` : hasPrices ? "Partial data · candle history is incomplete · analysis may be limited" : "Insufficient data · waiting for provider responses"}</strong></div><span>{analysis.candles.synchronized} / {analysis.candles.lookback} synchronized candle pairs</span></div>
 
       {view === "overview" && <>
-        <section className="commandCenter" aria-labelledby="command-title"><div className="commandMain"><div className="sectionEyebrow">OPPORTUNITY COMMAND CENTER</div><div className="commandHeading"><div><h2 id="command-title">{analysis.opportunity === "NONE" ? "Waiting for market data" : `${analysis.opportunity} opportunity`}</h2><p>{hasCandles ? "Historical validation is available for review. This is a research signal, not a trading instruction." : "The current opportunity cannot be evaluated yet."}</p></div><StatusBadge kind={analysis.opportunity === "NONE" ? "neutral" : analysis.opportunity === "STRONG" ? "live" : "partial"}>{analysis.riskLevel} risk</StatusBadge></div><div className="commandStats"><div><span>Stability</span><strong>{analysis.stabilityScore.toFixed(1)}<small>/100</small></strong></div><div><span>Confidence</span><strong>{analysis.dataCompleteness.toFixed(0)}<small>%</small></strong></div><div><span>Spread</span><strong>{percent(analysis.spread.percent)}</strong></div><div><span>Net edge</span><strong>{percent(analysis.edge.netPct)}</strong></div></div><div className="commandFooter"><span>{hasCandles ? `${analysis.candles.synchronized} / ${analysis.candles.lookback} candle pairs available` : "0 / 10 synchronized candle pairs available"}</span><button type="button" className="primaryButton" onClick={() => nav("opportunity")}>View diagnostics</button></div></div><div className="verdictRail"><span>RESEARCH VERDICT</span><strong>{analysis.opportunity === "NONE" ? "WAITING" : analysis.opportunity}</strong><p>{analysis.target.safeTarget == null ? "No target calculated" : `Target ${price(analysis.target.safeTarget)} Toman`}</p></div></section>
+        <section className="commandCenter" aria-labelledby="command-title"><div className="commandMain"><div className="sectionEyebrow">OPPORTUNITY COMMAND CENTER</div><div className="commandHeading"><div><h2 id="command-title">{analysis.opportunity === "NONE" ? "Waiting for market data" : `${analysis.opportunity} opportunity`}</h2><p>{hasCandles ? "Historical validation is available for review. This is a research signal, not a trading instruction." : "The current opportunity cannot be evaluated yet."}</p></div><StatusBadge kind={analysis.opportunity === "NONE" ? "neutral" : analysis.opportunity === "STRONG" ? "live" : "partial"}>{analysis.riskLevel} risk</StatusBadge></div><div className="commandStats"><div><span>Stability</span><strong>{analysis.stabilityScore.toFixed(1)}<small>/100</small></strong></div><div><span>Confidence</span><strong>{analysis.dataCompleteness.toFixed(0)}<small>%</small></strong></div><div><span>Spread</span><strong>{percent(analysis.spread.percent)}</strong></div><div><span>Net edge</span><strong>{percent(analysis.edge.netPct)}</strong></div></div><div className="commandFooter"><span>{hasCandles ? `${analysis.candles.synchronized} / ${analysis.candles.lookback} candle pairs available` : "0 / 10 synchronized candle pairs available"}</span><div className="commandFooterActions"><button type="button" className="refreshButton" onClick={openSnapshotDialog}>Snapshot</button><button type="button" className="primaryButton" onClick={() => nav("opportunity")}>View diagnostics</button></div></div></div><div className="verdictRail"><span>RESEARCH VERDICT</span><strong>{analysis.opportunity === "NONE" ? "WAITING" : analysis.opportunity}</strong><p>{analysis.target.safeTarget == null ? "No target calculated" : `Target ${price(analysis.target.safeTarget)} Toman`}</p></div></section>
         <section className="marketComparison" aria-labelledby="comparison-title"><div className="sectionHeader"><div><div className="sectionEyebrow">MARKET COMPARISON</div><h2 id="comparison-title">Current exchange prices</h2></div><span className="sectionNote">Toman · live ticker</span></div><div className="comparisonGrid"><div className="exchangeQuote exchangeQuote--bitpin"><div><span className="exchangeCode">B</span><strong>Bitpin</strong><small>Ticker</small></div><b>{price(prices?.bitpin)}</b></div><div className="spreadBridge"><span>SPREAD</span><strong>{percent(analysis.spread.percent)}</strong><small>Wallex premium</small></div><div className="exchangeQuote exchangeQuote--wallex"><div><span className="exchangeCode">W</span><strong>Wallex</strong><small>Ticker</small></div><b>{price(prices?.wallex)}</b></div></div></section>
         <section className="metricGrid" aria-label="Decision metrics"><Metric label="Spread" value={percent(analysis.spread.percent)} state={analysis.spread.percent == null ? "Insufficient data" : "Exchange delta"} helper={analysis.spread.absolute == null ? "Awaiting both tickers" : `${price(analysis.spread.absolute)} Toman absolute`} /><Metric label="Stability score" value={`${analysis.stabilityScore.toFixed(1)} / 100`} state="Historical validation" helper={`${analysis.candles.synchronized} synchronized pairs`} /><Metric label="Confidence" value={`${analysis.dataCompleteness.toFixed(0)}%`} state="Data completeness" helper="Based on available inputs" /><Metric label="Net edge" value={percent(analysis.edge.netPct)} state="Fee-adjusted" helper={`Fees ${analysis.edge.feesPct.toFixed(2)}%`} /></section>
         <section className="chartSection" aria-labelledby="chart-title"><div className="sectionHeader"><div><div className="sectionEyebrow">PRICE RELATIONSHIP</div><h2 id="chart-title">Synchronized candle history</h2></div><span className="sectionNote">1 minute · {data?.bitpin.length ?? 0} Bitpin / {data?.wallex.length ?? 0} Wallex candles</span></div><div className="chartPair"><div className="chartPane"><div className="chartPaneHeader"><div><strong>Bitpin</strong><span>{price(prices?.bitpin)} Toman</span></div><span>{data?.bitpin.length ?? 0} candles</span></div><CandleChart candles={data?.bitpin ?? []} /></div><div className="chartPane"><div className="chartPaneHeader"><div><strong>Wallex</strong><span>{price(prices?.wallex)} Toman</span></div><span>{data?.wallex.length ?? 0} candles</span></div><CandleChart candles={data?.wallex ?? []} /></div></div></section>
@@ -95,8 +138,20 @@ export default function Home() {
       {view === "opportunity" && <section className="workspacePage"><div className="pageIntro"><div className="sectionEyebrow">RESEARCH WORKSPACE</div><h2>Opportunity and stability</h2><p>Inspect every validation test, threshold, price input, and target calculation without losing the underlying API behavior.</p></div><OpportunityPanel analysis={analysis} externalPrice={externalPrice} onExternalPriceChange={setExternalPrice} /></section>}
       {view === "position" && <section className="workspacePage"><div className="pageIntro"><div className="sectionEyebrow">PHASE 4 WORKSPACE</div><h2>Paper Position</h2><p>Run and monitor a research-only paper position. No real funds or exchange orders are used.</p></div><TestPositionPanel currentPrice={prices?.bitpin ?? null} /></section>}
       {view === "history" && <section className="workspacePage"><div className="pageIntro"><div className="sectionEyebrow">PHASE 3 RESULTS</div><h2>History</h2><p>Review opportunity cron results, validation scores, and simulated outcomes.</p></div><Phase3Panel /></section>}
-      {error && <div className="errorBanner" role="alert"><strong>Provider warning</strong><span>{error}</span></div>}
+      {view === "snapshots" && <SnapshotPage />}
+      {error && view !== "snapshots" && <div className="errorBanner" role="alert"><strong>Provider warning</strong><span>{error}</span></div>}
       <footer className="consoleFooter"><span>XYZ Research Console</span><span>{copy.footer}</span></footer>
     </main>
+
+    {snapshotDialogOpen && <div className="snapshotDialogBackdrop" role="presentation" onMouseDown={() => !snapshotSaving && setSnapshotDialogOpen(false)}>
+      <section className="snapshotDialog" role="dialog" aria-modal="true" aria-labelledby="snapshot-dialog-title" onMouseDown={(event) => event.stopPropagation()}>
+        <div className="snapshotDialogHeader"><div><div className="sectionEyebrow">CREATE SNAPSHOT</div><h2 id="snapshot-dialog-title">What is the current market trend?</h2><p>Choose the market state you observe right now. The complete Opportunity Analysis will be persisted with your choice.</p></div><button type="button" className="snapshotDialogClose" onClick={() => setSnapshotDialogOpen(false)} disabled={snapshotSaving} aria-label="Close">×</button></div>
+        <div className="snapshotTrendGrid">
+          {snapshotTrends.map((trend) => <button key={trend.value} type="button" className="snapshotTrendButton" onClick={() => void saveSnapshot(trend.value)} disabled={snapshotSaving}><strong>{trend.label}</strong><span>{trend.value}</span></button>)}
+        </div>
+        {snapshotSaving && <div className="snapshotDialogStatus">Saving snapshot…</div>}
+        {snapshotError && <div className="errorBanner" role="alert"><strong>Snapshot error</strong><span>{snapshotError}</span></div>}
+      </section>
+    </div>}
   </div>;
 }
