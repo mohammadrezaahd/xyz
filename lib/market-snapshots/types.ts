@@ -1,7 +1,7 @@
 import type { ObjectId } from "mongodb";
 import type { OpportunityAnalysis } from "../opportunity/types";
 
-export const MARKET_SNAPSHOT_VERSION = "1";
+export const MARKET_SNAPSHOT_VERSION = "2";
 
 export type MarketSnapshotTrend =
   | "STRONGLY_BULLISH"
@@ -18,7 +18,9 @@ export type MarketSnapshot = {
   trend: MarketSnapshotTrend;
   spreadPct: number | null;
   stability: number;
-  confidence: number;
+  dataCompleteness: number;
+  /** Legacy read compatibility for snapshots created before Phase 5B. */
+  confidence?: number;
   netEdgePct: number | null;
   analysis: OpportunityAnalysis;
 };

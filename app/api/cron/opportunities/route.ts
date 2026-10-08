@@ -82,21 +82,15 @@ export async function GET(request: Request) {
       currentPrices: {
         bitpin: prices.bitpin,
         wallex: prices.wallex,
+        fetchedAt: prices.fetchedAt,
       },
-      externalPrice: prices.wallex,
       nowMs: prices.fetchedAt,
     });
 
     const detectedAt = new Date(prices.fetchedAt);
-    const validOpportunity =
-      analysis.opportunity !== "NONE" &&
-      analysis.prices.wallex !== null &&
-      analysis.prices.bitpin !== null &&
-      analysis.spread.percent !== null &&
-      analysis.target.safeTarget !== null;
+    const validOpportunity = analysis.eligibleForSignal === true;
     let researchError: string | null = null;
     async function collectResearch(sourceOpportunityId: ObjectId | null) {
-      if (!validOpportunity) return null;
       try {
         const result = await createResearchObservation(
           buildResearchObservation({
@@ -229,13 +223,14 @@ export async function GET(request: Request) {
 
     if (!validOpportunity) {
       stage = "return-no-opportunity";
+      const research = await collectResearch(null);
       return NextResponse.json({
         ok: true,
         action: "NO_OPPORTUNITY",
         opportunity: analysis.opportunity,
         score: analysis.stabilityScore,
         errors,
-        research: null,
+        research,
       });
     }
 

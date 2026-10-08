@@ -1,9 +1,25 @@
 import type { Candle } from "../candles";
+import type { OpportunityDecision } from "./config";
 
 export type TestStatus = "SUCCESS" | "ACCEPTABLE" | "FAILED" | "INSUFFICIENT_DATA";
 export type OpportunityLevel = "STRONG" | "MODERATE" | "WEAK" | "NONE";
 export type RiskLevel = "LOW" | "MEDIUM" | "HIGH" | "VERY_HIGH";
 export type CandleDirection = "BULLISH" | "BEARISH" | "NEUTRAL";
+export type ExternalReferencePrice = {
+  price: number | null;
+  fetchedAt: number | null;
+  provider: string | null;
+  error: string | null;
+};
+export type BuySellBalance = {
+  value: number | null;
+  buyScore: number | null;
+  sellScore: number | null;
+  label: "BUY BIAS" | "SELL BIAS" | "BALANCED" | "INSUFFICIENT DATA";
+  explanation: string;
+  executionRoute: "LONG" | "REVERSE" | "NONE";
+  executionEligible: boolean;
+};
 
 export type SelectedCandle = {
   timestamp: number;
@@ -58,6 +74,9 @@ export interface OpportunityAnalysis {
     bitpinBullishRatio: number | null;
     wallexBullishRatio: number | null;
     alignmentRatio: number | null;
+    directionalAgreementRatio: number | null;
+    directionalParticipationRatio: number | null;
+    neutralPairRatio: number | null;
     averageDirectionalMovePct: number | null;
     momentumScore: number | null;
   };
@@ -71,10 +90,22 @@ export interface OpportunityAnalysis {
     gross: number | null;
     grossPct: number | null;
     feesPct: number;
+    slippagePct: number;
+    latencyPct: number;
+    transferCostPct: number;
     netPct: number | null;
+    expectedNetProfit: number | null;
+    executionNetPct: number | null;
   };
   stabilityScore: number;
   dataCompleteness: number;
   riskLevel: RiskLevel;
   opportunity: OpportunityLevel;
+  decision: OpportunityDecision;
+  decisionReason: string;
+  eligibleForSignal: boolean;
+  buySellBalance: BuySellBalance;
+  quoteFreshness: { bitpinAgeMs: number | null; wallexAgeMs: number | null; externalAgeMs: number | null };
+  configurationVersion: string;
+  engineVersion: string;
 }

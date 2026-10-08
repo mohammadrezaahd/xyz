@@ -17,6 +17,9 @@ function formatNumber(value: number | null | undefined): string {
 function formatPercent(value: number | null | undefined): string {
   return value == null ? "—" : `${value.toFixed(2)}%`;
 }
+function snapshotCompleteness(snapshot: MarketSnapshot): number {
+  return snapshot.dataCompleteness ?? snapshot.confidence ?? 0;
+}
 function snapshotId(snapshot: MarketSnapshot): string {
   const value = snapshot._id;
   if (typeof value === "string") return value;
@@ -68,7 +71,7 @@ export function SnapshotPage() {
         <div className="snapshotIntroRow">
           <div>
             <h2>Point-in-time market research</h2>
-            <p>Immutable captures of the complete Opportunity Analysis, including spread, stability, confidence, net edge, validations, candle classifications, target, and scoring inputs.</p>
+            <p>Immutable captures of the complete Opportunity Analysis, including spread, stability, data completeness, net edge, validations, candle classifications, target, and scoring inputs.</p>
           </div>
           <div className="snapshotIntroActions">
             <button className="refreshButton" type="button" onClick={() => void load()} disabled={loading}>{loading ? "Updating…" : "Refresh"}</button>
@@ -90,7 +93,7 @@ export function SnapshotPage() {
               <button key={id} className={`snapshotListItem${active ? " isActive" : ""}`} type="button" onClick={() => setSelectedId(id)}>
                 <span className={`snapshotTrend snapshotTrend--${snapshot.trend.toLowerCase()}`}>{trendLabels[snapshot.trend]}</span>
                 <strong>{new Date(snapshot.createdAt).toLocaleString("en-US")}</strong>
-                <small>Spread {formatPercent(snapshot.spreadPct)} · Stability {snapshot.stability.toFixed(1)} · Confidence {snapshot.confidence.toFixed(0)}%</small>
+                <small>Spread {formatPercent(snapshot.spreadPct)} · Stability {snapshot.stability.toFixed(1)} · Data completeness {snapshotCompleteness(snapshot).toFixed(0)}%</small>
               </button>
             );
           })}
@@ -112,7 +115,7 @@ export function SnapshotPage() {
               <div className="snapshotMetrics">
                 <div><span>Spread</span><strong>{formatPercent(selected.spreadPct)}</strong></div>
                 <div><span>Stability</span><strong>{selected.stability.toFixed(1)} / 100</strong></div>
-                <div><span>Confidence</span><strong>{selected.confidence.toFixed(0)}%</strong></div>
+                <div><span>Data completeness</span><strong>{snapshotCompleteness(selected).toFixed(0)}%</strong></div>
                 <div><span>Net edge</span><strong>{formatPercent(selected.netEdgePct)}</strong></div>
               </div>
 

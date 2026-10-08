@@ -63,13 +63,13 @@ export async function POST(request: Request) {
 
     const analysis = body.analysis as Parameters<typeof createMarketSnapshot>[0]["analysis"];
     const snapshot = await createMarketSnapshot({
-      snapshotVersion: "1",
+      snapshotVersion: "2",
       createdAt: new Date(),
       market: "USDT_TOMAN",
       trend: body.trend,
       spreadPct: analysis.spread.percent,
       stability: analysis.stabilityScore,
-      confidence: analysis.dataCompleteness,
+      dataCompleteness: analysis.dataCompleteness,
       netEdgePct: analysis.edge.netPct,
       analysis,
     });

@@ -1,521 +1,176 @@
 import type { Candle } from "../candles";
-import { DEFAULT_OPPORTUNITY_CONFIG, type OpportunityConfig } from "./config";
-import type {
-  CandleDirection,
-  OpportunityAnalysis,
-  OpportunityLevel,
-  RiskLevel,
-  TestResult,
-} from "./types";
+import { DEFAULT_OPPORTUNITY_CONFIG, type OpportunityConfig, type OpportunityDecision } from "./config";
+import type { CandleDirection, ExternalReferencePrice, OpportunityAnalysis, OpportunityLevel, RiskLevel, TestResult } from "./types";
 
 const MINUTE_SECONDS = 60;
 
-function classifyRatio(actual: number, threshold: number): TestResult {
-  const status =
-    actual >= threshold ? "SUCCESS" : actual >= 0.5 ? "ACCEPTABLE" : "FAILED";
-
-  return { status, actual, threshold };
-}
-
-function classifySpread(actual: number, successThreshold: number): TestResult {
-  const acceptableThreshold = successThreshold * 0.5;
-  const status =
-    actual >= successThreshold
-      ? "SUCCESS"
-      : actual >= acceptableThreshold
-        ? "ACCEPTABLE"
-        : "FAILED";
-
-  return { status, actual, threshold: successThreshold };
-}
-
 function insufficient(threshold: number | null = null): TestResult {
-  return {
-    status: "INSUFFICIENT_DATA",
-    actual: null,
-    threshold,
-  };
+  return { status: "INSUFFICIENT_DATA", actual: null, threshold };
 }
-
-function normalizePositivePrice(
-  value: number | null | undefined,
-): number | null {
-  return typeof value === "number" && Number.isFinite(value) && value > 0
-    ? value
-    : null;
+function normalizePositivePrice(value: number | null | undefined): number | null {
+  return typeof value === "number" && Number.isFinite(value) && value > 0 ? value : null;
 }
-
+function classifyRatio(actual: number, threshold: number): TestResult {
+  return { status: actual >= threshold ? "SUCCESS" : actual >= 0.5 ? "ACCEPTABLE" : "FAILED", actual, threshold };
+}
+function classifySpread(actual: number, threshold: number): TestResult {
+  return { status: actual >= threshold ? "SUCCESS" : actual >= threshold * 0.5 ? "ACCEPTABLE" : "FAILED", actual, threshold };
+}
 function movementPct(candle: Candle): number | null {
-  if (
-    !Number.isFinite(candle.open) ||
-    candle.open <= 0 ||
-    !Number.isFinite(candle.close)
-  ) {
-    return null;
-  }
-
+  if (!Number.isFinite(candle.open) || candle.open <= 0 || !Number.isFinite(candle.close)) return null;
   return (Math.abs(candle.close - candle.open) / candle.open) * 100;
 }
-
-function classifyCandle(
-  candle: Candle,
-  minMovePct: number,
-): { direction: CandleDirection; movementPct: number | null } {
+function classifyCandle(candle: Candle, minMovePct: number): { direction: CandleDirection; movementPct: number | null } {
   const movement = movementPct(candle);
-
-  if (movement === null || movement < minMovePct) {
-    return { direction: "NEUTRAL", movementPct: movement };
-  }
-
-  return {
-    direction: candle.close > candle.open ? "BULLISH" : "BEARISH",
-    movementPct: movement,
+  if (movement === null || movement < minMovePct) return { direction: "NEUTRAL", movementPct: movement };
+  return { direction: candle.close > candle.open ? "BULLISH" : "BEARISH", movementPct: movement };
+}
+function minuteBucket(time: number): number { return Math.floor(time / MINUTE_SECONDS) * MINUTE_SECONDS; }
+function synchronizedClosedCandles(bitpin: Candle[], wallex: Candle[], lookback: number, nowMs: number) {
+  const currentStart = Math.floor(Math.floor(nowMs / 1000) / MINUTE_SECONDS) * MINUTE_SECONDS;
+  const byBucket = (candles: Candle[]) => {
+    const map = new Map<number, Candle>();
+    for (const candle of candles) {
+      if (!Number.isFinite(candle.time) || candle.time >= currentStart) continue;
+      const bucket = minuteBucket(candle.time);
+      const existing = map.get(bucket);
+      if (!existing || candle.time > existing.time) map.set(bucket, candle);
+    }
+    return map;
   };
+  const b = byBucket(bitpin); const w = byBucket(wallex);
+  return [...b.keys()].filter((key) => w.has(key)).sort((a, z) => a - z).slice(-Math.max(0, lookback)).map((key) => ({ bitpin: b.get(key)!, wallex: w.get(key)! }));
 }
-
-function direction(candle: Candle, minMovePct: number): CandleDirection {
-  return classifyCandle(candle, minMovePct).direction;
-}
-
-function movePct(candle: Candle): number | null {
-  return movementPct(candle);
-}
-
-function minuteBucket(time: number): number {
-  return Math.floor(time / MINUTE_SECONDS) * MINUTE_SECONDS;
-}
-
-function candlesByMinuteBucket(
-  candles: Candle[],
-  currentCandleStart: number,
-): Map<number, Candle> {
-  const map = new Map<number, Candle>();
-
-  for (const candle of candles) {
-    if (!Number.isFinite(candle.time) || candle.time >= currentCandleStart) {
-      continue;
-    }
-
-    const bucket = minuteBucket(candle.time);
-    const existing = map.get(bucket);
-
-    if (existing === undefined || candle.time > existing.time) {
-      map.set(bucket, candle);
-    }
-  }
-
-  return map;
-}
-
-function synchronizedClosedCandles(
-  bitpin: Candle[],
-  wallex: Candle[],
-  lookback: number,
-  nowMs: number,
-): Array<{ bitpin: Candle; wallex: Candle }> {
-  const nowSeconds = Math.floor(nowMs / 1000);
-  const currentCandleStart =
-    Math.floor(nowSeconds / MINUTE_SECONDS) * MINUTE_SECONDS;
-
-  const bitpinMap = candlesByMinuteBucket(bitpin, currentCandleStart);
-  const wallexMap = candlesByMinuteBucket(wallex, currentCandleStart);
-
-  const buckets = [...bitpinMap.keys()]
-    .filter((bucket) => wallexMap.has(bucket))
-    .sort((a, b) => a - b);
-
-  return buckets.slice(-Math.max(0, lookback)).map((bucket) => ({
-    bitpin: bitpinMap.get(bucket)!,
-    wallex: wallexMap.get(bucket)!,
-  }));
-}
-
-function ratio(candles: Candle[], minMovePct: number): number | null {
+function ratio(candles: Candle[], minMovePct: number, wanted: CandleDirection): number | null {
   if (!candles.length) return null;
-
-  const bullish = candles.filter(
-    (candle) => direction(candle, minMovePct) === "BULLISH",
-  ).length;
-
-  return bullish / candles.length;
+  return candles.filter((candle) => classifyCandle(candle, minMovePct).direction === wanted).length / candles.length;
 }
-
-function selectedCandle(
-  timestamp: number,
-  candle: Candle,
-  minMovePct: number,
-) {
-  const classification = classifyCandle(candle, minMovePct);
-
-  return {
-    timestamp,
-    open: candle.open,
-    close: candle.close,
-    movementPct: classification.movementPct ?? 0,
-    direction: classification.direction,
-  } as const;
+function selectedCandle(timestamp: number, candle: Candle, minMovePct: number) {
+  const c = classifyCandle(candle, minMovePct);
+  return { timestamp, open: candle.open, close: candle.close, movementPct: c.movementPct ?? 0, direction: c.direction } as const;
 }
-
-function alignment(
-  pairs: Array<{ bitpin: Candle; wallex: Candle }>,
-  minMovePct: number,
-): number | null {
+function legacyAlignment(pairs: Array<{ bitpin: Candle; wallex: Candle }>, minMovePct: number): number | null {
   if (!pairs.length) return null;
-
-  const matching = pairs.filter(({ bitpin, wallex }) => {
-    return direction(bitpin, minMovePct) === direction(wallex, minMovePct);
-  }).length;
-
-  return matching / pairs.length;
+  return pairs.filter((pair) => classifyCandle(pair.bitpin, minMovePct).direction === classifyCandle(pair.wallex, minMovePct).direction).length / pairs.length;
 }
-
-function averageDirectionalMovePct(
-  pairs: Array<{ bitpin: Candle; wallex: Candle }>,
-  minMovePct: number,
-): number | null {
-  const moves = pairs.flatMap(({ bitpin, wallex }) => {
-    const values: number[] = [];
-
-    if (direction(bitpin, minMovePct) !== "NEUTRAL") {
-      const value = movePct(bitpin);
-      if (value !== null) values.push(value);
-    }
-
-    if (direction(wallex, minMovePct) !== "NEUTRAL") {
-      const value = movePct(wallex);
-      if (value !== null) values.push(value);
-    }
-
-    return values;
-  });
-
-  if (!moves.length) return null;
-
-  return moves.reduce((sum, value) => sum + value, 0) / moves.length;
-}
-
-function momentumScore(
-  averageMove: number | null,
-  referencePct: number,
-): number | null {
-  if (
-    averageMove === null ||
-    !Number.isFinite(averageMove) ||
-    referencePct <= 0
-  ) {
-    return null;
+function directionalMetrics(pairs: Array<{ bitpin: Candle; wallex: Candle }>, minMovePct: number) {
+  if (!pairs.length) return { agreement: null, participation: null, neutralPair: null };
+  let directional = 0; let bothDirectional = 0; let agreeing = 0; let neutralPairs = 0;
+  for (const pair of pairs) {
+    const a = classifyCandle(pair.bitpin, minMovePct).direction;
+    const b = classifyCandle(pair.wallex, minMovePct).direction;
+    if (a === "NEUTRAL" && b === "NEUTRAL") neutralPairs += 1;
+    if (a !== "NEUTRAL" || b !== "NEUTRAL") directional += 1;
+    if (a !== "NEUTRAL" && b !== "NEUTRAL") { bothDirectional += 1; if (a === b) agreeing += 1; }
   }
-
-  return Math.min(1, Math.max(0, averageMove / referencePct)) * 5;
+  return { agreement: bothDirectional ? agreeing / bothDirectional : null, participation: directional / pairs.length, neutralPair: neutralPairs / pairs.length };
 }
-
+function averageDirectionalMovePct(pairs: Array<{ bitpin: Candle; wallex: Candle }>, minMovePct: number): number | null {
+  const values = pairs.flatMap(({ bitpin, wallex }) => [bitpin, wallex].flatMap((candle) => classifyCandle(candle, minMovePct).direction === "NEUTRAL" ? [] : [movementPct(candle)]).filter((value): value is number => value !== null));
+  return values.length ? values.reduce((sum, value) => sum + value, 0) / values.length : null;
+}
+function momentumScore(averageMove: number | null, reference: number): number | null {
+  return averageMove === null || reference <= 0 ? null : Math.min(1, Math.max(0, averageMove / reference)) * 5;
+}
 function riskLevel(score: number, config: OpportunityConfig): RiskLevel {
   if (score >= config.riskThresholds.low) return "LOW";
   if (score >= config.riskThresholds.medium) return "MEDIUM";
   if (score >= config.riskThresholds.high) return "HIGH";
   return "VERY_HIGH";
 }
-
-function opportunityLevel(
-  score: number,
-  wallexAboveBitpin: TestResult,
-  spread: TestResult,
-  config: OpportunityConfig,
-): OpportunityLevel {
-  const above = wallexAboveBitpin.status === "SUCCESS";
-  const spreadOk = spread.status === "SUCCESS";
-
-  if (score >= config.opportunityThresholds.strong && above && spreadOk) {
-    return "STRONG";
-  }
-
-  if (score >= config.opportunityThresholds.moderate && above && spreadOk) {
-    return "MODERATE";
-  }
-
-  if (score >= config.opportunityThresholds.weak) return "WEAK";
-
-  return "NONE";
-}
-
-function availableWeight(result: TestResult, weight: number): number {
-  return result.status === "INSUFFICIENT_DATA" ? 0 : weight;
+function round(value: number): number { return Math.round(value * 1e9) / 1e9; }
+function balanceLabel(value: number | null, config: OpportunityConfig): "BUY BIAS" | "SELL BIAS" | "BALANCED" | "INSUFFICIENT DATA" {
+  if (value === null) return "INSUFFICIENT DATA";
+  if (value >= config.balanceThresholds.buy) return "BUY BIAS";
+  if (value <= config.balanceThresholds.sell) return "SELL BIAS";
+  return "BALANCED";
 }
 
 export function analyzeOpportunity({
-  bitpinCandles,
-  wallexCandles,
-  currentPrices,
-  externalPrice,
-  nowMs = Date.now(),
-  config = DEFAULT_OPPORTUNITY_CONFIG,
+  bitpinCandles, wallexCandles, currentPrices, externalPrice, externalReference, nowMs = Date.now(), config = DEFAULT_OPPORTUNITY_CONFIG,
 }: {
   bitpinCandles: Candle[];
   wallexCandles: Candle[];
-  currentPrices: {
-    bitpin: number | null | undefined;
-    wallex: number | null | undefined;
-  };
+  currentPrices: { bitpin: number | null | undefined; wallex: number | null | undefined; fetchedAt?: number | null };
   externalPrice?: number | null;
+  externalReference?: ExternalReferencePrice | null;
   nowMs?: number;
   config?: OpportunityConfig;
 }): OpportunityAnalysis {
   const bitpinPrice = normalizePositivePrice(currentPrices.bitpin);
   const wallexPrice = normalizePositivePrice(currentPrices.wallex);
-  const normalizedExternal = normalizePositivePrice(externalPrice);
-
-  const spreadAbsolute =
-    bitpinPrice !== null && wallexPrice !== null
-      ? wallexPrice - bitpinPrice
-      : null;
-
-  const spreadPercent =
-    spreadAbsolute !== null && bitpinPrice !== null && bitpinPrice > 0
-      ? (spreadAbsolute / bitpinPrice) * 100
-      : null;
-
-  const externalDeviation =
-    normalizedExternal !== null && wallexPrice !== null
-      ? (Math.abs(wallexPrice - normalizedExternal) / normalizedExternal) * 100
-      : null;
-
-  const externalValidation =
-    externalDeviation === null
-      ? insufficient(config.externalValidationPct)
-      : ({
-          status:
-            externalDeviation <= config.externalValidationPct
-              ? "SUCCESS"
-              : "FAILED",
-          actual: externalDeviation,
-          threshold: config.externalValidationPct,
-        } as const);
-
-  const wallexAboveBitpin =
-    bitpinPrice === null || wallexPrice === null
-      ? insufficient()
-      : ({
-          status: wallexPrice > bitpinPrice ? "SUCCESS" : "FAILED",
-          actual: wallexPrice - bitpinPrice,
-          threshold: 0,
-        } as const);
-
-  const spreadTest =
-    spreadPercent === null
-      ? insufficient(config.spreadTriggerPct)
-      : ({
-          ...classifySpread(spreadPercent, config.spreadTriggerPct),
-        } as const);
-
-  const pairs = synchronizedClosedCandles(
-    bitpinCandles,
-    wallexCandles,
-    config.lookbackCandles,
-    nowMs,
-  );
-
-  const hasEnoughCandles = pairs.length >= config.lookbackCandles;
-
-  const bitpinBullishRatio = hasEnoughCandles
-    ? ratio(
-        pairs.map((pair) => pair.bitpin),
-        config.minCandleMovePct,
-      )
-    : null;
-
-  const wallexBullishRatio = hasEnoughCandles
-    ? ratio(
-        pairs.map((pair) => pair.wallex),
-        config.minCandleMovePct,
-      )
-    : null;
-
-  const alignmentRatio = hasEnoughCandles
-    ? alignment(pairs, config.minCandleMovePct)
-    : null;
-
-  const averageMove = hasEnoughCandles
-    ? averageDirectionalMovePct(pairs, config.minCandleMovePct)
-    : null;
-
-  const bitpinBullish =
-    bitpinBullishRatio === null
-      ? insufficient(config.minBullishRatio)
-      : classifyRatio(bitpinBullishRatio, config.minBullishRatio);
-
-  const wallexBullish =
-    wallexBullishRatio === null
-      ? insufficient(config.minBullishRatio)
-      : classifyRatio(wallexBullishRatio, config.minBullishRatio);
-
-  const candleAlignment =
-    alignmentRatio === null
-      ? insufficient(config.minAlignmentRatio)
-      : classifyRatio(alignmentRatio, config.minAlignmentRatio);
-
+  const reference: ExternalReferencePrice = externalReference ?? (externalPrice === undefined ? { price: null, fetchedAt: null, provider: null, error: "Independent external reference is not configured" } : { price: externalPrice ?? null, fetchedAt: nowMs, provider: "manual-reference", error: null });
+  const normalizedExternal = normalizePositivePrice(reference.provider?.toLowerCase() === "wallex" ? null : reference.price);
+  const quoteFetchedAt = typeof currentPrices.fetchedAt === "number" ? currentPrices.fetchedAt : nowMs;
+  const bitpinAgeMs = Math.max(0, nowMs - quoteFetchedAt);
+  const wallexAgeMs = Math.max(0, nowMs - quoteFetchedAt);
+  const externalAgeMs = typeof reference.fetchedAt === "number" ? Math.max(0, nowMs - reference.fetchedAt) : null;
+  const spreadAbsolute = bitpinPrice !== null && wallexPrice !== null ? wallexPrice - bitpinPrice : null;
+  const spreadPercent = spreadAbsolute !== null && bitpinPrice ? (spreadAbsolute / bitpinPrice) * 100 : null;
+  const externalDeviation = normalizedExternal !== null && wallexPrice !== null ? Math.abs(wallexPrice - normalizedExternal) / normalizedExternal * 100 : null;
+  const externalValidation = externalDeviation === null ? insufficient(config.externalValidationPct) : { status: externalDeviation <= config.externalValidationPct ? "SUCCESS" : "FAILED", actual: externalDeviation, threshold: config.externalValidationPct } as TestResult;
+  const wallexAboveBitpin = bitpinPrice === null || wallexPrice === null ? insufficient() : { status: wallexPrice > bitpinPrice ? "SUCCESS" : "FAILED", actual: wallexPrice - bitpinPrice, threshold: 0 } as TestResult;
+  const spreadTest = spreadPercent === null ? insufficient(config.spreadTriggerPct) : classifySpread(spreadPercent, config.spreadTriggerPct);
+  const rawPairs = synchronizedClosedCandles(bitpinCandles, wallexCandles, Number.MAX_SAFE_INTEGER, nowMs);
+  const pairs = rawPairs.slice(-config.lookbackCandles);
+  const enoughForLegacyMetrics = pairs.length >= config.lookbackCandles;
+  const bitpinBullishRatio = enoughForLegacyMetrics ? ratio(pairs.map((p) => p.bitpin), config.minCandleMovePct, "BULLISH") : null;
+  const wallexBullishRatio = enoughForLegacyMetrics ? ratio(pairs.map((p) => p.wallex), config.minCandleMovePct, "BULLISH") : null;
+  const bitpinBearishRatio = enoughForLegacyMetrics ? ratio(pairs.map((p) => p.bitpin), config.minCandleMovePct, "BEARISH") : null;
+  const wallexBearishRatio = enoughForLegacyMetrics ? ratio(pairs.map((p) => p.wallex), config.minCandleMovePct, "BEARISH") : null;
+  const legacyAlignmentRatio = enoughForLegacyMetrics ? legacyAlignment(pairs, config.minCandleMovePct) : null;
+  const directional = enoughForLegacyMetrics ? directionalMetrics(pairs, config.minCandleMovePct) : { agreement: null, participation: null, neutralPair: null };
+  const averageMove = enoughForLegacyMetrics ? averageDirectionalMovePct(pairs, config.minCandleMovePct) : null;
+  const bitpinBullish = bitpinBullishRatio === null ? insufficient(config.minBullishRatio) : classifyRatio(bitpinBullishRatio, config.minBullishRatio);
+  const wallexBullish = wallexBullishRatio === null ? insufficient(config.minBullishRatio) : classifyRatio(wallexBullishRatio, config.minBullishRatio);
+  const candleAlignment = legacyAlignmentRatio === null ? insufficient(config.minAlignmentRatio) : classifyRatio(legacyAlignmentRatio, config.minAlignmentRatio);
   const momentum = momentumScore(averageMove, config.momentumReferencePct);
-
-  const momentumTest =
-    momentum === null
-      ? insufficient(config.momentumReferencePct)
-      : {
-          status: "SUCCESS" as const,
-          actual: momentum,
-          threshold: 0,
-        };
-
-  const safeTarget =
-    wallexPrice !== null
-      ? wallexPrice * (1 - config.safetyMarginPct / 100)
-      : null;
-
-  const gross =
-    safeTarget !== null && bitpinPrice !== null
-      ? safeTarget - bitpinPrice
-      : null;
-
-  const grossPct =
-    gross !== null && bitpinPrice !== null && bitpinPrice > 0
-      ? (gross / bitpinPrice) * 100
-      : null;
-
-  const feesPct = config.takerFeePct + config.takerFeePct;
-  const netPct = grossPct !== null ? grossPct - feesPct : null;
-
-  const targetViability =
-    netPct === null
-      ? insufficient()
-      : ({
-          status: netPct > 0 ? "SUCCESS" : "FAILED",
-          actual: netPct,
-          threshold: 0,
-        } as const);
-
+  const momentumTest = momentum === null ? insufficient(config.momentumReferencePct) : { status: "SUCCESS", actual: momentum, threshold: 0 } as TestResult;
+  const safeTarget = wallexPrice !== null ? wallexPrice * (1 - config.safetyMarginPct / 100) : null;
+  const totalCostPct = config.executionCosts.takerEntryFeePct + config.executionCosts.takerExitFeePct + config.executionCosts.slippageBufferPct + config.executionCosts.latencyBufferPct + config.executionCosts.transferCostPct;
+  const gross = safeTarget !== null && bitpinPrice !== null ? safeTarget - bitpinPrice : null;
+  const grossPct = gross !== null && bitpinPrice ? gross / bitpinPrice * 100 : null;
+  const legacyNetPct = grossPct === null ? null : grossPct - (config.takerFeePct + config.takerFeePct);
+  const netPct = grossPct === null ? null : grossPct - totalCostPct;
+  const expectedNetProfit = gross === null || bitpinPrice === null || netPct === null ? null : bitpinPrice * netPct / 100;
+  const targetViability = legacyNetPct === null ? insufficient() : { status: legacyNetPct > 0 ? "SUCCESS" : "FAILED", actual: legacyNetPct, threshold: 0 } as TestResult;
   const weights = [
-    {
-      result: externalValidation,
-      weight: config.scoreWeights.externalValidation,
-    },
-    {
-      result: spreadTest,
-      weight: config.scoreWeights.spreadQuality,
-    },
-    {
-      result: candleAlignment,
-      weight: config.scoreWeights.candleAlignment,
-    },
-    {
-      result: bitpinBullish,
-      weight: config.scoreWeights.bitpinBullishRatio,
-    },
-    {
-      result: wallexBullish,
-      weight: config.scoreWeights.wallexBullishRatio,
-    },
-    {
-      result: momentumTest,
-      weight: config.scoreWeights.momentumQuality,
-    },
-  ];
-
-  const availablePoints = weights.reduce(
-    (sum, item) => sum + availableWeight(item.result, item.weight),
-    0,
-  );
-
-  let earnedPoints = 0;
-
-  for (const item of weights.slice(0, -1)) {
-    if (item.result.status === "SUCCESS") {
-      earnedPoints += item.weight;
-      continue;
-    }
-
-    if (
-      item.result.status === "ACCEPTABLE" &&
-      item.result.actual !== null &&
-      item.result.actual >= 0.5
-    ) {
-      earnedPoints += item.result.actual * item.weight;
-    }
-  }
-
-  if (momentum !== null) {
-    earnedPoints += momentum;
-  }
-
-  const dataCompleteness = Math.round(availablePoints * 1e9) / 1e9;
-
-  const stabilityScore =
-    availablePoints > 0
-      ? Math.round(
-          Math.min(100, Math.max(0, (earnedPoints / availablePoints) * 100)) *
-            1e9,
-        ) / 1e9
-      : 0;
-
+    [externalValidation, config.scoreWeights.externalValidation], [spreadTest, config.scoreWeights.spreadQuality], [candleAlignment, config.scoreWeights.candleAlignment], [bitpinBullish, config.scoreWeights.bitpinBullishRatio], [wallexBullish, config.scoreWeights.wallexBullishRatio], [momentumTest, config.scoreWeights.momentumQuality],
+  ] as const;
+  const availablePoints = weights.reduce((sum, [result, weight]) => sum + (result.status === "INSUFFICIENT_DATA" ? 0 : weight), 0);
+  const earnedPoints = weights.reduce((sum, [result, weight], index) => sum + (result.status === "SUCCESS" ? (index === 5 && result.actual !== null ? result.actual : weight) : result.status === "ACCEPTABLE" && result.actual !== null ? (index === 5 ? result.actual : result.actual * weight) : 0), 0);
+  const dataCompleteness = round(availablePoints);
+  const stabilityScore = availablePoints ? round(Math.min(100, Math.max(0, earnedPoints / availablePoints * 100))) : 0;
+  const buyValues = [bitpinBullishRatio, wallexBullishRatio, directional.agreement, directional.participation, momentum === null ? null : momentum / 5, spreadPercent !== null && spreadPercent > 0 ? Math.min(1, spreadPercent / config.spreadTriggerPct) : null].filter((value): value is number => value !== null && Number.isFinite(value));
+  const sellValues = [bitpinBearishRatio, wallexBearishRatio, directional.agreement, directional.participation, momentum === null ? null : Math.min(1, Math.max(0, -momentum / 5)), spreadPercent !== null && spreadPercent < 0 ? Math.min(1, Math.abs(spreadPercent) / config.spreadTriggerPct) : null].filter((value): value is number => value !== null && Number.isFinite(value));
+  const directionalBalanceAvailable = directional.agreement !== null && directional.participation !== null && directional.participation >= config.minimumDirectionalParticipationRatio;
+  const buyScore = directionalBalanceAvailable && buyValues.length ? buyValues.reduce((a, b) => a + b, 0) / buyValues.length : null;
+  const sellScore = directionalBalanceAvailable && sellValues.length ? sellValues.reduce((a, b) => a + b, 0) / sellValues.length : null;
+  const balance = buyScore !== null && sellScore !== null && buyScore + sellScore > 0 ? round(100 * buyScore / (buyScore + sellScore)) : null;
+  const label = balanceLabel(balance, config);
+  const requiredDataMissing = bitpinPrice === null || wallexPrice === null || normalizedExternal === null || rawPairs.length < config.minimumCandlePairs || directional.participation === null || directional.participation < config.minimumDirectionalParticipationRatio;
+  const stale = bitpinAgeMs > config.maxQuoteAgeMs || wallexAgeMs > config.maxQuoteAgeMs || externalAgeMs === null || externalAgeMs > config.maxQuoteAgeMs;
+  const invalidTarget = safeTarget === null || bitpinPrice === null || safeTarget <= bitpinPrice || (bitpinPrice * (1 + totalCostPct / 100) > safeTarget);
+  const negativeEdge = netPct === null || expectedNetProfit === null || netPct <= config.executionCosts.minimumNetEdgePct || expectedNetProfit < config.executionCosts.minimumAbsoluteProfit;
+  let decision: OpportunityDecision = "WATCH"; let decisionReason = "Evidence is available but the route is not yet eligible.";
+  if (requiredDataMissing) { decision = "NO_TRADE_INSUFFICIENT_DATA"; decisionReason = "Required independent reference, candle history, or directional participation is incomplete."; }
+  else if (stale) { decision = "NO_TRADE_STALE_QUOTE"; decisionReason = "A required market or external reference quote is stale."; }
+  else if (wallexPrice <= bitpinPrice) { decision = "NO_TRADE_DIRECTION_CONFLICT"; decisionReason = "Wallex is not richer than Bitpin for the supported long spread route."; }
+  else if (invalidTarget) { decision = "NO_TRADE_INVALID_TARGET"; decisionReason = "The fee-adjusted target is not strictly above entry and break-even."; }
+  else if (negativeEdge) { decision = "NO_TRADE_NEGATIVE_EDGE"; decisionReason = "Expected profit after fees and configured execution buffers is below the minimum."; }
+  else if (stabilityScore < config.opportunityThresholds.moderate) { decision = "WATCH"; decisionReason = "The route is economic but stability evidence is below the activation threshold."; }
+  else { decision = "BUY_CHEAP_SELL_EXPENSIVE"; decisionReason = "The long spread route passes data-quality, direction, target, and economic gates."; }
+  const eligibleForSignal = decision === "BUY_CHEAP_SELL_EXPENSIVE";
+  const opportunity: OpportunityLevel = eligibleForSignal ? stabilityScore >= config.opportunityThresholds.strong ? "STRONG" : "MODERATE" : "NONE";
   return {
-    prices: {
-      bitpin: bitpinPrice,
-      wallex: wallexPrice,
-      external: normalizedExternal,
-    },
-    spread: {
-      absolute: spreadAbsolute,
-      percent: spreadPercent,
-    },
-    validation: {
-      external: externalValidation,
-      wallexAboveBitpin,
-      spread: spreadTest,
-      candleAlignment,
-      bitpinBullish,
-      wallexBullish,
-      targetViability,
-      momentum: momentumTest,
-    },
-    candles: {
-      lookback: config.lookbackCandles,
-      synchronized: pairs.length,
-      selected: pairs.map(({ bitpin, wallex }) => ({
-        timestamp: minuteBucket(bitpin.time),
-        bitpin: selectedCandle(
-          minuteBucket(bitpin.time),
-          bitpin,
-          config.minCandleMovePct,
-        ),
-        wallex: selectedCandle(
-          minuteBucket(wallex.time),
-          wallex,
-          config.minCandleMovePct,
-        ),
-      })),
-      bitpinBullishRatio,
-      wallexBullishRatio,
-      alignmentRatio,
-      averageDirectionalMovePct: averageMove,
-      momentumScore: momentum,
-    },
-    target: {
-      entryPrice: bitpinPrice,
-      safeTarget,
-      safetyMarginPct: config.safetyMarginPct,
-      horizonMinutes: config.targetHorizonMinutes,
-    },
-    edge: {
-      gross,
-      grossPct,
-      feesPct,
-      netPct,
-    },
-    stabilityScore,
-    dataCompleteness,
-    riskLevel: riskLevel(stabilityScore, config),
-    opportunity: opportunityLevel(
-      stabilityScore,
-      wallexAboveBitpin,
-      spreadTest,
-      config,
-    ),
+    prices: { bitpin: bitpinPrice, wallex: wallexPrice, external: normalizedExternal },
+    spread: { absolute: spreadAbsolute, percent: spreadPercent },
+    validation: { external: externalValidation, wallexAboveBitpin, spread: spreadTest, candleAlignment, bitpinBullish, wallexBullish, targetViability, momentum: momentumTest },
+    candles: { lookback: config.lookbackCandles, synchronized: pairs.length, selected: pairs.map(({ bitpin, wallex }) => ({ timestamp: minuteBucket(bitpin.time), bitpin: selectedCandle(minuteBucket(bitpin.time), bitpin, config.minCandleMovePct), wallex: selectedCandle(minuteBucket(wallex.time), wallex, config.minCandleMovePct) })), bitpinBullishRatio, wallexBullishRatio, alignmentRatio: legacyAlignmentRatio, directionalAgreementRatio: directional.agreement, directionalParticipationRatio: directional.participation, neutralPairRatio: directional.neutralPair, averageDirectionalMovePct: averageMove, momentumScore: momentum },
+    target: { entryPrice: bitpinPrice, safeTarget, safetyMarginPct: config.safetyMarginPct, horizonMinutes: config.targetHorizonMinutes },
+    edge: { gross, grossPct, feesPct: config.takerFeePct + config.takerFeePct, slippagePct: config.executionCosts.slippageBufferPct, latencyPct: config.executionCosts.latencyBufferPct, transferCostPct: config.executionCosts.transferCostPct, netPct: legacyNetPct, expectedNetProfit, executionNetPct: netPct },
+    stabilityScore, dataCompleteness, riskLevel: riskLevel(stabilityScore, config), opportunity, decision, decisionReason, eligibleForSignal,
+    buySellBalance: { value: balance, buyScore: buyScore === null ? null : round(buyScore * 100), sellScore: sellScore === null ? null : round(sellScore * 100), label, explanation: label === "INSUFFICIENT DATA" ? "Directional evidence is incomplete; this is not a measured balance." : "Directional evidence only · not a calibrated probability of success.", executionRoute: eligibleForSignal ? "LONG" : "NONE", executionEligible: eligibleForSignal },
+    quoteFreshness: { bitpinAgeMs, wallexAgeMs, externalAgeMs }, configurationVersion: config.version, engineVersion: config.engineVersion,
   };
 }

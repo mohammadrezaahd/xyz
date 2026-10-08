@@ -1,6 +1,8 @@
 import { createHash } from "node:crypto";
 import type { ObjectId } from "mongodb";
 import { calculateLeveragedPnl, createPositionSimulation } from "../opportunity/position";
+import { calculateExecutionEconomics } from "../opportunity/economics";
+import { DEFAULT_OPPORTUNITY_CONFIG, GATED_ALGORITHM_VERSION, GATED_CONFIGURATION_VERSION } from "../opportunity/config";
 import type { OpportunityAnalysis, TestResult } from "../opportunity/types";
 import {
   RESEARCH_CONFIGURATION_VERSION,
@@ -24,8 +26,8 @@ export function buildObservationKey(input: ResearchObservationInput): string {
   const bucket = Math.floor(input.detectedAt.getTime() / 60_000) * 60_000;
   const stable = [
     input.source.toLowerCase(),
-    RESEARCH_ENGINE_VERSION,
-    RESEARCH_CONFIGURATION_VERSION,
+    input.analysis.engineVersion || RESEARCH_ENGINE_VERSION,
+    input.analysis.configurationVersion || RESEARCH_CONFIGURATION_VERSION,
     "usdt-toman",
     bucket,
     analysis.prices.bitpin ?? "null",
@@ -40,8 +42,9 @@ export function buildResearchObservation(input: ResearchObservationInput): Resea
   const fetchedAt = input.fetchedAt ?? detectedAt;
   const entry = valueOrNull(analysis.target.entryPrice);
   const target = valueOrNull(analysis.target.safeTarget);
-  const simulation = entry !== null && target !== null ? createPositionSimulation(entry, target) : null;
+  const simulation = entry !== null && target !== null && target > entry ? createPositionSimulation(entry, target) : null;
   const expected = simulation ? calculateLeveragedPnl(entry!, simulation.targetPrice, simulation) : null;
+  const economics = calculateExecutionEconomics(entry, target, DEFAULT_OPPORTUNITY_CONFIG.executionCosts);
   const key = buildObservationKey(input);
   return {
     observationKey: key,
@@ -53,6 +56,8 @@ export function buildResearchObservation(input: ResearchObservationInput): Resea
     detectedAt,
     engineVersion: RESEARCH_ENGINE_VERSION,
     configurationVersion: RESEARCH_CONFIGURATION_VERSION,
+    algorithmVersion: analysis.engineVersion || GATED_ALGORITHM_VERSION,
+    algorithmConfigurationVersion: analysis.configurationVersion || GATED_CONFIGURATION_VERSION,
     market: {
       bitpinPrice: valueOrNull(analysis.prices.bitpin),
       wallexPrice: valueOrNull(analysis.prices.wallex),
@@ -75,6 +80,9 @@ export function buildResearchObservation(input: ResearchObservationInput): Resea
       candleAlignmentPct: analysis.candles.alignmentRatio === null ? null : analysis.candles.alignmentRatio * 100,
       averageDirectionalMovePct: valueOrNull(analysis.candles.averageDirectionalMovePct),
       momentumScore: valueOrNull(analysis.candles.momentumScore),
+      directionalAgreementRatio: valueOrNull(analysis.candles.directionalAgreementRatio),
+      directionalParticipationRatio: valueOrNull(analysis.candles.directionalParticipationRatio),
+      neutralPairRatio: valueOrNull(analysis.candles.neutralPairRatio),
     },
     stabilityChecks: {
       externalValidation: check(analysis.validation.external, "LTE"),
@@ -99,10 +107,14 @@ export function buildResearchObservation(input: ResearchObservationInput): Resea
       safeTargetPrice: target,
       safetyMargin: analysis.target.safetyMarginPct,
       expectedGrossPnl: expected?.grossPnlToman ?? null,
-      expectedNetPnl: expected?.netPnlToman ?? null,
-      expectedRoi: expected?.netPnlPct ?? null,
+      expectedNetPnl: economics.expectedNetProfit ?? expected?.netPnlToman ?? null,
+      expectedRoi: economics.netEdgePct ?? expected?.netPnlPct ?? null,
       breakEvenPrice: simulation?.breakEvenPrice ?? null,
       liquidationPrice: simulation?.liquidationPrice ?? null,
+      decision: analysis.decision,
+      decisionReason: analysis.decisionReason,
+      eligibleForSignal: analysis.eligibleForSignal,
+      buySellBalance: analysis.buySellBalance,
     },
     paperPositionId: null,
     paperPositionStartedAt: null,

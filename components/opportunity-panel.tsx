@@ -306,11 +306,17 @@ export function OpportunityPanel({
         </div>
       </div>
 
+      <div className="balanceCard" aria-labelledby="balance-title">
+        <div><h3 id="balance-title">Buy / Sell Balance</h3><p>Directional evidence only · not a trade guarantee</p></div>
+        <div className="balanceGauge"><span>SELL</span><input type="range" min="0" max="100" value={analysis.buySellBalance.value ?? 50} disabled={analysis.buySellBalance.value === null} tabIndex={-1} aria-readonly="true" aria-label="Buy sell balance" aria-valuetext={analysis.buySellBalance.value === null ? "Insufficient data" : `${analysis.buySellBalance.value} out of 100, ${analysis.buySellBalance.label}`} /><span>BUY</span></div>
+        <div className="balanceReadout"><strong>{analysis.buySellBalance.value === null ? "—" : analysis.buySellBalance.value.toFixed(0)} / 100</strong><span>{analysis.buySellBalance.label}</span><small>Buy evidence {analysis.buySellBalance.buyScore === null ? "—" : analysis.buySellBalance.buyScore.toFixed(0)} · Sell evidence {analysis.buySellBalance.sellScore === null ? "—" : analysis.buySellBalance.sellScore.toFixed(0)}</small></div>
+      </div>
+
       <div className="opportunityGrid">
         <div className="opportunityGroup">
           <h3>Current Prices</h3>
           <label className="inputField">
-            <span>External Tether Price</span>
+            <span>Independent reference price</span>
             <input
               inputMode="decimal"
               type="text"
@@ -318,7 +324,7 @@ export function OpportunityPanel({
               onChange={(event) =>
                 onExternalPriceChange(event.target.value)
               }
-              placeholder="Wallex ticker"
+              placeholder="Independent provider value"
             />
           </label>
           <div className="metric">
@@ -416,7 +422,7 @@ export function OpportunityPanel({
             </strong>
           </div>
           <div className="metric">
-            <span>Alignment</span>
+            <span>Legacy alignment</span>
             <strong>
               {formatPercent(
                 analysis.candles.alignmentRatio === null
@@ -425,6 +431,9 @@ export function OpportunityPanel({
               )}
             </strong>
           </div>
+          <div className="metric"><span>Directional agreement</span><strong>{formatPercent(analysis.candles.directionalAgreementRatio === null ? null : analysis.candles.directionalAgreementRatio * 100)}</strong></div>
+          <div className="metric"><span>Directional participation</span><strong>{formatPercent(analysis.candles.directionalParticipationRatio === null ? null : analysis.candles.directionalParticipationRatio * 100)}</strong></div>
+          <div className="metric"><span>Neutral pair ratio</span><strong>{formatPercent(analysis.candles.neutralPairRatio === null ? null : analysis.candles.neutralPairRatio * 100)}</strong></div>
           <div className="metric">
             <span>Avg. Directional Move</span>
             <strong>
@@ -468,7 +477,7 @@ export function OpportunityPanel({
             </strong>
           </div>
           <div className="metric">
-            <span>Safe Target · Wallex Ticker</span>
+            <span>Fee-adjusted target · Wallex reference</span>
             <strong>
               {formatPrice(analysis.target.safeTarget)}
             </strong>
@@ -508,7 +517,7 @@ export function OpportunityPanel({
         </div>
 
         <div className="opportunityGroup">
-          <h3>Score Quality</h3>
+          <h3>Decision and data quality</h3>
           <div className="metric">
             <span>Data Completeness</span>
             <strong>
@@ -516,10 +525,16 @@ export function OpportunityPanel({
             </strong>
           </div>
           <div className="metric">
-            <span>Scoring Model</span>
-            <strong>
-              Available-weight
-            </strong>
+            <span>Decision</span>
+            <strong>{analysis.decision.replaceAll("_", " ")}</strong>
+          </div>
+          <div className="metric">
+            <span>Eligible for signal</span>
+            <strong>{analysis.eligibleForSignal ? "YES" : "NO"}</strong>
+          </div>
+          <div className="metric">
+            <span>Engine version</span>
+            <strong>{analysis.configurationVersion}</strong>
           </div>
         </div>
       </div>

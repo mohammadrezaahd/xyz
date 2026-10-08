@@ -3,8 +3,9 @@ import type { OpportunityAnalysis } from "./types";
 import type { PositionDirection } from "./outcome";
 import type { PositionSimulation } from "./position";
 import { createPositionSimulation } from "./position";
+import { GATED_ALGORITHM_VERSION } from "./config";
 
-export const PHASE_3_ENGINE_VERSION = "phase-2-opportunity-engine";
+export const PHASE_3_ENGINE_VERSION = GATED_ALGORITHM_VERSION;
 
 export type OpportunityDocument = {
   _id?: ObjectId;
@@ -28,6 +29,10 @@ export type OpportunityDocument = {
   };
   analysis: {
     score: number;
+    decision: OpportunityAnalysis["decision"];
+    decisionReason: string;
+    eligibleForSignal: boolean;
+    buySellBalance: OpportunityAnalysis["buySellBalance"];
     tests: {
       externalValidation: OpportunityAnalysis["validation"]["external"];
       wallexAboveBitpin: OpportunityAnalysis["validation"]["wallexAboveBitpin"];
@@ -43,6 +48,9 @@ export type OpportunityDocument = {
       candleAlignmentPct: number | null;
       averageDirectionalMovePct: number | null;
       momentumScore: number | null;
+      directionalAgreementPct: number | null;
+      directionalParticipationPct: number | null;
+      neutralPairPct: number | null;
     };
   };
   outcome: {
@@ -73,7 +81,8 @@ export function buildOpportunityDocument(
     analysis.prices.bitpin === null ||
     analysis.prices.wallex === null ||
     analysis.spread.percent === null ||
-    analysis.target.safeTarget === null
+    analysis.target.safeTarget === null ||
+    analysis.eligibleForSignal === false
   ) {
     throw new Error("Cannot persist an opportunity without valid ticker/spread/target data.");
   }
@@ -102,6 +111,10 @@ export function buildOpportunityDocument(
     },
     analysis: {
       score: analysis.stabilityScore,
+      decision: analysis.decision ?? "WATCH",
+      decisionReason: analysis.decisionReason ?? "Legacy analysis snapshot",
+      eligibleForSignal: analysis.eligibleForSignal ?? false,
+      buySellBalance: analysis.buySellBalance,
       tests: {
         externalValidation: analysis.validation.external,
         wallexAboveBitpin: analysis.validation.wallexAboveBitpin,
@@ -126,6 +139,9 @@ export function buildOpportunityDocument(
             : analysis.candles.alignmentRatio * 100,
         averageDirectionalMovePct: analysis.candles.averageDirectionalMovePct,
         momentumScore: analysis.candles.momentumScore,
+        directionalAgreementPct: analysis.candles.directionalAgreementRatio === null ? null : analysis.candles.directionalAgreementRatio * 100,
+        directionalParticipationPct: analysis.candles.directionalParticipationRatio === null ? null : analysis.candles.directionalParticipationRatio * 100,
+        neutralPairPct: analysis.candles.neutralPairRatio === null ? null : analysis.candles.neutralPairRatio * 100,
       },
     },
     outcome: {

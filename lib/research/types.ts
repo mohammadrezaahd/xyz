@@ -36,6 +36,8 @@ export type ResearchObservation = {
   detectedAt: Date;
   engineVersion: string;
   configurationVersion: string;
+  algorithmVersion: string;
+  algorithmConfigurationVersion: string;
   market: {
     bitpinPrice: number | null;
     wallexPrice: number | null;
@@ -54,6 +56,9 @@ export type ResearchObservation = {
     candleAlignmentPct: number | null;
     averageDirectionalMovePct: number | null;
     momentumScore: number | null;
+    directionalAgreementRatio: number | null;
+    directionalParticipationRatio: number | null;
+    neutralPairRatio: number | null;
   };
   stabilityChecks: {
     externalValidation: ResearchCheck;
@@ -82,6 +87,10 @@ export type ResearchObservation = {
     expectedRoi: number | null;
     breakEvenPrice: number | null;
     liquidationPrice: number | null;
+    decision: OpportunityAnalysis["decision"];
+    decisionReason: string;
+    eligibleForSignal: boolean;
+    buySellBalance: OpportunityAnalysis["buySellBalance"];
   };
   paperPositionId: ObjectId | null;
   paperPositionStartedAt: Date | null;
