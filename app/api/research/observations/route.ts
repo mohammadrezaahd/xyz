@@ -19,6 +19,7 @@ export async function GET(request: Request) {
     const params = new URL(request.url).searchParams;
     const statusValue = params.get("status")?.toUpperCase() ?? "ALL";
     const sourceValue = params.get("source")?.toUpperCase() ?? "ALL";
+    const decisionValue = params.get("decision")?.toUpperCase() || undefined;
     const limitValue = params.get("limit");
     const limit = limitValue ? Number(limitValue) : 50;
     if (!Number.isInteger(limit) || limit < 1 || limit > 100) throw new Error("limit must be an integer from 1 to 100");
@@ -30,6 +31,7 @@ export async function GET(request: Request) {
     const filters = {
       status: statusValue === "ALL" ? undefined : statusValue as ResearchObservationStatus,
       source: sourceValue === "ALL" ? undefined : sourceValue as ResearchObservationSource,
+      decision: decisionValue,
       from,
       to,
       limit,
@@ -39,7 +41,7 @@ export async function GET(request: Request) {
       observations: serializeResearchValue(observations),
       total,
       limit,
-      filters: { status: statusValue, source: sourceValue, from: from?.toISOString() ?? null, to: to?.toISOString() ?? null },
+      filters: { status: statusValue, source: sourceValue, decision: decisionValue ?? "ALL", from: from?.toISOString() ?? null, to: to?.toISOString() ?? null },
     }, { headers: { "Cache-Control": "no-store" } });
   } catch (error) {
     const message = error instanceof Error ? error.message : "Unable to read research observations";

@@ -1,5 +1,6 @@
 import type { ObjectId } from "mongodb";
 import type { TestResult, OpportunityAnalysis, OpportunityLevel, RiskLevel } from "../opportunity/types";
+import type { ExecutionCostConfig } from "../opportunity/config";
 
 export const RESEARCH_ENGINE_VERSION = "phase-2-opportunity-engine";
 export const RESEARCH_CONFIGURATION_VERSION = "phase-5a-live-default-v1";
@@ -36,6 +37,10 @@ export type ResearchObservation = {
   detectedAt: Date;
   engineVersion: string;
   configurationVersion: string;
+  algorithmVersion: string;
+  algorithmConfigurationVersion: string;
+  executionCostVersion: string;
+  executionCosts: ExecutionCostConfig;
   market: {
     bitpinPrice: number | null;
     wallexPrice: number | null;
@@ -54,6 +59,9 @@ export type ResearchObservation = {
     candleAlignmentPct: number | null;
     averageDirectionalMovePct: number | null;
     momentumScore: number | null;
+    directionalAgreementRatio: number | null;
+    directionalParticipationRatio: number | null;
+    neutralPairRatio: number | null;
   };
   stabilityChecks: {
     externalValidation: ResearchCheck;
@@ -82,6 +90,10 @@ export type ResearchObservation = {
     expectedRoi: number | null;
     breakEvenPrice: number | null;
     liquidationPrice: number | null;
+    decision: OpportunityAnalysis["decision"];
+    decisionReason: string;
+    eligibleForSignal: boolean;
+    buySellBalance: OpportunityAnalysis["buySellBalance"];
   };
   paperPositionId: ObjectId | null;
   paperPositionStartedAt: Date | null;

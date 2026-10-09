@@ -7,6 +7,7 @@ import {
   type PointerEvent as ReactPointerEvent,
 } from "react";
 import { PHASE_2_CONFIG } from "@/lib/opportunity/config";
+import { BuySellBalance } from "@/components/buy-sell-balance";
 import type { OpportunityAnalysis, TestResult } from "@/lib/opportunity/types";
 
 type OpportunityPanelProps = {
@@ -290,7 +291,7 @@ export function OpportunityPanel({
             Opportunity / Stability
           </div>
           <div className="symbol">
-            Historical validation · not a guaranteed prediction
+            Historical validation · research evidence only
           </div>
         </div>
         <div className="resultBadges">
@@ -305,6 +306,8 @@ export function OpportunityPanel({
           </span>
         </div>
       </div>
+
+      <BuySellBalance balance={analysis.buySellBalance} dataCompleteness={analysis.dataCompleteness} />
 
       <div className="opportunityGrid">
         <div className="opportunityGroup">
@@ -468,7 +471,7 @@ export function OpportunityPanel({
             </strong>
           </div>
           <div className="metric">
-            <span>Safe Target · Wallex Ticker</span>
+            <span>Fee-adjusted Target · Wallex Ticker</span>
             <strong>
               {formatPrice(analysis.target.safeTarget)}
             </strong>

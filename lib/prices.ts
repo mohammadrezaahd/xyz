@@ -2,6 +2,9 @@ export interface CurrentPricesResponse {
   bitpin: number | null;
   wallex: number | null;
   fetchedAt: number;
+  bitpinQuote?: { price: number | null; fetchedAt: number | null; bid: number | null; ask: number | null; provider: string; error: string | null };
+  wallexQuote?: { price: number | null; fetchedAt: number | null; bid: number | null; ask: number | null; provider: string; error: string | null };
+  externalReference?: { price: number | null; fetchedAt: number | null; provider: string | null; error: string | null };
   errors: string[];
 }
 
