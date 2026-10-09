@@ -11,6 +11,7 @@ async function getCollection(): Promise<Collection<TestPositionDocument>> {
   if (!indexesPromise) {
     indexesPromise = collection.createIndexes([
       { name: "opportunity-created-at", key: { opportunityId: 1, createdAt: -1 } },
+      { name: "one-paper-position-per-opportunity", key: { opportunityId: 1 }, unique: true, sparse: true },
       { name: "status-updated-at", key: { status: 1, updatedAt: -1 } },
       { name: "created-at-desc", key: { createdAt: -1 } },
     ]).then(() => undefined);
@@ -26,6 +27,9 @@ export async function insertTestPosition(document: TestPositionDocument): Promis
 }
 export async function findTestPositionById(id: ObjectId): Promise<TestPositionDocument | null> {
   return (await getCollection()).findOne({ _id: id });
+}
+export async function findTestPositionByOpportunityId(opportunityId: ObjectId): Promise<TestPositionDocument | null> {
+  return (await getCollection()).findOne({ opportunityId });
 }
 export async function listTestPositions(limit=100): Promise<TestPositionDocument[]> {
   return (await getCollection()).find({}).sort({createdAt:-1}).limit(Math.max(1,Math.min(limit,200))).toArray();

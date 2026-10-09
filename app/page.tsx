@@ -6,13 +6,14 @@ import { OpportunityPanel } from "@/components/opportunity-panel";
 import { Phase3Panel } from "@/components/phase3-panel";
 import { SnapshotPage } from "@/components/snapshot-page";
 import { TestPositionPanel } from "@/components/test-position-panel";
+import { SignalsPanel } from "@/components/signals-panel";
 import { analyzeOpportunity } from "@/lib/opportunity/engine";
 import type { Candle } from "@/lib/candles";
 import type { CurrentPricesResponse } from "@/lib/prices";
 import type { MarketSnapshotTrend } from "@/lib/market-snapshots/types";
 
 type CandleResponse = { bitpin: Candle[]; wallex: Candle[]; errors: string[]; fetchedAt: number; refreshMs: number };
-type View = "overview" | "opportunity" | "position" | "history" | "snapshots";
+type View = "overview" | "opportunity" | "position" | "history" | "signals" | "snapshots";
 
 const snapshotTrends: Array<{ value: MarketSnapshotTrend; label: string }> = [
   { value: "STRONGLY_BULLISH", label: "Strongly Bullish" },
@@ -39,6 +40,7 @@ const viewCopy: Record<View, { breadcrumb: string; title: string; footer: string
   opportunity: { breadcrumb: "OPPORTUNITY", title: "Opportunity diagnostics", footer: "Analysis and simulation only" },
   position: { breadcrumb: "PAPER POSITION", title: "Paper Position", footer: "Paper research · No automated trading execution" },
   history: { breadcrumb: "HISTORY", title: "History", footer: "Opportunity cron results · Analysis and simulation only" },
+  signals: { breadcrumb: "SIGNALS", title: "Signals", footer: "Research candidates · No automated trading" },
   snapshots: { breadcrumb: "SNAPSHOTS", title: "Market snapshots", footer: "Point-in-time research archive" },
 };
 
@@ -47,7 +49,8 @@ const navigation: Array<[View, string, string, string]> = [
   ["opportunity", "Opportunity", "Opportunity", "02"],
   ["position", "Paper Position", "Paper Position", "03"],
   ["history", "History", "History", "04"],
-  ["snapshots", "Snapshots", "Snapshots", "05"],
+  ["signals", "Signals", "Signals", "05"],
+  ["snapshots", "Snapshots", "Snapshots", "06"],
 ];
 
 export default function Home() {
@@ -82,12 +85,12 @@ export default function Home() {
   useEffect(() => { void load(); const timer = window.setInterval(load, Number(process.env.NEXT_PUBLIC_CANDLE_REFRESH_MS ?? 15000)); return () => window.clearInterval(timer); }, [load, refreshTick]);
 
   useEffect(() => {
-    if (!externalPriceCustomized && prices?.wallex != null) {
-      setExternalPrice(String(prices.wallex));
+    if (!externalPriceCustomized && prices?.externalReference?.price != null) {
+      setExternalPrice(String(prices.externalReference.price));
     }
-  }, [prices?.wallex, externalPriceCustomized]);
+  }, [prices?.externalReference?.price, externalPriceCustomized]);
 
-  const analysis = useMemo(() => analyzeOpportunity({ bitpinCandles: data?.bitpin ?? [], wallexCandles: data?.wallex ?? [], currentPrices: { bitpin: prices?.bitpin ?? null, wallex: prices?.wallex ?? null }, externalPrice: externalPrice.trim() ? Number(externalPrice) : null, nowMs: Date.now() }), [data, prices, externalPrice]);
+  const analysis = useMemo(() => analyzeOpportunity({ bitpinCandles: data?.bitpin ?? [], wallexCandles: data?.wallex ?? [], currentPrices: { bitpin: prices?.bitpinQuote ?? { price: prices?.bitpin ?? null, fetchedAt: prices?.fetchedAt ?? null }, wallex: prices?.wallexQuote ?? { price: prices?.wallex ?? null, fetchedAt: prices?.fetchedAt ?? null } }, externalReference: externalPrice.trim() ? { price: Number(externalPrice), fetchedAt: Date.now(), provider: "manual-reference", error: null } : prices?.externalReference, nowMs: Date.now() }), [data, prices, externalPrice]);
   const hasPrices = prices?.bitpin != null && prices?.wallex != null;
   const hasCandles = analysis.candles.synchronized > 0;
   const statusKind = loading ? "neutral" : error ? "error" : hasPrices && hasCandles ? "live" : hasPrices ? "partial" : "stale";
@@ -128,7 +131,7 @@ export default function Home() {
       <nav className="primaryNav" aria-label="Research areas">
         {navigation.map(([id, desktopLabel, mobileLabel, number]) => <button key={id} type="button" className={`navItem ${view === id ? "isActive" : ""}`} aria-label={desktopLabel} aria-current={view === id ? "page" : undefined} onClick={() => nav(id)}><span>{number}</span><strong><span className="navLabelDesktop">{desktopLabel}</span><span className="navLabelMobile">{mobileLabel}</span></strong></button>)}
       </nav>
-      <div className="sidebarFoot"><StatusBadge kind={statusKind}>{statusText}</StatusBadge><p>{view === "history" || view === "opportunity" ? "Phase 3 Opportunity Cron" : view === "snapshots" ? "Point-in-time archive" : "Phase 4 · Paper Research"}</p><p>Analysis only. No real trades.</p></div>
+      <div className="sidebarFoot"><StatusBadge kind={statusKind}>{statusText}</StatusBadge><p>{view === "history" || view === "opportunity" || view === "signals" ? "Phase 3 Opportunity Cron" : view === "snapshots" ? "Point-in-time archive" : "Phase 4 · Paper Research"}</p><p>Analysis only. No real trades.</p></div>
     </aside>
 
     <main className="mainContent">
@@ -145,6 +148,7 @@ export default function Home() {
       {view === "opportunity" && <section className="workspacePage"><div className="pageIntro"><div className="sectionEyebrow">RESEARCH WORKSPACE</div><h2>Opportunity and stability</h2><p>Inspect every validation test, threshold, price input, and target calculation without losing the underlying API behavior.</p></div><OpportunityPanel analysis={analysis} externalPrice={externalPrice} onExternalPriceChange={(value) => { setExternalPriceCustomized(true); setExternalPrice(value); }} /></section>}
       {view === "position" && <section className="workspacePage"><div className="pageIntro"><div className="sectionEyebrow">PHASE 4 WORKSPACE</div><h2>Paper Position</h2><p>Run and monitor a research-only paper position. No real funds or exchange orders are used.</p></div><TestPositionPanel currentPrice={prices?.bitpin ?? null} /></section>}
       {view === "history" && <section className="workspacePage"><div className="pageIntro"><div className="sectionEyebrow">PHASE 3 RESULTS</div><h2>History</h2><p>Review opportunity cron results, validation scores, and simulated outcomes.</p></div><Phase3Panel /></section>}
+      {view === "signals" && <section className="workspacePage"><SignalsPanel /></section>}
       {view === "snapshots" && <SnapshotPage />}
       {error && view !== "snapshots" && <div className="errorBanner" role="alert"><strong>Provider warning</strong><span>{error}</span></div>}
       <footer className="consoleFooter"><span>XYZ Research Console</span><span>{copy.footer}</span></footer>

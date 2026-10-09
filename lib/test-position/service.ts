@@ -12,6 +12,7 @@ import {
 import {
   closeOpenTestPosition,
   findTestPositionById,
+  findTestPositionByOpportunityId,
   insertTestPosition,
   listOpenTestPositions,
   recordOpenMonitoringFailure,
@@ -159,6 +160,7 @@ export async function startTestPosition(input: {
   if (input.opportunityId) {
     opportunity = await findOpportunityById(asObjectId(input.opportunityId));
     if (!opportunity) throw new Error("Opportunity not found");
+    if (opportunity.status !== "OPEN" || opportunity.analysis.eligibleForSignal !== true) throw new Error("Only open eligible opportunities can be paper tracked");
   }
 
   const entryPrice = await fetchBitpinPrice();
@@ -179,6 +181,22 @@ export async function startTestPosition(input: {
     }
   }
   return inserted;
+}
+
+export async function startTestPositionsBatch(input: { opportunityIds: string[]; initialCapital?: number; leverage?: number }): Promise<{ created: TestPositionDocument[]; skipped: Array<{ opportunityId: string; reason: string }>; failed: Array<{ opportunityId: string; error: string }> }> {
+  const created: TestPositionDocument[] = [];
+  const skipped: Array<{ opportunityId: string; reason: string }> = [];
+  const failed: Array<{ opportunityId: string; error: string }> = [];
+  for (const opportunityId of [...new Set(input.opportunityIds)]) {
+    try {
+      const opportunity = await findOpportunityById(asObjectId(opportunityId));
+      if (!opportunity || !opportunity._id) { failed.push({ opportunityId, error: "Opportunity not found" }); continue; }
+      const existing = await findTestPositionByOpportunityId(opportunity._id);
+      if (existing) { skipped.push({ opportunityId, reason: "Paper position already exists" }); continue; }
+      created.push(await startTestPosition({ opportunityId, initialCapital: input.initialCapital, leverage: input.leverage, targetPrice: opportunity.target.price }));
+    } catch (error) { failed.push({ opportunityId, error: error instanceof Error ? error.message : "Unable to create paper position" }); }
+  }
+  return { created, skipped, failed };
 }
 
 export async function updateTestPositionTarget(

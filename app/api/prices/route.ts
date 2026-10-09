@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { parsePositivePrice } from "@/lib/prices";
+import { fetchExternalReferencePrice } from "@/lib/external-reference";
 
 const env = (key: string, fallback = "") => process.env[key] ?? fallback;
 
@@ -160,9 +161,10 @@ async function fetchWallexPrice(): Promise<number> {
 }
 
 export async function GET() {
-  const [bitpin, wallex] = await Promise.allSettled([
-    fetchBitpinPrice(),
-    fetchWallexPrice(),
+  const [bitpin, wallex, externalReference] = await Promise.all([
+    Promise.resolve().then(() => fetchBitpinPrice()).then((value) => ({ status: "fulfilled" as const, value, fetchedAt: Date.now() })).catch((reason) => ({ status: "rejected" as const, reason })),
+    Promise.resolve().then(() => fetchWallexPrice()).then((value) => ({ status: "fulfilled" as const, value, fetchedAt: Date.now() })).catch((reason) => ({ status: "rejected" as const, reason })),
+    fetchExternalReferencePrice(),
   ]);
 
   const errors: string[] = [];
@@ -180,7 +182,10 @@ export async function GET() {
   return NextResponse.json({
     bitpin: bitpinPrice,
     wallex: wallexPrice,
-    fetchedAt: Date.now(),
+    fetchedAt: Math.max(bitpin.status === "fulfilled" ? bitpin.fetchedAt : 0, wallex.status === "fulfilled" ? wallex.fetchedAt : 0) || Date.now(),
+    bitpinQuote: { price: bitpinPrice, fetchedAt: bitpin.status === "fulfilled" ? bitpin.fetchedAt : null, bid: null, ask: null, provider: "bitpin", error: bitpin.status === "fulfilled" ? null : String(bitpin.reason) },
+    wallexQuote: { price: wallexPrice, fetchedAt: wallex.status === "fulfilled" ? wallex.fetchedAt : null, bid: null, ask: null, provider: "wallex", error: wallex.status === "fulfilled" ? null : String(wallex.reason) },
+    externalReference,
     errors,
   });
 }

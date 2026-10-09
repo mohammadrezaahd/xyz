@@ -15,18 +15,12 @@ async function getCollection(): Promise<Collection<OpportunityDocument>> {
   const collection = db.collection<OpportunityDocument>(COLLECTION_NAME);
 
   if (!indexesPromise) {
-    indexesPromise = collection
-      .createIndexes([
-        {
-          name: "one-open-opportunity",
-          key: { status: 1 },
-          unique: true,
-          partialFilterExpression: { status: "OPEN" },
-        },
+    indexesPromise = collection.dropIndex("one-open-opportunity").catch(() => undefined).then(() => collection.createIndexes([
+        { name: "identity-key-unique", key: { identityKey: 1 }, unique: true, sparse: true },
         { name: "created-at-desc", key: { createdAt: -1 } },
         { name: "status-created-at", key: { status: 1, createdAt: -1 } },
         { name: "outcome-resolved-at", key: { "outcome.resolvedAt": -1 } },
-      ])
+      ]))
       .then(() => undefined);
   }
 
@@ -38,8 +32,13 @@ export async function findOpportunityById(id: ObjectId): Promise<OpportunityDocu
   return (await getCollection()).findOne({ _id: id });
 }
 export async function findOpenOpportunity(): Promise<OpportunityDocument | null> {
-  const collection = await getCollection();
-  return collection.findOne({ status: "OPEN" }, { sort: { createdAt: -1 } });
+  return (await listOpenOpportunities(1))[0] ?? null;
+}
+export async function listOpenOpportunities(limit = 100): Promise<OpportunityDocument[]> {
+  return (await getCollection()).find({ status: "OPEN" }).sort({ createdAt: 1 }).limit(Math.max(1, Math.min(limit, 500))).toArray();
+}
+export async function findOpportunityByObservationKey(identityKey: string): Promise<OpportunityDocument | null> {
+  return (await getCollection()).findOne({ identityKey });
 }
 
 export async function insertOpenOpportunity(
@@ -52,7 +51,7 @@ export async function insertOpenOpportunity(
     return { ...document, _id: result.insertedId };
   } catch (error) {
     if (error instanceof MongoServerError && error.code === 11000) {
-      const existing = await findOpenOpportunity();
+      const existing = document.identityKey ? await findOpportunityByObservationKey(document.identityKey) : null;
       if (existing) return existing;
     }
     throw error;
