@@ -93,6 +93,7 @@ export async function resolveResearchObservation(
 export type ResearchObservationFilters = {
   status?: ResearchObservationStatus;
   source?: ResearchObservationSource;
+  decision?: string;
   from?: Date;
   to?: Date;
   limit?: number;
@@ -102,6 +103,7 @@ export async function listResearchObservations(filters: ResearchObservationFilte
   const query: Filter<ResearchObservation> = {};
   if (filters.status) query.status = filters.status;
   if (filters.source) query.source = filters.source;
+  if (filters.decision) query["prediction.decision"] = filters.decision as never;
   if (filters.from || filters.to) query.detectedAt = { ...(filters.from ? { $gte: filters.from } : {}), ...(filters.to ? { $lte: filters.to } : {}) };
   return (await getCollection())
     .find(query)
@@ -114,8 +116,22 @@ export async function countResearchObservations(filters: Omit<ResearchObservatio
   const query: Filter<ResearchObservation> = {};
   if (filters.status) query.status = filters.status;
   if (filters.source) query.source = filters.source;
+  if (filters.decision) query["prediction.decision"] = filters.decision as never;
   if (filters.from || filters.to) query.detectedAt = { ...(filters.from ? { $gte: filters.from } : {}), ...(filters.to ? { $lte: filters.to } : {}) };
   return (await getCollection()).countDocuments(query);
+}
+
+export async function getResearchDecisionBreakdown(): Promise<Array<{ decision: string; count: number }>> {
+  return (await getCollection()).aggregate<{ decision: string; count: number }>([
+    { $match: { "prediction.eligibleForSignal": false } },
+    { $group: { _id: "$prediction.decision", count: { $sum: 1 } } },
+    { $project: { _id: 0, decision: "$_id", count: 1 } },
+    { $sort: { count: -1 } },
+  ]).toArray();
+}
+
+export async function findLatestResearchObservation(): Promise<ResearchObservation | null> {
+  return (await getCollection()).findOne({}, { sort: { detectedAt: -1 } });
 }
 
 export async function getResearchSummary(): Promise<{
