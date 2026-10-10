@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { dedupeSort, type Candle } from "@/lib/candles";
 import { runResearchBacktest } from "@/lib/research/backtest";
+import { loadCandleHistory } from "@/lib/candle-history";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 60;
@@ -16,12 +17,7 @@ type CandleResponse = {
 
 export async function GET(request: Request) {
   try {
-    const origin = new URL(request.url).origin;
-    const response = await fetch(new URL("/api/candles", origin), { cache: "no-store" });
-    const payload = await response.json().catch(() => null) as CandleResponse | null;
-    if (!response.ok || !payload) {
-      return NextResponse.json({ error: "Unable to load historical candles", upstreamStatus: response.status }, { status: 502 });
-    }
+    const payload = await loadCandleHistory() as CandleResponse;
 
     const bitpin = dedupeSort(payload.bitpin ?? []);
     const wallex = dedupeSort(payload.wallex ?? []);
