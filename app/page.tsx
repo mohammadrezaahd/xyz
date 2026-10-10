@@ -6,6 +6,7 @@ import { BuySellBalance } from "@/components/buy-sell-balance";
 import { OpportunityPanel } from "@/components/opportunity-panel";
 import { Phase3Panel } from "@/components/phase3-panel";
 import { SnapshotPage } from "@/components/snapshot-page";
+import { MarketForecastPanel } from "@/components/market-forecast-panel";
 import { TestPositionPanel } from "@/components/test-position-panel";
 import { analyzeOpportunity } from "@/lib/opportunity/engine";
 import type { Candle } from "@/lib/candles";
@@ -13,7 +14,7 @@ import type { CurrentPricesResponse } from "@/lib/prices";
 import type { MarketSnapshotTrend } from "@/lib/market-snapshots/types";
 
 type CandleResponse = { bitpin: Candle[]; wallex: Candle[]; errors: string[]; fetchedAt: number; refreshMs: number };
-type View = "overview" | "opportunity" | "position" | "history" | "snapshots";
+type View = "overview" | "opportunity" | "position" | "history" | "snapshots" | "forecast";
 
 const snapshotTrends: Array<{ value: MarketSnapshotTrend; label: string }> = [
   { value: "STRONGLY_BULLISH", label: "Strongly Bullish" },
@@ -41,6 +42,7 @@ const viewCopy: Record<View, { breadcrumb: string; title: string; footer: string
   position: { breadcrumb: "PAPER POSITION", title: "Paper Position", footer: "Paper research · No automated trading execution" },
   history: { breadcrumb: "HISTORY", title: "History", footer: "Opportunity cron results · Analysis and simulation only" },
   snapshots: { breadcrumb: "SNAPSHOTS", title: "Market snapshots", footer: "Point-in-time research archive" },
+  forecast: { breadcrumb: "FORECAST", title: "Market Forecast", footer: "Experimental forecast · Historical validation required" },
 };
 
 const navigation: Array<[View, string, string, string]> = [
@@ -49,6 +51,7 @@ const navigation: Array<[View, string, string, string]> = [
   ["position", "Paper Position", "Paper Position", "03"],
   ["history", "History", "History", "04"],
   ["snapshots", "Snapshots", "Snapshots", "05"],
+  ["forecast", "Market Forecast", "Forecast", "06"],
 ];
 
 export default function Home() {
@@ -148,7 +151,8 @@ export default function Home() {
       {view === "position" && <section className="workspacePage"><div className="pageIntro"><div className="sectionEyebrow">PHASE 4 WORKSPACE</div><h2>Paper Position</h2><p>Run and monitor a research-only paper position. No real funds or exchange orders are used.</p></div><TestPositionPanel currentPrice={prices?.bitpin ?? null} /></section>}
       {view === "history" && <section className="workspacePage"><div className="pageIntro"><div className="sectionEyebrow">PHASE 3 RESULTS</div><h2>History</h2><p>Review opportunity cron results, validation scores, and simulated outcomes.</p></div><Phase3Panel /></section>}
       {view === "snapshots" && <SnapshotPage />}
-      {error && view !== "snapshots" && <div className="errorBanner" role="alert"><strong>Provider warning</strong><span>{error}</span></div>}
+      {view === "forecast" && <section className="workspacePage"><MarketForecastPanel /></section>}
+      {error && view !== "snapshots" && view !== "forecast" && <div className="errorBanner" role="alert"><strong>Provider warning</strong><span>{error}</span></div>}
       <footer className="consoleFooter"><span>XYZ Research Console</span><span>{copy.footer}</span></footer>
     </main>
 
