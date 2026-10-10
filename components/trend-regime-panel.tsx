@@ -148,7 +148,7 @@ export function TrendRegimePanel({ mode = "summary" }: { mode?: "summary" | "det
         <div className="forecastCardTop"><span>{label}</span></div>
         <h3>{pct(typeof value === "number" ? value : null)}</h3>
       </article>)}
-    </section>
+    </section>}
 
     <section className="timingGrid" aria-label="زمان‌بندی ورود و مدیریت موقعیت">
       <article className="forecastDecision">
