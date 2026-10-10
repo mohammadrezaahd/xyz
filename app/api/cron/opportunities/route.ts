@@ -80,8 +80,12 @@ export async function GET(request: Request) {
       bitpinCandles: candles.bitpin ?? [],
       wallexCandles: candles.wallex ?? [],
       currentPrices: {
-        bitpin: prices.bitpin,
-        wallex: prices.wallex,
+        bitpin: prices.providers
+          ? { price: prices.bitpin, fetchedAt: prices.providers.bitpin.fetchedAt }
+          : { price: prices.bitpin, fetchedAt: prices.fetchedAt },
+        wallex: prices.providers
+          ? { price: prices.wallex, fetchedAt: prices.providers.wallex.fetchedAt }
+          : { price: prices.wallex, fetchedAt: prices.fetchedAt },
       },
       externalPrice: prices.wallex,
       nowMs: prices.fetchedAt,
