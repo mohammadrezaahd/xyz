@@ -11,6 +11,7 @@ type CandleResponse = {
   errors?: string[];
   fetchedAt?: number;
   providers?: Record<string, string>;
+  diagnostics?: Record<string, unknown>;
 };
 
 export async function GET(request: Request) {
@@ -34,6 +35,7 @@ export async function GET(request: Request) {
       ok: true,
       marketDataFetchedAt: payload.fetchedAt ?? null,
       providerStatus: payload.providers ?? {},
+      candleDiagnostics: payload.diagnostics ?? {},
       providerErrors: payload.errors ?? [],
       warning: "Research only. Results are historical, not a live prediction or guarantee. Configure RESEARCH_BACKTEST_ROUND_TRIP_COST_PCT to your actual round-trip fee/slippage assumptions before interpreting net results.",
       ...result,
