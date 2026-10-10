@@ -147,8 +147,11 @@ export function analyzeOpportunity({
   const dataCompleteness = round(availablePoints);
   const stabilityScore = availablePoints ? round(Math.min(100, Math.max(0, earnedPoints / availablePoints * 100))) : 0;
   const qualityMultiplier = directional.agreement !== null && directional.participation !== null ? (directional.agreement + directional.participation) / 2 : null;
-  const buyValues = [bitpinBullishRatio, wallexBullishRatio, momentum === null ? null : momentum / 5, spreadPercent !== null && spreadPercent > 0 ? Math.min(1, spreadPercent / config.spreadTriggerPct) : null].filter((value): value is number => value !== null && Number.isFinite(value));
-  const sellValues = [bitpinBearishRatio, wallexBearishRatio, spreadPercent !== null && spreadPercent < 0 ? Math.min(1, Math.abs(spreadPercent) / config.spreadTriggerPct) : null].filter((value): value is number => value !== null && Number.isFinite(value));
+  const bullishPairCount = pairs.filter((pair) => classifyCandle(pair.bitpin, config.minCandleMovePct).direction === "BULLISH" && classifyCandle(pair.wallex, config.minCandleMovePct).direction === "BULLISH").length;
+  const bearishPairCount = pairs.filter((pair) => classifyCandle(pair.bitpin, config.minCandleMovePct).direction === "BEARISH" && classifyCandle(pair.wallex, config.minCandleMovePct).direction === "BEARISH").length;
+  const directionalMomentum = momentum === null ? null : momentum / 5;
+  const buyValues = [bitpinBullishRatio, wallexBullishRatio, bullishPairCount > bearishPairCount ? directionalMomentum : null, spreadPercent !== null && spreadPercent > 0 ? Math.min(1, spreadPercent / config.spreadTriggerPct) : null].filter((value): value is number => value !== null && Number.isFinite(value));
+  const sellValues = [bitpinBearishRatio, wallexBearishRatio, bearishPairCount > bullishPairCount ? directionalMomentum : null, spreadPercent !== null && spreadPercent < 0 ? Math.min(1, Math.abs(spreadPercent) / config.spreadTriggerPct) : null].filter((value): value is number => value !== null && Number.isFinite(value));
   const directionalBalanceAvailable = enoughPairs && directional.agreement !== null && directional.participation !== null && directional.participation >= config.minimumDirectionalParticipationRatio;
   const buyScore = directionalBalanceAvailable && qualityMultiplier !== null && buyValues.length ? (buyValues.reduce((a, b) => a + b, 0) / buyValues.length) * qualityMultiplier : null;
   const sellScore = directionalBalanceAvailable && qualityMultiplier !== null && sellValues.length ? (sellValues.reduce((a, b) => a + b, 0) / sellValues.length) * qualityMultiplier : null;
