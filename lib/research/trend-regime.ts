@@ -2,6 +2,7 @@ import type { Candle } from "../candles";
 
 export type TrendDirection = "BULLISH" | "BEARISH" | "RANGE" | "REVERSAL_WATCH" | "INSUFFICIENT_DATA";
 export type EntryTiming = "PULLBACK_WATCH" | "BREAKOUT_CONFIRMATION" | "CONTINUATION_WATCH" | "WAIT" | "INSUFFICIENT_DATA";
+export type ExitTiming = "TAKE_PROFIT_WATCH" | "STRUCTURE_WEAKENING" | "REVERSAL_RISK" | "HOLD_TREND" | "INSUFFICIENT_DATA";
 
 type Pair = { time: number; bitpin: Candle; wallex: Candle };
 type Feature = {
@@ -42,6 +43,8 @@ export type TrendRegimeResult = {
   structure: "HIGHER_HIGHS_HIGHER_LOWS" | "LOWER_HIGHS_LOWER_LOWS" | "MIXED_OR_UNCONFIRMED";
   entryTiming: EntryTiming;
   entryReason: string;
+  exitTiming: ExitTiming;
+  exitReason: string;
   regimeReason: string;
   backtest: { method: string; costPerRoundTripPct: number; futureDataUsedForPrediction: false; horizons: BacktestHorizon[] };
 };
@@ -166,6 +169,26 @@ function entryAssessment(direction: TrendDirection, feature: Feature | null, pai
   return { entryTiming: "CONTINUATION_WATCH", entryReason: "روند صعودی برقرار است، اما شکست تازه‌ای تأیید نشده؛ از تعقیب قیمت بدون تأیید پرهیز کن." };
 }
 
+function exitAssessment(direction: TrendDirection, feature: Feature | null): { exitTiming: ExitTiming; exitReason: string } {
+  if (!feature || direction === "INSUFFICIENT_DATA") {
+    return { exitTiming: "INSUFFICIENT_DATA", exitReason: "دادهٔ تازه و پیوسته برای ارزیابی مدیریت موقعیت باز کافی نیست." };
+  }
+  if (direction === "REVERSAL_WATCH") {
+    return { exitTiming: "REVERSAL_RISK", exitReason: "جهت کوتاه‌مدت با روند پایدار تعارض دارد؛ اگر موقعیت باز داری، حد ضرر و دلیل نگهداری را دوباره بررسی کن." };
+  }
+  if (direction === "RANGE" || Math.abs(feature.score) < 18) {
+    return { exitTiming: "STRUCTURE_WEAKENING", exitReason: "روند جهت‌دار تأیید نمی‌شود؛ برای موقعیت باز، نگهداری صرفاً بر اساس جهت قبلی کافی نیست." };
+  }
+  const stretchThreshold = Math.max(0.04, feature.volatility60Pct * Math.sqrt(15) * 1.5);
+  if (direction === "BEARISH" && feature.return15Pct <= -stretchThreshold) {
+    return { exitTiming: "TAKE_PROFIT_WATCH", exitReason: "حرکت نزولی کوتاه‌مدت نسبت به نوسان اخیر کشیده شده؛ اگر موقعیت فروش باز داری، برداشت سود یا جابه‌جایی حد ضرر را بررسی کن، نه اینکه کورکورانه وارد شوی." };
+  }
+  if (direction === "BULLISH" && feature.return15Pct >= stretchThreshold) {
+    return { exitTiming: "TAKE_PROFIT_WATCH", exitReason: "حرکت صعودی کوتاه‌مدت نسبت به نوسان اخیر کشیده شده؛ اگر موقعیت خرید باز داری، برداشت سود یا جابه‌جایی حد ضرر را بررسی کن، نه اینکه کورکورانه وارد شوی." };
+  }
+  return { exitTiming: "HOLD_TREND", exitReason: "فعلاً نشانهٔ کشیدگی شدید یا تضعیف واضح روند دیده نمی‌شود؛ این وضعیت تضمین نگهداری نیست و حد ضرر مستقل لازم است." };
+}
+
 function evaluateBacktest(pairs: Pair[], features: Array<Feature | null>, costPct: number) {
   return HORIZONS.map((horizonMinutes) => {
     const testStart = Math.floor(pairs.length * 0.8);
@@ -225,6 +248,7 @@ export function buildTrendRegime(
   const dataStatus = !feature || pairs.length < 181 ? "INSUFFICIENT_DATA" : stale || tailGap ? "STALE_OR_GAPPED" : "READY";
   const direction: TrendDirection = dataStatus === "READY" ? trend.direction : "INSUFFICIENT_DATA";
   const entry = entryAssessment(direction, feature, pairs);
+  const exit = exitAssessment(direction, feature);
   const structure = feature?.structureScore === 1 ? "HIGHER_HIGHS_HIGHER_LOWS" : feature?.structureScore === -1 ? "LOWER_HIGHS_LOWER_LOWS" : "MIXED_OR_UNCONFIRMED";
   const regimeReason = dataStatus !== "READY"
     ? "دادهٔ هم‌زمان یا پیوستهٔ تازه کافی نیست؛ وضعیت روند را فعلاً قابل اتکا نمی‌دانیم."
@@ -258,6 +282,8 @@ export function buildTrendRegime(
     structure,
     entryTiming: entry.entryTiming,
     entryReason: entry.entryReason,
+    exitTiming: exit.exitTiming,
+    exitReason: exit.exitReason,
     regimeReason,
     backtest: {
       method: "Chronological final-20% holdout; each signal uses only candles available at its timestamp; overlapping outcomes are not compounded.",
