@@ -6,7 +6,7 @@ type ForecastRow = {
   horizonMinutes: number;
   direction: "UP" | "DOWN" | "FLAT" | "INSUFFICIENT_DATA";
   score: number | null;
-  calibratedDirectionalRate: number | null;
+  historicalHitRate: number | null;
   calibrationSamples: number;
   expectedReturnPct: number | null;
   momentum5Pct: number | null;
@@ -134,7 +134,7 @@ export function MarketForecastPanel() {
         <div className="forecastScore"><strong>{number(item.score, 1)}</strong><span>/ 100 directional score</span></div>
         <div className="forecastMeter" role="img" aria-label={item.score == null ? "No directional score" : `Directional score ${item.score}`}><span style={{ left: `${((item.score ?? 0) + 100) / 2}%` }} /></div>
         <div className="forecastMetricRows">
-          <div><span>Historical directional rate</span><strong>{rate(item.calibratedDirectionalRate)}</strong></div>
+          <div><span>Historical directional rate</span><strong>{rate(item.historicalHitRate)}</strong></div>
           <div><span>Comparable outcomes</span><strong>{item.calibrationSamples}</strong></div>
           <div><span>Directional return estimate</span><strong>{pct(item.expectedReturnPct)}</strong></div>
           <div><span>15m realized volatility</span><strong>{pct(item.realizedVolatility15Pct)}</strong></div>
@@ -178,7 +178,7 @@ export function MarketForecastPanel() {
     <section className="forecastSection">
       <div className="sectionEyebrow">INTERPRETATION</div>
       <div className="forecastNotes">
-        <p><strong>Directional score is not probability.</strong> A score of +60 does not mean a 60% chance of a rise. The empirical rate remains hidden until at least 30 prior comparable outcomes exist for that horizon.</p>
+        <p><strong>Directional score is not probability.</strong> A score of +60 does not mean a 60% chance of a rise. The historical hit rate remains hidden until at least 30 prior comparable outcomes exist for that horizon.</p>
         <p><strong>Stability is not direction.</strong> The regime table tests whether stored Stability Score bands are associated with smaller subsequent price moves and ranges; small samples are not reliable evidence.</p>
         <p><strong>No data, no signal.</strong> Stale candles, missing contiguous windows, or insufficient history must prevent a live directional call.</p>
       </div>
