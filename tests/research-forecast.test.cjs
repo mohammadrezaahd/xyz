@@ -13,7 +13,7 @@ test("forecast refuses to issue a directional call with too little history", () 
   const result = buildLiveForecast(candles(20), candles(20));
   assert.equal(result.forecasts.length, 3);
   assert.ok(result.forecasts.every((item) => item.direction === "INSUFFICIENT_DATA"));
-  assert.ok(result.forecasts.every((item) => item.calibratedDirectionalRate === null));
+  assert.ok(result.forecasts.every((item) => item.historicalHitRate === null));
 });
 
 test("forecast reports score separately from empirical probability", () => {
@@ -22,7 +22,7 @@ test("forecast reports score separately from empirical probability", () => {
   const result = buildLiveForecast(bitpin, wallex, (1_800_000_000 + 239 * 60 + 60) * 1000);
   assert.ok(result.forecasts.every((item) => item.score !== null));
   assert.ok(result.forecasts.every((item) => item.calibrationSamples >= 30));
-  assert.ok(result.forecasts.every((item) => item.calibratedDirectionalRate !== null));
+  assert.ok(result.forecasts.every((item) => item.historicalHitRate !== null));
   assert.ok(result.forecasts.every((item) => item.direction === "UP"));
 });
 
@@ -41,5 +41,5 @@ test("forecast does not calibrate from fewer than 30 comparable historical outco
   const bitpin = candles(50);
   const wallex = candles(50);
   const result = buildLiveForecast(bitpin, wallex, (1_800_000_000 + 49 * 60 + 60) * 1000);
-  assert.ok(result.forecasts.every((item) => item.calibratedDirectionalRate === null));
+  assert.ok(result.forecasts.every((item) => item.historicalHitRate === null));
 });
