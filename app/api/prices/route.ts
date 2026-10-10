@@ -1,7 +1,10 @@
 import { NextResponse } from "next/server";
 import { parsePositivePrice } from "@/lib/prices";
+import { fetchWallexTickerPrice } from "@/lib/wallex-ticker";
 
 const env = (key: string, fallback = "") => process.env[key] ?? fallback;
+
+export const maxDuration = 30;
 
 function requireEnv(key: string): string {
   const value = env(key).trim();
@@ -29,134 +32,36 @@ function findBitpinPrice(payload: unknown, symbol: string): number | null {
 
   if (!row || typeof row !== "object") return null;
 
-  return parsePositivePrice(
-    (row as Record<string, unknown>).price,
-  );
+  return parsePositivePrice((row as Record<string, unknown>).price);
 }
 
 async function fetchBitpinPrice(): Promise<number> {
   const baseUrl = requireEnv("BITPIN_API_BASE_URL").replace(/\/$/, "");
   const url = new URL(`${baseUrl}/api/v1/mkt/tickers/`);
-
   const symbol = requireEnv("BITPIN_SYMBOL");
   url.searchParams.set("symbol", symbol);
 
-  const response = await fetch(url, {
-    cache: "no-store",
-  });
-
+  const response = await fetch(url, { cache: "no-store" });
   const payload = await response.json().catch(() => null);
 
   if (!response.ok) {
-    throw new Error(
-      `Bitpin ticker HTTP ${response.status}: ${JSON.stringify(payload)}`,
-    );
+    throw new Error(`Bitpin ticker HTTP ${response.status}: ${JSON.stringify(payload)}`);
   }
 
   const price = findBitpinPrice(payload, symbol);
   if (price === null) {
-    throw new Error(
-      "Bitpin ticker response did not contain a valid USDT_IRT price",
-    );
+    throw new Error("Bitpin ticker response did not contain a valid USDT_IRT price");
   }
-
   return price;
-}
-
-async function fetchWithRetry(
-  url: URL,
-  init: RequestInit,
-  attempts = 2,
-): Promise<Response> {
-  const configuredTimeoutMs = Number(env("WALLEX_TICKER_TIMEOUT_MS", "3500"));
-  const timeoutMs = Number.isFinite(configuredTimeoutMs)
-    ? Math.min(10_000, Math.max(1_500, configuredTimeoutMs))
-    : 3_500;
-  let lastError: unknown;
-
-  for (let attempt = 1; attempt <= attempts; attempt += 1) {
-    try {
-      return await fetch(url, {
-        ...init,
-        signal: AbortSignal.timeout(timeoutMs),
-      });
-    } catch (error) {
-      lastError = error;
-
-      if (attempt < attempts) {
-        await new Promise((resolve) =>
-          setTimeout(resolve, 500 * attempt),
-        );
-      }
-    }
-  }
-
-  throw lastError instanceof Error
-    ? lastError
-    : new Error(String(lastError));
 }
 
 async function fetchWallexPrice(): Promise<number> {
-  const baseUrl = env(
-    "WALLEX_API_BASE_URL",
-    "https://api.wallex.ir",
-  );
-  const url = new URL(`${baseUrl}/v1/otc/markets`);
-  const symbol = env("WALLEX_SYMBOL", "USDTTMN");
-  const apiKey = env("WALLEX_API_KEY");
-
-  if (!apiKey) {
-    throw new Error("Wallex API key is not configured");
-  }
-
-  const response = await fetchWithRetry(url, {
-    headers: {
-      "x-api-key": apiKey,
-    },
-    cache: "no-store",
+  return fetchWallexTickerPrice({
+    baseUrl: env("WALLEX_API_BASE_URL", "https://api.wallex.ir"),
+    symbol: env("WALLEX_SYMBOL", "USDTTMN"),
+    apiKey: env("WALLEX_API_KEY"),
+    timeoutMs: Number(env("WALLEX_TICKER_TIMEOUT_MS", "4500")),
   });
-
-  const payload = await response.json().catch(() => null);
-
-  if (!response.ok) {
-    throw new Error(
-      `Wallex markets HTTP ${response.status}: ${JSON.stringify(payload)}`,
-    );
-  }
-
-  const symbolData =
-    typeof payload === "object" &&
-    payload !== null &&
-    typeof (payload as Record<string, unknown>).result === "object"
-      ? (
-          (payload as Record<string, unknown>).result as Record<
-            string,
-            unknown
-          >
-        )[symbol]
-      : null;
-
-  const stats =
-    typeof symbolData === "object" &&
-    symbolData !== null &&
-    typeof (symbolData as Record<string, unknown>).stats === "object"
-      ? (symbolData as Record<string, unknown>).stats
-      : null;
-
-  const price =
-    typeof stats === "object" && stats !== null
-      ? parsePositivePrice(
-          (stats as Record<string, unknown>).lastPrice,
-        )
-      : null;
-
-  if (price === null) {
-    throw new Error(
-      "Wallex markets response did not contain a valid USDTTMN lastPrice",
-    );
-  }
-
-  return price;
 }
 
 type MeasuredPrice = { price: number; fetchedAt: number; durationMs: number };
@@ -175,22 +80,19 @@ export async function GET() {
   ]);
 
   const errors: string[] = [];
-
   const bitpinPrice =
     bitpin.status === "fulfilled"
       ? bitpin.value.price
       : (errors.push(`Bitpin ticker: ${String(bitpin.reason)}`), null);
-
   const wallexPrice =
     wallex.status === "fulfilled"
       ? wallex.value.price
       : (errors.push(`Wallex ticker: ${String(wallex.reason)}`), null);
 
-  const fetchedAt = Date.now();
   return NextResponse.json({
     bitpin: bitpinPrice,
     wallex: wallexPrice,
-    fetchedAt,
+    fetchedAt: Date.now(),
     providers: {
       bitpin: { status: bitpin.status === "fulfilled" ? "SUCCESS" : "FAILED", fetchedAt: bitpin.status === "fulfilled" ? bitpin.value.fetchedAt : null, durationMs: bitpin.status === "fulfilled" ? bitpin.value.durationMs : null },
       wallex: { status: wallex.status === "fulfilled" ? "SUCCESS" : "FAILED", fetchedAt: wallex.status === "fulfilled" ? wallex.value.fetchedAt : null, durationMs: wallex.status === "fulfilled" ? wallex.value.durationMs : null },
