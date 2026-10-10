@@ -599,7 +599,7 @@ test("synchronizedAvailable is uncapped while synchronizedUsed respects lookback
 
 test("provider responses capped at ten candles are diagnosed instead of presented as normal waiting", () => {
   const fs = require("node:fs");
-  const route = fs.readFileSync("app/api/candles/route.ts", "utf8");
+  const route = fs.readFileSync("lib/candle-history.ts", "utf8");
   const component = fs.readFileSync("components/buy-sell-balance.tsx", "utf8");
   assert.match(route, /LIMITED_OR_INCOMPLETE/);
   assert.match(route, /const historicalChunks = await Promise\.all/);
