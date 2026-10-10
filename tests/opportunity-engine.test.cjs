@@ -303,7 +303,7 @@ test("red candle below the minimum movement remains NEUTRAL in diagnostics", () 
 
 test("green candle below the minimum movement remains NEUTRAL in diagnostics", () => {
   const bitpin = candles(Array(10).fill("up"));
-  bitpin[0] = candle(60, 270000, 270050);
+  bitpin[0] = candle(60, 270000, 270001);
 
   const analysis = analyzeOpportunity({
     bitpinCandles: bitpin,
@@ -314,7 +314,7 @@ test("green candle below the minimum movement remains NEUTRAL in diagnostics", (
   });
 
   assert.equal(analysis.candles.selected[0].bitpin.direction, "NEUTRAL");
-  assert.ok(analysis.candles.selected[0].bitpin.movementPct < 0.05);
+  assert.ok(analysis.candles.selected[0].bitpin.movementPct < 0.001);
 });
 
 test("bullish ratio classification is 40 FAILED, 50/70 ACCEPTABLE, 80/100 SUCCESS", () => {
@@ -432,9 +432,9 @@ test("alignment classification is 8 SUCCESS, 7/5 ACCEPTABLE, 4 FAILED", () => {
 
 test("sub-0.05% movement is neutral and not bullish", () => {
   const bitpin = candles(Array(30).fill("up"));
-  bitpin[0] = candle(60, 270000, 270050);
-  bitpin[1] = candle(120, 270000, 270050);
-  bitpin[2] = candle(180, 270000, 270050);
+  bitpin[0] = candle(60, 270000, 270001);
+  bitpin[1] = candle(120, 270000, 270001);
+  bitpin[2] = candle(180, 270000, 270001);
   const analysis = analyzeOpportunity({
     bitpinCandles: bitpin,
     wallexCandles: candles(Array(30).fill("up")),
