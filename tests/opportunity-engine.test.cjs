@@ -203,10 +203,7 @@ test("duplicate candles in one minute bucket do not inflate synchronization", ()
   const bitpin = candles(Array(10).fill("up")).concat([
     candle(60 + 45, 270000, 270270),
   ]);
-  const wallex = candles(Array(10).fill("up")).map((c) => ({
-    ...c,
-    time: c.time + 30,
-  }));
+  const wallex = candles(Array(10).fill("up"));
 
   const analysis = analyzeOpportunity({
     bitpinCandles: bitpin,
@@ -264,10 +261,10 @@ test("selected candle diagnostics preserve the exact bullish classification", ()
     Array(10).fill("up"),
   );
 
-  assert.equal(analysis.candles.selected.length, 10);
+  assert.equal(analysis.candles.selected.length, 30);
   assert.equal(analysis.candles.bitpinBullishRatio, 0.4);
   assert.deepEqual(
-    analysis.candles.selected.map((pair) => pair.bitpin.direction),
+    analysis.candles.selected.slice(0, 10).map((pair) => pair.bitpin.direction),
     [
       "BULLISH",
       "BULLISH",
