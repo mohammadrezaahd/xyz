@@ -59,7 +59,7 @@ const exitLabels: Record<NonNullable<TrendPayload["exitTiming"]>, string> = {
 const pct = (value: number | null | undefined, digits = 3) =>
   value == null || !Number.isFinite(value) ? "—" : `${value.toFixed(digits)}%`;
 const rate = (value: number | null | undefined) =>
-  value == null || !Number.isFinite(value) ? "نمونه کافی نیست" : `${value.toFixed(1)}%`;
+  value == null || !Number.isFinite(value) ? "Insufficient samples" : `${value.toFixed(1)}%`;
 const number = (value: number | null | undefined, digits = 1) =>
   value == null || !Number.isFinite(value) ? "—" : value.toLocaleString("en-US", { maximumFractionDigits: digits });
 
@@ -94,10 +94,10 @@ export function TrendRegimePanel({ mode = "summary" }: { mode?: "summary" | "det
   const ready = data?.dataStatus === "READY";
   const direction = data?.direction ?? "INSUFFICIENT_DATA";
   const structureLabel = data?.structure === "HIGHER_HIGHS_HIGHER_LOWS"
-    ? "سقف و کف‌های بالاتر"
+    ? "Higher highs and higher lows"
     : data?.structure === "LOWER_HIGHS_LOWER_LOWS"
-      ? "سقف و کف‌های پایین‌تر"
-      : "ساختار تأییدنشده";
+      ? "Lower highs and lower lows"
+      : "Unconfirmed structure";
   const voteText = data?.persistenceVotes
     ? `Bullish votes: ${data.persistenceVotes.bullish}/${data.persistenceVotes.window} · Bearish votes: ${data.persistenceVotes.bearish}/${data.persistenceVotes.window}`
     : "Waiting for data";
@@ -116,15 +116,15 @@ export function TrendRegimePanel({ mode = "summary" }: { mode?: "summary" | "det
     <div className="forecastHero">
       <div className="forecastHeroCopy">
         <div className="sectionEyebrow">MARKET INTELLIGENCE · PHASE 1</div>
-        <h2 id="trend-regime-title">روند اصلی بازار و زمان‌بندی ورود</h2>
-        <p>روند ۱۵ دقیقه تا ۶ ساعت، ساختار سقف و کف و پایداری سیگنال؛ جدا از پیش‌بینی جهت کوتاه‌مدت.</p>
+        <h2 id="trend-regime-title">Market trend and entry timing</h2>
+        <p>Trend structure and signal persistence across 15-minute to 6-hour horizons.</p>
       </div>
       <button className="refreshButton" type="button" disabled={loading || refreshing} onClick={() => void load(true)}>
         {refreshing ? "Updating…" : "Refresh"}
       </button>
     </div>
 
-    {error && <div className="errorBanner" role="alert"><strong>تحلیل روند در دسترس نیست</strong><span>{error}</span></div>}
+    {error && <div className="errorBanner" role="alert"><strong>Trend analysis unavailable</strong><span>{error}</span></div>}
 
     <section className="forecastDecision">
       <div className="forecastDecisionTop">
@@ -137,14 +137,14 @@ export function TrendRegimePanel({ mode = "summary" }: { mode?: "summary" | "det
         </span>
       </div>
       <p className="forecastDecisionLead">{data?.regimeReason ?? "Trend status is calculated from synchronized Bitpin and Wallex data."}</p>
-      <small>برچسب روند بر پایهٔ قواعد قابل توضیح است؛ احتمال قطعی یا تضمین نتیجه نیست.</small>
+      <small>Rule-based trend label; not a guaranteed outcome or calibrated probability.</small>
     </section>
 
     {mode === "details" && <section className="forecastMetaGrid" aria-label="Trend metrics">
-      <div className="forecastMeta"><span>قیمت Bitpin</span><strong>{number(data?.price, 0)}</strong></div>
-      <div className="forecastMeta"><span>امتیاز جهت</span><strong>{data?.score == null ? "—" : number(data.score, 1) + " / 100"}</strong></div>
-      <div className="forecastMeta"><span>کندل‌های هم‌زمان</span><strong>{data?.synchronizedCandles?.toLocaleString("en-US") ?? "—"}</strong></div>
-      <div className="forecastMeta"><span>عمر آخرین کندل</span><strong>{data?.candleAgeSeconds == null ? "—" : `${data.candleAgeSeconds}s`}</strong></div>
+      <div className="forecastMeta"><span>Bitpin price</span><strong>{number(data?.price, 0)}</strong></div>
+      <div className="forecastMeta"><span>Directional score</span><strong>{data?.score == null ? "—" : number(data.score, 1) + " / 100"}</strong></div>
+      <div className="forecastMeta"><span>Synchronized candles</span><strong>{data?.synchronizedCandles?.toLocaleString("en-US") ?? "—"}</strong></div>
+      <div className="forecastMeta"><span>Latest candle age</span><strong>{data?.candleAgeSeconds == null ? "—" : `${data.candleAgeSeconds}s`}</strong></div>
     </section>}
 
     {mode === "details" && <section className="forecastCards" aria-label="Multi-horizon returns">
@@ -167,7 +167,7 @@ export function TrendRegimePanel({ mode = "summary" }: { mode?: "summary" | "det
           <span className="forecastVerdict forecastVerdict--wait">{structureLabel}</span>
         </div>
         <p>{data?.entryReason ?? "Entry timing cannot be evaluated yet."}</p>
-        <small>{voteText}. جهت خام همین لحظه: {data?.rawDirection === "BULLISH" ? "صعودی" : data?.rawDirection === "BEARISH" ? "نزولی" : "خنثی"}.</small>
+        <small>{voteText}. Current raw direction: {data?.rawDirection === "BULLISH" ? "Bullish" : data?.rawDirection === "BEARISH" ? "Bearish" : "Sideways"}.</small>
       </article>
       <article className="forecastDecision">
         <div className="sectionEyebrow">EXIT / PROFIT MANAGEMENT</div>
@@ -176,31 +176,31 @@ export function TrendRegimePanel({ mode = "summary" }: { mode?: "summary" | "det
           <span className={`forecastVerdict ${data?.exitTiming === "TAKE_PROFIT_WATCH" || data?.exitTiming === "REVERSAL_RISK" ? "forecastVerdict--down" : "forecastVerdict--wait"}`}>موقعیت باز</span>
         </div>
         <p>{data?.exitReason ?? "Open-position management cannot be evaluated yet."}</p>
-        <small>این هشدار فقط برای بررسی موقعیت موجود است؛ به‌تنهایی دستور خروج نیست. نتیجه بر پایه قواعد است، نه پیش‌بینی قطعی.</small>
+        <small>This is a review signal, not an exit order. It is rule-based, not a certainty.</small>
       </article>
     </section>
 
     {mode === "details" && <section className="chartSection" aria-labelledby="trend-backtest-title">
       <div className="sectionHeader">
-        <div><div className="sectionEyebrow">CHRONOLOGICAL HOLDOUT</div><h2 id="trend-backtest-title">اعتبارسنجی تاریخی روند</h2></div>
-        <span className="sectionNote">هزینه رفت‌وبرگشت: {pct(data?.backtest?.costPerRoundTripPct, 2)}</span>
+        <div><div className="sectionEyebrow">CHRONOLOGICAL HOLDOUT</div><h2 id="trend-backtest-title">Historical trend validation</h2></div>
+        <span className="sectionNote">Round-trip cost: {pct(data?.backtest?.costPerRoundTripPct, 2)}</span>
       </div>
       <div style={{ overflowX: "auto", padding: "0 16px 16px" }}>
         <table style={{ width: "100%", borderCollapse: "collapse", minWidth: 700, textAlign: "left" }}>
-          <thead><tr>{["افق", "نمونهٔ آزمون", "سیگنال روند", "پوشش", "درستی جهت", "میانگین خالص هر سیگنال", "وضعیت"].map((label) => <th key={label} style={{ padding: 10, color: "var(--color-text-muted)", borderBottom: "1px solid var(--color-border)", fontSize: 11 }}>{label}</th>)}</tr></thead>
+          <thead><tr>{["Horizon", "Test samples", "Trend signals", "Coverage", "Directional accuracy", "Mean net return / signal", "Status"].map((label) => <th key={label} style={{ padding: 10, color: "var(--color-text-muted)", borderBottom: "1px solid var(--color-border)", fontSize: 11 }}>{label}</th>)}</tr></thead>
           <tbody>{(data?.backtest?.horizons ?? []).map((item) => <tr key={item.horizonMinutes}>
-            <td style={{ padding: 10, borderBottom: "1px solid var(--color-border)" }}>{item.horizonMinutes} دقیقه</td>
+            <td style={{ padding: 10, borderBottom: "1px solid var(--color-border)" }}>{item.horizonMinutes} min</td>
             <td style={{ padding: 10, borderBottom: "1px solid var(--color-border)" }}>{item.testSamples.toLocaleString("en-US")}</td>
             <td style={{ padding: 10, borderBottom: "1px solid var(--color-border)" }}>{item.directionalSignals.toLocaleString("en-US")}</td>
             <td style={{ padding: 10, borderBottom: "1px solid var(--color-border)" }}>{rate(item.coveragePct)}</td>
             <td style={{ padding: 10, borderBottom: "1px solid var(--color-border)" }}>{rate(item.directionalAccuracyPct)}</td>
             <td style={{ padding: 10, borderBottom: "1px solid var(--color-border)" }}>{pct(item.meanNetReturnPerSignalPct, 4)}</td>
-            <td style={{ padding: 10, borderBottom: "1px solid var(--color-border)", color: item.status === "EVALUATED" ? "var(--color-positive)" : "var(--color-warning)" }}>{item.status === "EVALUATED" ? "نمونه کافی" : "نمونه ناکافی"}</td>
+            <td style={{ padding: 10, borderBottom: "1px solid var(--color-border)", color: item.status === "EVALUATED" ? "var(--color-positive)" : "var(--color-warning)" }}>{item.status === "EVALUATED" ? "Sufficient sample" : "Insufficient sample"}</td>
           </tr>)}</tbody>
         </table>
       </div>
       <p style={{ padding: "0 20px", color: "var(--color-text-muted)", fontSize: 11, lineHeight: 1.7 }}>
-        آزمون فقط ۲۰٪ پایانی تاریخچه را می‌سنجد و هر پیش‌بینی تنها از کندل‌های قبلی استفاده می‌کند. نمونه‌ها هم‌پوشانی دارند؛ «میانگین خالص هر سیگنال» بازده مرکب سرمایه نیست. برای نتیجه‌گیری قابل اتکا، آزمون باید روی چندین دوره و وضعیت بازار تکرار شود.
+        آزمون فقط ۲۰٪ پایانی تاریخچه را می‌سنجد و هر پیش‌بینی تنها از کندل‌های قبلی استفاده می‌کند. نمونه‌ها هم‌پوشانی دارند؛ «Mean net return / signal» بازده مرکب سرمایه نیست. برای نتیجه‌گیری قابل اتکا، آزمون باید روی چندین دوره و Status بازار تکرار شود.
       </p>
     </section>}
   </section>;
