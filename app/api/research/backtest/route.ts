@@ -15,7 +15,7 @@ type CandleResponse = {
   diagnostics?: Record<string, unknown>;
 };
 
-export async function GET(request: Request) {
+export async function GET() {
   try {
     const payload = await loadCandleHistory() as CandleResponse;
 
