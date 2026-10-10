@@ -4,6 +4,8 @@ import type { CandleDirection, ExternalReferencePrice, OpportunityAnalysis, Oppo
 
 
 const MINUTE_SECONDS = 60;
+const STABILITY_LOOKBACK_CANDLES = 10;
+const STABILITY_MIN_CANDLE_MOVE_PCT = 0.05;
 function quoteAgeMs(fetchedAt: number | null | undefined, nowMs: number): number | null {
   return typeof fetchedAt === "number" && Number.isFinite(fetchedAt) ? Math.max(0, nowMs - fetchedAt) : null;
 }
@@ -118,17 +120,24 @@ export function analyzeOpportunity({
   const spreadTest = spreadPercent === null ? insufficient(config.spreadTriggerPct) : classifySpread(spreadPercent, config.spreadTriggerPct);
   const rawPairs = synchronizedClosedCandles(bitpinCandles, wallexCandles, Number.MAX_SAFE_INTEGER, nowMs);
   const pairs = rawPairs.slice(-config.lookbackCandles);
+  const stabilityPairs = rawPairs.slice(-STABILITY_LOOKBACK_CANDLES);
   const synchronizedAvailable = rawPairs.length;
   const synchronizedUsed = pairs.length;
   const enoughPairs = synchronizedAvailable >= config.minimumCandlePairs && synchronizedUsed >= config.minimumCandlePairs;
-  const enoughForLegacyMetrics = enoughPairs;
-  const bitpinBullishRatio = enoughForLegacyMetrics ? ratio(pairs.map((p) => p.bitpin), config.minCandleMovePct, "BULLISH") : null;
-  const wallexBullishRatio = enoughForLegacyMetrics ? ratio(pairs.map((p) => p.wallex), config.minCandleMovePct, "BULLISH") : null;
-  const bitpinBearishRatio = enoughForLegacyMetrics ? ratio(pairs.map((p) => p.bitpin), config.minCandleMovePct, "BEARISH") : null;
-  const wallexBearishRatio = enoughForLegacyMetrics ? ratio(pairs.map((p) => p.wallex), config.minCandleMovePct, "BEARISH") : null;
-  const legacyAlignmentRatio = enoughForLegacyMetrics ? legacyAlignment(pairs, config.minCandleMovePct) : null;
-  const directional = enoughForLegacyMetrics ? directionalMetrics(pairs, config.minCandleMovePct) : { agreement: null, participation: null, neutralPair: null };
-  const averageMove = enoughForLegacyMetrics ? averageDirectionalMovePct(pairs, config.minCandleMovePct) : null;
+  const enoughForLegacyMetrics = stabilityPairs.length >= STABILITY_LOOKBACK_CANDLES;
+  // Preserve main's Stability Score definition: last 10 synchronized closed pairs,
+  // 0.05% minimum candle move, and neutral/neutral pairs count as aligned.
+  const bitpinBullishRatio = enoughForLegacyMetrics ? ratio(stabilityPairs.map((p) => p.bitpin), STABILITY_MIN_CANDLE_MOVE_PCT, "BULLISH") : null;
+  const wallexBullishRatio = enoughForLegacyMetrics ? ratio(stabilityPairs.map((p) => p.wallex), STABILITY_MIN_CANDLE_MOVE_PCT, "BULLISH") : null;
+  const bitpinBearishRatio = enoughForLegacyMetrics ? ratio(stabilityPairs.map((p) => p.bitpin), STABILITY_MIN_CANDLE_MOVE_PCT, "BEARISH") : null;
+  const wallexBearishRatio = enoughForLegacyMetrics ? ratio(stabilityPairs.map((p) => p.wallex), STABILITY_MIN_CANDLE_MOVE_PCT, "BEARISH") : null;
+  const legacyAlignmentRatio = enoughForLegacyMetrics ? legacyAlignment(stabilityPairs, STABILITY_MIN_CANDLE_MOVE_PCT) : null;
+  const directional = enoughPairs ? directionalMetrics(pairs, config.minCandleMovePct) : { agreement: null, participation: null, neutralPair: null };
+  const averageMove = enoughForLegacyMetrics ? averageDirectionalMovePct(stabilityPairs, STABILITY_MIN_CANDLE_MOVE_PCT) : null;
+  const directionalBitpinBullishRatio = enoughPairs ? ratio(pairs.map((p) => p.bitpin), config.minCandleMovePct, "BULLISH") : null;
+  const directionalWallexBullishRatio = enoughPairs ? ratio(pairs.map((p) => p.wallex), config.minCandleMovePct, "BULLISH") : null;
+  const directionalBitpinBearishRatio = enoughPairs ? ratio(pairs.map((p) => p.bitpin), config.minCandleMovePct, "BEARISH") : null;
+  const directionalWallexBearishRatio = enoughPairs ? ratio(pairs.map((p) => p.wallex), config.minCandleMovePct, "BEARISH") : null;
   const bitpinBullish = bitpinBullishRatio === null ? insufficient(config.minBullishRatio) : classifyRatio(bitpinBullishRatio, config.minBullishRatio);
   const wallexBullish = wallexBullishRatio === null ? insufficient(config.minBullishRatio) : classifyRatio(wallexBullishRatio, config.minBullishRatio);
   const candleAlignment = legacyAlignmentRatio === null ? insufficient(config.minAlignmentRatio) : classifyRatio(legacyAlignmentRatio, config.minAlignmentRatio);
@@ -152,9 +161,10 @@ export function analyzeOpportunity({
   const qualityMultiplier = directional.agreement !== null && directional.participation !== null ? (directional.agreement + directional.participation) / 2 : null;
   const bullishPairCount = pairs.filter((pair) => classifyCandle(pair.bitpin, config.minCandleMovePct).direction === "BULLISH" && classifyCandle(pair.wallex, config.minCandleMovePct).direction === "BULLISH").length;
   const bearishPairCount = pairs.filter((pair) => classifyCandle(pair.bitpin, config.minCandleMovePct).direction === "BEARISH" && classifyCandle(pair.wallex, config.minCandleMovePct).direction === "BEARISH").length;
-  const directionalMomentum = momentum === null ? null : momentum / 5;
-  const buyValues = [bitpinBullishRatio, wallexBullishRatio, bullishPairCount > bearishPairCount ? directionalMomentum : null, spreadPercent !== null && spreadPercent > 0 ? Math.min(1, spreadPercent / config.spreadTriggerPct) : null].filter((value): value is number => value !== null && Number.isFinite(value));
-  const sellValues = [bitpinBearishRatio, wallexBearishRatio, bearishPairCount > bullishPairCount ? directionalMomentum : null, spreadPercent !== null && spreadPercent < 0 ? Math.min(1, Math.abs(spreadPercent) / config.spreadTriggerPct) : null].filter((value): value is number => value !== null && Number.isFinite(value));
+  const directionalMomentumScore = enoughPairs ? momentumScore(averageDirectionalMovePct(pairs, config.minCandleMovePct), config.momentumReferencePct) : null;
+  const directionalMomentum = directionalMomentumScore === null ? null : directionalMomentumScore / 5;
+  const buyValues = [directionalBitpinBullishRatio, directionalWallexBullishRatio, bullishPairCount > bearishPairCount ? directionalMomentum : null, spreadPercent !== null && spreadPercent > 0 ? Math.min(1, spreadPercent / config.spreadTriggerPct) : null].filter((value): value is number => value !== null && Number.isFinite(value));
+  const sellValues = [directionalBitpinBearishRatio, directionalWallexBearishRatio, bearishPairCount > bullishPairCount ? directionalMomentum : null, spreadPercent !== null && spreadPercent < 0 ? Math.min(1, Math.abs(spreadPercent) / config.spreadTriggerPct) : null].filter((value): value is number => value !== null && Number.isFinite(value));
   const directionalBalanceAvailable = enoughPairs && directional.agreement !== null && directional.participation !== null && directional.participation >= config.minimumDirectionalParticipationRatio;
   const buyScore = directionalBalanceAvailable && qualityMultiplier !== null && buyValues.length ? (buyValues.reduce((a, b) => a + b, 0) / buyValues.length) * qualityMultiplier : null;
   const sellScore = directionalBalanceAvailable && qualityMultiplier !== null && sellValues.length ? (sellValues.reduce((a, b) => a + b, 0) / sellValues.length) * qualityMultiplier : null;
@@ -186,7 +196,7 @@ export function analyzeOpportunity({
     prices: { bitpin: bitpinPrice, wallex: wallexPrice, external: normalizedExternal },
     spread: { absolute: spreadAbsolute, percent: spreadPercent },
     validation: { external: externalValidation, wallexAboveBitpin, spread: spreadTest, candleAlignment, bitpinBullish, wallexBullish, targetViability, momentum: momentumTest },
-    candles: { bitpinReceived: bitpinCandles.length, wallexReceived: wallexCandles.length, synchronizedAvailable, synchronizedUsed, minimumRequired: config.minimumCandlePairs, lookbackLimit: config.lookbackCandles, currentCandleExcluded: true, lookback: config.lookbackCandles, synchronized: synchronizedAvailable, selected: pairs.map(({ bitpin, wallex }) => ({ timestamp: minuteBucket(bitpin.time), bitpin: selectedCandle(minuteBucket(bitpin.time), bitpin, config.minCandleMovePct), wallex: selectedCandle(minuteBucket(wallex.time), wallex, config.minCandleMovePct) })), bitpinBullishRatio, wallexBullishRatio, alignmentRatio: legacyAlignmentRatio, directionalAgreementRatio: directional.agreement, directionalParticipationRatio: directional.participation, neutralPairRatio: directional.neutralPair, averageDirectionalMovePct: averageMove, momentumScore: momentum },
+    candles: { bitpinReceived: bitpinCandles.length, wallexReceived: wallexCandles.length, synchronizedAvailable, synchronizedUsed, minimumRequired: config.minimumCandlePairs, lookbackLimit: config.lookbackCandles, currentCandleExcluded: true, lookback: config.lookbackCandles, stabilityLookback: STABILITY_LOOKBACK_CANDLES, synchronized: synchronizedAvailable, selected: pairs.map(({ bitpin, wallex }) => ({ timestamp: minuteBucket(bitpin.time), bitpin: selectedCandle(minuteBucket(bitpin.time), bitpin, config.minCandleMovePct), wallex: selectedCandle(minuteBucket(wallex.time), wallex, config.minCandleMovePct) })), bitpinBullishRatio, wallexBullishRatio, alignmentRatio: legacyAlignmentRatio, directionalAgreementRatio: directional.agreement, directionalParticipationRatio: directional.participation, neutralPairRatio: directional.neutralPair, averageDirectionalMovePct: averageMove, momentumScore: momentum },
     target: { entryPrice: bitpinPrice, safeTarget, safetyMarginPct: config.safetyMarginPct, horizonMinutes: config.targetHorizonMinutes },
     edge: { gross, grossPct, feesPct: config.takerFeePct + config.takerFeePct, slippagePct: config.executionCosts.slippageBufferPct, latencyPct: config.executionCosts.latencyBufferPct, transferCostPct: config.executionCosts.transferCostPct, netPct: legacyNetPct, expectedNetProfit, executionNetPct: netPct },
     stabilityScore, dataCompleteness, riskLevel: riskLevel(stabilityScore, config), opportunity, decision, decisionReason, eligibleForSignal, minimumRequiredCandlePairs: config.minimumCandlePairs, dataQuality,
