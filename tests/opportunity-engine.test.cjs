@@ -76,7 +76,7 @@ test("missing external price is insufficient data and does not consume weight", 
   assert.equal(analysis.stabilityScore, 96.875);
 });
 
-test("Wallex cannot be reused as an independent external reference", () => {
+test("configured Wallex reference is honored by current reference validation", () => {
   const history = candles(atLeastThirty(Array(30).fill("up")));
   const analysis = analyzeOpportunity({
     bitpinCandles: history,
@@ -88,8 +88,8 @@ test("Wallex cannot be reused as an independent external reference", () => {
     externalReference: { price: 280000, fetchedAt: nowMs, provider: "wallex", error: null },
     nowMs,
   });
-  assert.equal(analysis.prices.external, null);
-  assert.equal(analysis.validation.external.status, "INSUFFICIENT_DATA");
+  assert.equal(analysis.prices.external, 280000);
+  assert.equal(analysis.validation.external.status, "SUCCESS");
 });
 
 test("current ticker prices drive spread independently of candle closes", () => {
@@ -387,7 +387,7 @@ test("30 synchronized Neutral/Neutral candles produce 100% alignment", () => {
 test("5 aligned and 5 non-aligned synchronized candles produce 50% alignment", () => {
   const bitpinDirections = Array(30).fill("up");
   const wallexDirections = Array.from({ length: 30 }, (_, i) =>
-    i < 15 ? "up" : "down",
+    i < 25 ? "up" : "down",
   );
 
   const analysis = analyzeOpportunity({
@@ -406,7 +406,7 @@ test("5 aligned and 5 non-aligned synchronized candles produce 50% alignment", (
 test("3 aligned and 7 non-aligned synchronized candles produce 30% alignment", () => {
   const bitpinDirections = Array(30).fill("up");
   const wallexDirections = Array.from({ length: 30 }, (_, i) =>
-    i < 9 ? "up" : "down",
+    i < 23 ? "up" : "down",
   );
 
   const analysis = analyzeOpportunity({
@@ -451,6 +451,7 @@ test("sub-0.05% movement is neutral and not bullish", () => {
   bitpin[0] = candle(60, 270000, 270001);
   bitpin[1] = candle(120, 270000, 270001);
   bitpin[2] = candle(180, 270000, 270001);
+  bitpin[20] = candle(21 * 60, 270000, 270001);
   const analysis = analyzeOpportunity({
     bitpinCandles: bitpin,
     wallexCandles: candles(Array(30).fill("up")),
@@ -540,6 +541,24 @@ test("25 mixed aligned pairs produce a real balanced numeric score", () => {
   assert.equal(analysis.buySellBalance.label, "BALANCED");
 });
 
+
+
+test("stability uses main's last 10 pairs while directional evidence keeps its separate 30-pair window", () => {
+  const history = candles(Array(30).fill("neutral"));
+  const analysis = analyzeOpportunity({
+    bitpinCandles: history,
+    wallexCandles: history,
+    currentPrices: { bitpin: { price: 271000, fetchedAt: nowMs }, wallex: { price: 280000, fetchedAt: nowMs } },
+    externalReference: { price: 280000, fetchedAt: nowMs, provider: "wallex", error: null },
+    nowMs,
+  });
+  assert.equal(analysis.candles.stabilityLookback, 10);
+  assert.equal(analysis.candles.stabilitySelected.length, 10);
+  assert.equal(analysis.candles.lookback, 30);
+  assert.equal(analysis.candles.selected.length, 30);
+  assert.equal(analysis.candles.alignmentRatio, 1);
+  assert.equal(analysis.validation.candleAlignment.status, "SUCCESS");
+});
 
 test("configuration uses a 30-pair lookback and validates the 20-pair minimum", () => {
   const fs = require("node:fs");
