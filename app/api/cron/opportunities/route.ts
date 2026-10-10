@@ -87,7 +87,12 @@ export async function GET(request: Request) {
           ? { price: prices.wallex, fetchedAt: prices.providers.wallex.fetchedAt }
           : { price: prices.wallex, fetchedAt: prices.fetchedAt },
       },
-      externalPrice: prices.wallex,
+      externalReference: {
+        price: prices.wallex,
+        fetchedAt: prices.providers?.wallex.fetchedAt ?? prices.fetchedAt,
+        provider: "wallex",
+        error: prices.wallex === null ? "Wallex ticker unavailable" : null,
+      },
       nowMs: prices.fetchedAt,
     });
 
