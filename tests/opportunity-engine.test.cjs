@@ -502,7 +502,7 @@ test("10 synchronized pairs remain insufficient and are counted before the analy
 
 test("25 aligned bullish pairs produce BUY BIAS independently from economic rejection", () => {
   const up = candles(Array(25).fill("up"));
-  const analysis = analyzeOpportunity({ bitpinCandles: up, wallexCandles: up, currentPrices: { bitpin: { price: 271000, fetchedAt: nowMs }, wallex: { price: 271100, fetchedAt: nowMs } }, externalReference: { price: 271100, fetchedAt: nowMs, provider: "fixture", error: null }, nowMs });
+  const analysis = analyzeOpportunity({ bitpinCandles: up, wallexCandles: up, currentPrices: { bitpin: { price: 1000, fetchedAt: nowMs }, wallex: { price: 1020, fetchedAt: nowMs } }, externalReference: { price: 1020, fetchedAt: nowMs, provider: "fixture", error: null }, nowMs });
   assert.notEqual(analysis.buySellBalance.value, null);
   assert.equal(analysis.buySellBalance.label, "BUY BIAS");
   assert.equal(analysis.candles.synchronizedAvailable, 25);
