@@ -1,4 +1,4 @@
-import { parsePositivePrice } from "@/lib/prices";
+import { parsePositivePrice } from "./prices";
 
 type JsonRecord = Record<string, unknown>;
 type FetchLike = (input: string | URL, init?: RequestInit) => Promise<Response>;
