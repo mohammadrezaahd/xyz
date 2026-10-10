@@ -13,6 +13,8 @@ type FeatureRow = {
   momentum30Pct: number;
   volatility15Pct: number;
   venueAgreement: number;
+  momentumAccelerationPct: number;
+  volumePressure5Pct: number | null;
 };
 
 export type LiveForecast = {
@@ -27,6 +29,8 @@ export type LiveForecast = {
   momentum30Pct: number | null;
   realizedVolatility15Pct: number | null;
   venueAgreement: number | null;
+  momentumAccelerationPct: number | null;
+  volumePressure5Pct: number | null;
   dataStatus: "READY" | "INSUFFICIENT_DATA" | "STALE_OR_GAPPED";
   explanation: string;
 };
@@ -88,15 +92,40 @@ function featureAt(pairs: Pair[], index: number): FeatureRow | null {
     returns.push((next / previous - 1) * 100);
   }
   const volatility15Pct = returns.reduce((sum, value) => sum + Math.abs(value), 0) / returns.length;
-  const venueAgreement = Math.sign(m5) === Math.sign(w5) ? 1 : -1;
-  // Bounded, transparent directional score; it is not itself a probability.
-  const score = Math.max(-100, Math.min(100,
-    (Math.tanh(m5 / 0.04) * 0.25 +
-      Math.tanh(m15 / 0.08) * 0.35 +
-      Math.tanh(m30 / 0.15) * 0.25 +
-      venueAgreement * 0.15) * 100,
-  ));
-  return { time: current.time, score, momentum5Pct: m5, momentum15Pct: m15, momentum30Pct: m30, volatility15Pct, venueAgreement };
+  const bitpinSign = Math.sign(m5);
+  const wallexSign = Math.sign(w5);
+  // Flat/zero momentum is neutral, never agreement in the bullish direction.
+  const venueAgreement = bitpinSign === 0 || wallexSign === 0 ? 0 : bitpinSign === wallexSign ? 1 : -1;
+  const momentumAccelerationPct = m5 - m15 / 3;
+  const volumeBaseline = median(pairs.slice(index - 30, index).map((pair) => pair.bitpin.volume ?? 0).filter((volume) => Number.isFinite(volume) && volume > 0));
+  let volumeWeightedReturn = 0;
+  let volumeWeightTotal = 0;
+  if (volumeBaseline !== null) {
+    for (let offset = index - 4; offset <= index; offset += 1) {
+      const previous = pairs[offset - 1].bitpin.close;
+      const candle = pairs[offset].bitpin;
+      const volume = candle.volume ?? 0;
+      if (!finitePositive(previous) || !finitePositive(volume)) continue;
+      const relativeVolume = Math.max(0.25, Math.min(3, volume / volumeBaseline));
+      const returnPct = (candle.close / previous - 1) * 100;
+      volumeWeightedReturn += returnPct * relativeVolume;
+      volumeWeightTotal += relativeVolume;
+    }
+  }
+  const volumePressure5Pct = volumeWeightTotal > 0 ? volumeWeightedReturn / volumeWeightTotal : null;
+  // Transparent multi-signal score. The same feature score is used by the live
+  // forecast and chronological holdout backtest; it is not itself a probability.
+  const components = [
+    { value: Math.tanh(m5 / 0.04), weight: 0.20 },
+    { value: Math.tanh(m15 / 0.08), weight: 0.25 },
+    { value: Math.tanh(m30 / 0.15), weight: 0.20 },
+    { value: Math.tanh(momentumAccelerationPct / 0.02), weight: 0.10 },
+    { value: venueAgreement, weight: 0.15 },
+    ...(volumePressure5Pct === null ? [] : [{ value: Math.tanh(volumePressure5Pct / 0.02), weight: 0.10 }]),
+  ];
+  const totalWeight = components.reduce((sum, item) => sum + item.weight, 0);
+  const score = Math.max(-100, Math.min(100, components.reduce((sum, item) => sum + item.value * item.weight, 0) / totalWeight * 100));
+  return { time: current.time, score, momentum5Pct: m5, momentum15Pct: m15, momentum30Pct: m30, volatility15Pct, venueAgreement, momentumAccelerationPct, volumePressure5Pct };
 }
 
 function classify(score: number, threshold: number): ForecastDirection {
@@ -134,7 +163,7 @@ export function buildLiveForecast(
         horizonMinutes, direction: "INSUFFICIENT_DATA", score: null,
         historicalHitRate: null, calibrationSamples: 0, expectedReturnPct: null,
         momentum5Pct: null, momentum15Pct: null, momentum30Pct: null,
-        realizedVolatility15Pct: null, venueAgreement: null, dataStatus: "INSUFFICIENT_DATA",
+        realizedVolatility15Pct: null, venueAgreement: null, momentumAccelerationPct: null, volumePressure5Pct: null, dataStatus: "INSUFFICIENT_DATA",
         explanation: "At least 31 synchronized, contiguous one-minute candle pairs are required.",
       };
     }
@@ -170,6 +199,8 @@ export function buildLiveForecast(
       momentum30Pct: currentFeatures.momentum30Pct,
       realizedVolatility15Pct: currentFeatures.volatility15Pct,
       venueAgreement: currentFeatures.venueAgreement,
+      momentumAccelerationPct: currentFeatures.momentumAccelerationPct,
+      volumePressure5Pct: currentFeatures.volumePressure5Pct,
       dataStatus,
       explanation: historicalHitRate === null
         ? "Directional score only; historical calibration needs at least 30 comparable past outcomes."
