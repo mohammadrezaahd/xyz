@@ -110,8 +110,6 @@ export function runResearchBacktest(
     const lastCandlePct = (current.bitpin.close / previous.bitpin.close - 1) * 100;
     const predictedDirection = direction(momentumPct, minimumMomentumPct);
     const baselineDirection = direction(lastCandlePct, minimumMomentumPct);
-    const predictedReturnPct = Math.abs(momentumPct) >= minimumMomentumPct ? momentumPct : 0;
-
     for (const horizonMinutes of RESEARCH_HORIZONS_MINUTES) {
       const futureIndex = indexByTime.get(current.time + horizonMinutes * 60);
       if (futureIndex === undefined) continue;
@@ -122,6 +120,7 @@ export function runResearchBacktest(
       const actualReturnPct = (futurePrice / current.bitpin.close - 1) * 100;
       const actualDirection = direction(actualReturnPct, flatThresholdPct);
       const takesPosition = predictedDirection !== "FLAT";
+      const predictedReturnPct = takesPosition ? momentumPct * (horizonMinutes / lookback) : 0;
       const grossStrategyReturnPct = takesPosition
         ? (predictedDirection === "UP" ? actualReturnPct : -actualReturnPct)
         : 0;
