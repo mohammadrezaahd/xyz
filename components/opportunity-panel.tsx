@@ -307,13 +307,9 @@ export function OpportunityPanel({
         </div>
       </div>
 
-      <BuySellBalance candles={analysis.candles} balance={analysis.buySellBalance} dataCompleteness={analysis.dataCompleteness} dataQuality={analysis.dataQuality} synchronizedCandlePairs={analysis.candles.synchronized} minimumRequiredCandlePairs={analysis.minimumRequiredCandlePairs} netEdgePct={analysis.edge.executionNetPct} decision={analysis.decision} />
+      <BuySellBalance candles={analysis.candles} balance={analysis.buySellBalance} dataCompleteness={analysis.dataCompleteness} dataQuality={analysis.dataQuality} synchronizedCandlePairs={analysis.candles.synchronized} minimumRequiredCandlePairs={analysis.minimumRequiredCandlePairs} netEdgePct={analysis.edge.executionNetPct} decision={analysis.decision} decisionReason={analysis.decisionReason} />
 
-      <section className="decisionGates" aria-label="Separate decision gates">
-  <div><span>Directional gate</span><strong>{analysis.dataQuality.status === "READY" && analysis.buySellBalance.value !== null ? <>READY · {analysis.candles.synchronizedAvailable} synchronized pairs</> : "INSUFFICIENT DATA"}</strong></div>
-  <div><span>Economic gate</span><strong>{analysis.decision === "NO_TRADE_NEGATIVE_EDGE" || (analysis.edge.executionNetPct !== null && analysis.edge.executionNetPct <= 0) ? "NO_TRADE_NEGATIVE_EDGE" : analysis.decision}</strong><small>Net edge: {formatPercent(analysis.edge.executionNetPct)}</small></div>
-  <div><span>Final decision</span><strong>{analysis.decision.startsWith("NO_TRADE") ? "NO TRADE" : analysis.decision}</strong><small>{analysis.decisionReason}</small></div>
-</section>
+      
 <div className="opportunityGrid">
         <div className="opportunityGroup">
           <h3>Current Prices</h3>
