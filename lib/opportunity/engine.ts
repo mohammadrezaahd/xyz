@@ -106,7 +106,7 @@ export function analyzeOpportunity({
   const bitpinPrice = normalizePositivePrice(bitpinQuote.price);
   const wallexPrice = normalizePositivePrice(wallexQuote.price);
   const reference: ExternalReferencePrice = externalReference ?? (externalPrice === undefined ? { price: null, fetchedAt: null, provider: null, error: "Independent external reference is not configured" } : { price: externalPrice ?? null, fetchedAt: nowMs, provider: "manual-reference", error: null });
-  const normalizedExternal = normalizePositivePrice(reference.provider?.toLowerCase() === "wallex" ? null : reference.price);
+  const normalizedExternal = normalizePositivePrice(reference.price);
   const bitpinAgeMs = quoteAgeMs(bitpinQuote.fetchedAt, nowMs);
   const wallexAgeMs = quoteAgeMs(wallexQuote.fetchedAt, nowMs);
   const externalAgeMs = quoteAgeMs(reference.fetchedAt, nowMs);
@@ -164,7 +164,7 @@ export function analyzeOpportunity({
   const dataQualityReasons: string[] = [];
   if (rawPairs.length < config.minimumCandlePairs) dataQualityReasons.push(`Only ${synchronizedAvailable} of ${config.minimumCandlePairs} required synchronized candle pairs are available`);
   if (rawPairs.length >= config.minimumCandlePairs && (directional.participation === null || directional.participation < config.minimumDirectionalParticipationRatio)) dataQualityReasons.push("Directional participation cannot be confirmed");
-  if (normalizedExternal === null) dataQualityReasons.push("Independent reference unavailable");
+  if (normalizedExternal === null) dataQualityReasons.push("Reference price unavailable");
   if (bitpinPrice === null) dataQualityReasons.push("Bitpin ticker unavailable");
   if (wallexPrice === null) dataQualityReasons.push("Wallex ticker unavailable");
   if (stale && dataQualityReasons.length === 0) dataQualityReasons.push("One or more required market quotes are stale");
