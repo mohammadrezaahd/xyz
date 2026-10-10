@@ -2,6 +2,10 @@ export interface CurrentPricesResponse {
   bitpin: number | null;
   wallex: number | null;
   fetchedAt: number;
+  providers?: {
+    bitpin: { status: "SUCCESS" | "FAILED"; fetchedAt: number | null; durationMs: number | null };
+    wallex: { status: "SUCCESS" | "FAILED"; fetchedAt: number | null; durationMs: number | null };
+  };
   errors: string[];
 }
 
