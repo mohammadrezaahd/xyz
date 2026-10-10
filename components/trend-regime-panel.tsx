@@ -127,9 +127,9 @@ export function TrendRegimePanel({ mode = "summary" }: { mode?: "summary" | "det
       <div className="forecastMeta"><span>امتیاز جهت</span><strong>{data?.score == null ? "—" : number(data.score, 1) + " / 100"}</strong></div>
       <div className="forecastMeta"><span>کندل‌های هم‌زمان</span><strong>{data?.synchronizedCandles?.toLocaleString("en-US") ?? "—"}</strong></div>
       <div className="forecastMeta"><span>عمر آخرین کندل</span><strong>{data?.candleAgeSeconds == null ? "—" : `${data.candleAgeSeconds}s`}</strong></div>
-    </section>
+    </section>}
 
-    <section className="forecastCards" aria-label="بازده چندبازه‌ای">
+    {mode === "details" && <section className="forecastCards" aria-label="بازده چندبازه‌ای">
       {[
         ["بازده ۱۵ دقیقه", data?.momentum?.return15Pct],
         ["بازده ۶۰ دقیقه", data?.momentum?.return60Pct],
