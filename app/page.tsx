@@ -51,14 +51,14 @@ const viewCopy: Record<View, { breadcrumb: string; title: string; footer: string
 
 const navigation: Array<[View, string, string, string]> = [
   ["overview", "Overview", "Overview", "01"],
-  ["charts", "Charts", "Charts", "02"],
-  ["opportunity", "Opportunity", "Opportunity", "03"],
-  ["balance", "Buy / Sell Balance", "Balance", "04"],
-  ["position", "Paper Position", "Paper Position", "05"],
-  ["history", "History", "History", "06"],
-  ["snapshots", "Snapshots", "Snapshots", "07"],
-  ["forecast", "Market Forecast", "Forecast", "08"],
-  ["details", "Details & Logs", "Details", "09"],
+  ["opportunity", "Opportunity", "Opportunity", "02"],
+  ["position", "Paper Position", "Paper Position", "03"],
+  ["history", "History", "History", "04"],
+  ["snapshots", "Snapshots", "Snapshots", "05"],
+  ["forecast", "Market Forecast", "Forecast", "06"],
+  ["details", "Details & Logs", "Details", "07"],
+  ["charts", "Charts", "Charts", "08"],
+  ["balance", "Buy / Sell Balance", "Balance", "09"],
 ];
 
 export default function Home() {
