@@ -143,7 +143,7 @@ async function fetchWallex(): Promise<{
   };
 }
 
-export async function loadCandleHistory() {
+async function fetchCandleHistory() {
   const [bitpin, wallex] = await Promise.allSettled([
     fetchBitpin(),
     fetchWallex(),
@@ -211,4 +211,27 @@ export async function loadCandleHistory() {
     fetchedAt,
     refreshMs: Number(env("CANDLE_REFRESH_MS", "15000")),
   };
+}
+
+type CandleHistoryPayload = Awaited<ReturnType<typeof fetchCandleHistory>>;
+let cachedHistory: { expiresAt: number; payload: CandleHistoryPayload } | null = null;
+let historyRequest: Promise<CandleHistoryPayload> | null = null;
+
+/**
+ * Research endpoints often need the same candles concurrently. Share one short-lived
+ * result so a single dashboard refresh does not multiply exchange API requests.
+ */
+export async function loadCandleHistory(): Promise<CandleHistoryPayload> {
+  const now = Date.now();
+  if (cachedHistory && cachedHistory.expiresAt > now) return cachedHistory.payload;
+  if (historyRequest) return historyRequest;
+
+  historyRequest = fetchCandleHistory();
+  try {
+    const payload = await historyRequest;
+    cachedHistory = { payload, expiresAt: Date.now() + 12_000 };
+    return payload;
+  } finally {
+    historyRequest = null;
+  }
 }
