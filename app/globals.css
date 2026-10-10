@@ -129,3 +129,17 @@
 @media(max-width:1050px){.calculatorSettings,.calculatorTradeFields{grid-template-columns:repeat(2,minmax(0,1fr))}}
 @media(max-width:650px){.calculatorSummary{grid-template-columns:1fr}.calculatorTradesHeader{align-items:flex-start;flex-direction:column}.calculatorTradesHeader button{width:100%}.calculatorTradeResult{grid-template-columns:1fr}.calculatorTradeMeta{display:grid;grid-template-columns:1fr 1fr}.calculatorTrade{padding:13px}}
 @media(max-width:400px){.calculatorSettings,.calculatorTradeFields{grid-template-columns:1fr}.calculatorTradeMeta{grid-template-columns:1fr}}
+
+
+/* Plain-language, data-driven forecast decision */
+.forecastDecision{display:grid;gap:10px;padding:20px;border:1px solid var(--color-border-strong);border-radius:13px;background:linear-gradient(120deg,rgba(124,131,255,.075),rgba(16,21,29,.42))}
+.forecastDecisionTop{display:flex;justify-content:space-between;align-items:flex-start;gap:16px}
+.forecastDecisionTop h2{margin:7px 0 0;font-size:20px;letter-spacing:-.025em}
+.forecastDecision p{margin:0;color:var(--color-text-secondary);font-size:13px;line-height:1.75}
+.forecastDecision .forecastDecisionLead{color:var(--color-text);font-size:15px;font-weight:750}
+.forecastDecision small{display:block;margin-top:4px;color:var(--color-text-muted);font-size:10px;line-height:1.7}
+.forecastVerdict{display:inline-flex;flex:0 0 auto;align-items:center;padding:8px 11px;border:1px solid var(--color-border-strong);border-radius:8px;background:var(--color-surface-raised);font-size:12px;font-weight:800}
+.forecastVerdict--wait{color:var(--color-warning);border-color:rgba(242,190,92,.38);background:rgba(242,190,92,.06)}
+.forecastVerdict--up{color:var(--color-positive);border-color:rgba(53,211,145,.32)}
+.forecastVerdict--down{color:var(--color-negative);border-color:rgba(255,107,114,.32)}
+@media(max-width:650px){.forecastDecision{padding:15px}.forecastDecisionTop{display:grid}.forecastVerdict{justify-self:start}.forecastDecision .forecastDecisionLead{font-size:14px}}
