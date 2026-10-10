@@ -36,25 +36,25 @@ type TrendPayload = {
 };
 
 const labels: Record<NonNullable<TrendPayload["direction"]>, string> = {
-  BULLISH: "روند اصلی صعودی",
-  BEARISH: "روند اصلی نزولی",
-  RANGE: "بازار خنثی / بدون روند",
-  REVERSAL_WATCH: "هشدار احتمال تغییر روند",
-  INSUFFICIENT_DATA: "دادهٔ کافی نیست",
+  BULLISH: "Main trend: Bullish",
+  BEARISH: "Main trend: Bearish",
+  RANGE: "Sideways market",
+  REVERSAL_WATCH: "Reversal watch",
+  INSUFFICIENT_DATA: "Insufficient data",
 };
 const entryLabels: Record<NonNullable<TrendPayload["entryTiming"]>, string> = {
-  PULLBACK_WATCH: "انتظار برای پایان اصلاح",
-  BREAKOUT_CONFIRMATION: "بررسی شکست قیمت",
-  CONTINUATION_WATCH: "انتظار برای ادامهٔ روند",
-  WAIT: "فعلاً صبر کن",
-  INSUFFICIENT_DATA: "دادهٔ کافی نیست",
+  PULLBACK_WATCH: "Wait for pullback",
+  BREAKOUT_CONFIRMATION: "Watch breakout confirmation",
+  CONTINUATION_WATCH: "Wait for trend continuation",
+  WAIT: "Wait",
+  INSUFFICIENT_DATA: "Insufficient data",
 };
 const exitLabels: Record<NonNullable<TrendPayload["exitTiming"]>, string> = {
-  TAKE_PROFIT_WATCH: "بررسی برداشت سود",
-  STRUCTURE_WEAKENING: "قدرت روند ضعیف شده",
-  REVERSAL_RISK: "ریسک تغییر جهت",
-  HOLD_TREND: "روند فعلاً پابرجاست",
-  INSUFFICIENT_DATA: "دادهٔ کافی نیست",
+  TAKE_PROFIT_WATCH: "Take-profit watch",
+  STRUCTURE_WEAKENING: "Trend weakening",
+  REVERSAL_RISK: "Reversal risk",
+  HOLD_TREND: "Trend remains intact",
+  INSUFFICIENT_DATA: "Insufficient data",
 };
 const pct = (value: number | null | undefined, digits = 3) =>
   value == null || !Number.isFinite(value) ? "—" : `${value.toFixed(digits)}%`;
@@ -63,7 +63,7 @@ const rate = (value: number | null | undefined) =>
 const number = (value: number | null | undefined, digits = 1) =>
   value == null || !Number.isFinite(value) ? "—" : value.toLocaleString("en-US", { maximumFractionDigits: digits });
 
-export function TrendRegimePanel({ mode = "summary" }: { mode?: "summary" | "details" }) {
+export function TrendRegimePanel({ mode = "summary" }: { mode?: "summary" | "details" | "compact" }) {
   const [data, setData] = useState<TrendPayload | null>(null);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -78,7 +78,7 @@ export function TrendRegimePanel({ mode = "summary" }: { mode?: "summary" | "det
       setData(payload);
       setError("");
     } catch (value) {
-      setError(value instanceof Error ? value.message : "بارگذاری تحلیل روند ناموفق بود.");
+      setError(value instanceof Error ? value.message : "Unable to load trend analysis.");
     } finally {
       setLoading(false);
       setRefreshing(false);
@@ -99,8 +99,18 @@ export function TrendRegimePanel({ mode = "summary" }: { mode?: "summary" | "det
       ? "سقف و کف‌های پایین‌تر"
       : "ساختار تأییدنشده";
   const voteText = data?.persistenceVotes
-    ? `تأیید در ${data.persistenceVotes.bullish} از ${data.persistenceVotes.window} بررسی صعودی، ${data.persistenceVotes.bearish} بررسی نزولی`
-    : "در انتظار داده";
+    ? `Bullish votes: ${data.persistenceVotes.bullish}/${data.persistenceVotes.window} · Bearish votes: ${data.persistenceVotes.bearish}/${data.persistenceVotes.window}`
+    : "Waiting for data";
+
+  if (mode === "compact") {
+    const compactLabel = direction === "BULLISH" ? "BULLISH" : direction === "BEARISH" ? "BEARISH" : direction === "RANGE" ? "SIDEWAYS" : direction === "REVERSAL_WATCH" ? "REVERSAL WATCH" : "INSUFFICIENT DATA";
+    return <section className="dashboardTrend" aria-label="Market direction summary">
+      <div className="dashboardTrendTitle"><span>MARKET OUTLOOK</span><small>{refreshing ? "Updating…" : ready ? "LIVE" : "DATA CHECK"}</small></div>
+      <div className={`dashboardTrendVerdict ${direction === "BULLISH" ? "isBullish" : direction === "BEARISH" ? "isBearish" : "isNeutral"}`}>{loading && !data ? "ANALYZING…" : compactLabel}</div>
+      <div className="dashboardTrendFoot"><span>15m · 1h · 3h · 6h</span><button type="button" className="textLinkButton" onClick={() => window.dispatchEvent(new CustomEvent("xyz-open-forecast"))}>Forecast details ↗</button></div>
+      {error && <span className="dashboardTrendError">Forecast unavailable</span>}
+    </section>;
+  }
 
   return <section className="forecastWorkspace" aria-labelledby="trend-regime-title">
     <div className="forecastHero">
@@ -110,7 +120,7 @@ export function TrendRegimePanel({ mode = "summary" }: { mode?: "summary" | "det
         <p>روند ۱۵ دقیقه تا ۶ ساعت، ساختار سقف و کف و پایداری سیگنال؛ جدا از پیش‌بینی جهت کوتاه‌مدت.</p>
       </div>
       <button className="refreshButton" type="button" disabled={loading || refreshing} onClick={() => void load(true)}>
-        {refreshing ? "در حال به‌روزرسانی…" : "به‌روزرسانی"}
+        {refreshing ? "Updating…" : "Refresh"}
       </button>
     </div>
 
@@ -120,52 +130,52 @@ export function TrendRegimePanel({ mode = "summary" }: { mode?: "summary" | "det
       <div className="forecastDecisionTop">
         <div>
           <div className="sectionEyebrow">REGIME STATUS</div>
-          <h2>{loading && !data ? "در حال تحلیل تاریخچه…" : labels[direction]}</h2>
+          <h2>{loading && !data ? "Analyzing market history…" : labels[direction]}</h2>
         </div>
         <span className={`forecastVerdict ${direction === "BULLISH" ? "forecastVerdict--up" : direction === "BEARISH" ? "forecastVerdict--down" : "forecastVerdict--wait"}`}>
-          {ready ? "داده آماده" : data?.dataStatus === "STALE_OR_GAPPED" ? "داده کهنه / دارای شکاف" : "داده ناکافی"}
+          {ready ? "Data ready" : data?.dataStatus === "STALE_OR_GAPPED" ? "Stale or gapped data" : "Insufficient data"}
         </span>
       </div>
-      <p className="forecastDecisionLead">{data?.regimeReason ?? "پس از دریافت دادهٔ هم‌زمان از Bitpin و Wallex، وضعیت روند محاسبه می‌شود."}</p>
+      <p className="forecastDecisionLead">{data?.regimeReason ?? "Trend status is calculated from synchronized Bitpin and Wallex data."}</p>
       <small>برچسب روند بر پایهٔ قواعد قابل توضیح است؛ احتمال قطعی یا تضمین نتیجه نیست.</small>
     </section>
 
-    {mode === "details" && <section className="forecastMetaGrid" aria-label="شاخص‌های روند">
+    {mode === "details" && <section className="forecastMetaGrid" aria-label="Trend metrics">
       <div className="forecastMeta"><span>قیمت Bitpin</span><strong>{number(data?.price, 0)}</strong></div>
       <div className="forecastMeta"><span>امتیاز جهت</span><strong>{data?.score == null ? "—" : number(data.score, 1) + " / 100"}</strong></div>
       <div className="forecastMeta"><span>کندل‌های هم‌زمان</span><strong>{data?.synchronizedCandles?.toLocaleString("en-US") ?? "—"}</strong></div>
       <div className="forecastMeta"><span>عمر آخرین کندل</span><strong>{data?.candleAgeSeconds == null ? "—" : `${data.candleAgeSeconds}s`}</strong></div>
     </section>}
 
-    {mode === "details" && <section className="forecastCards" aria-label="بازده چندبازه‌ای">
+    {mode === "details" && <section className="forecastCards" aria-label="Multi-horizon returns">
       {[
-        ["بازده ۱۵ دقیقه", data?.momentum?.return15Pct],
-        ["بازده ۶۰ دقیقه", data?.momentum?.return60Pct],
-        ["بازده ۳ ساعت", data?.momentum?.return180Pct],
-        ["بازده ۶ ساعت", data?.momentum?.return360Pct],
+        ["15-minute return", data?.momentum?.return15Pct],
+        ["60-minute return", data?.momentum?.return60Pct],
+        ["3-hour return", data?.momentum?.return180Pct],
+        ["6-hour return", data?.momentum?.return360Pct],
       ].map(([label, value]) => <article className="forecastCard" key={String(label)}>
         <div className="forecastCardTop"><span>{label}</span></div>
         <h3>{pct(typeof value === "number" ? value : null)}</h3>
       </article>)}
     </section>}
 
-    <section className="timingGrid" aria-label="زمان‌بندی ورود و مدیریت موقعیت">
+    <section className="timingGrid" aria-label="Entry timing and position management">
       <article className="forecastDecision">
         <div className="sectionEyebrow">ENTRY TIMING</div>
         <div className="forecastDecisionTop">
-          <h2>{data?.entryTiming ? entryLabels[data.entryTiming] : "در انتظار داده"}</h2>
+          <h2>{data?.entryTiming ? entryLabels[data.entryTiming] : "Waiting for data"}</h2>
           <span className="forecastVerdict forecastVerdict--wait">{structureLabel}</span>
         </div>
-        <p>{data?.entryReason ?? "زمان ورود هنوز قابل ارزیابی نیست."}</p>
+        <p>{data?.entryReason ?? "Entry timing cannot be evaluated yet."}</p>
         <small>{voteText}. جهت خام همین لحظه: {data?.rawDirection === "BULLISH" ? "صعودی" : data?.rawDirection === "BEARISH" ? "نزولی" : "خنثی"}.</small>
       </article>
       <article className="forecastDecision">
         <div className="sectionEyebrow">EXIT / PROFIT MANAGEMENT</div>
         <div className="forecastDecisionTop">
-          <h2>{data?.exitTiming ? exitLabels[data.exitTiming] : "در انتظار داده"}</h2>
+          <h2>{data?.exitTiming ? exitLabels[data.exitTiming] : "Waiting for data"}</h2>
           <span className={`forecastVerdict ${data?.exitTiming === "TAKE_PROFIT_WATCH" || data?.exitTiming === "REVERSAL_RISK" ? "forecastVerdict--down" : "forecastVerdict--wait"}`}>موقعیت باز</span>
         </div>
-        <p>{data?.exitReason ?? "مدیریت موقعیت باز هنوز قابل ارزیابی نیست."}</p>
+        <p>{data?.exitReason ?? "Open-position management cannot be evaluated yet."}</p>
         <small>این هشدار فقط برای بررسی موقعیت موجود است؛ به‌تنهایی دستور خروج نیست. نتیجه بر پایه قواعد است، نه پیش‌بینی قطعی.</small>
       </article>
     </section>
