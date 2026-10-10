@@ -39,7 +39,21 @@ async function fetchBitpin(): Promise<Candle[]> {
     throw new Error(`Bitpin HTTP ${response.status}: ${body}`);
   }
 
-  return dedupeSort(parseCandles(await response.json()));
+  const initialCandles = dedupeSort(parseCandles(await response.json()));
+  if (initialCandles.length > 10 || requestedSeconds <= 10 * 60) return initialCandles;
+  const rangeEnd = Math.floor(now / 60) * 60;
+  const rangeStart = rangeEnd - 2 * 60 * 60;
+  const chunkSeconds = 10 * 60;
+  const chunks: Array<{ from: number; to: number }> = [];
+  for (let chunkFrom = rangeStart; chunkFrom < rangeEnd; chunkFrom += chunkSeconds) chunks.push({ from: chunkFrom, to: Math.min(chunkFrom + chunkSeconds, rangeEnd) });
+  const historicalChunks = await Promise.all(chunks.map(async (chunk) => {
+    const chunkUrl = new URL(url.toString());
+    chunkUrl.searchParams.set(env("BITPIN_CANDLES_FROM_PARAM", "from"), String(chunk.from));
+    chunkUrl.searchParams.set(env("BITPIN_CANDLES_TO_PARAM", "to"), String(chunk.to));
+    try { const chunkResponse = await fetch(chunkUrl, { cache: "no-store" }); if (!chunkResponse.ok) return [] as Candle[]; return dedupeSort(parseCandles(await chunkResponse.json())); } catch { return [] as Candle[]; }
+  }));
+  const recovered = dedupeSort([...initialCandles, ...historicalChunks.flat()]);
+  return recovered.length > initialCandles.length ? recovered : initialCandles;
 }
 
 async function fetchWallexChunk(
@@ -165,6 +179,7 @@ export async function GET() {
     wallex: wallexData,
     errors,
     providers: {
+      bitpinHistorical: bitpin.status !== "fulfilled" ? "FAILED" : bitpinData.length <= 10 ? "LIMITED_OR_INCOMPLETE" : "SUCCESS",
       wallexHistorical:
         wallex.status !== "fulfilled"
           ? "FAILED"
@@ -174,6 +189,7 @@ export async function GET() {
               ? "PARTIAL"
               : "FAILED",
     },
+    diagnostics: { bitpinReceived: bitpinData.length, wallexReceived: wallexData.length },
     fetchedAt: Date.now(),
     refreshMs: Number(env("CANDLE_REFRESH_MS", "15000")),
   });
