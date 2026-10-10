@@ -138,11 +138,11 @@ export function MarketForecastPanel({ mode = "summary" }: { mode?: "summary" | "
         {mode === "details" ? <div className="forecastMetricRows">
           <div><span>Historical outcome match rate</span><strong>{rate(item.historicalHitRate)}</strong></div>
           <div><span>Comparable outcomes</span><strong>{item.calibrationSamples}</strong></div>
-          <div><span>Directional return estimate</span><strong>{pct(item.expectedReturnPct)}</strong></div>
+          <div><span>Expected price return (signed)</span><strong>{pct(item.expectedReturnPct)}</strong></div>
           <div><span>15m realized volatility</span><strong>{pct(item.realizedVolatility15Pct)}</strong></div>
           <div><span>5m volume-weighted pressure</span><strong>{pct(item.volumePressure5Pct)}</strong></div>
           <div><span>Momentum acceleration</span><strong>{pct(item.momentumAccelerationPct)}</strong></div>
-        </div> : <div className="forecastSummaryStats"><div><span>Historical match</span><strong>{rate(item.historicalHitRate)}</strong></div><div><span>Expected directional return</span><strong>{pct(item.expectedReturnPct)}</strong></div><div><span>Comparable samples</span><strong>{item.calibrationSamples}</strong></div></div>}
+        </div> : <div className="forecastSummaryStats"><div><span>Historical match</span><strong>{rate(item.historicalHitRate)}</strong></div><div><span>Expected price return</span><strong>{pct(item.expectedReturnPct)}</strong></div><div><span>Comparable samples</span><strong>{item.calibrationSamples}</strong></div></div>}
         {mode === "details" && <p className="forecastExplanation">{item.explanation}</p>}
       </article>)}
       {!loading && !forecast?.forecasts?.length && <div className="emptyState">No forecast output is available yet.</div>}
