@@ -71,7 +71,7 @@ test("aligned bullish evidence plus valid Opportunity opens only the research ro
 
 test("bearish forecast cannot be overridden by a positive Opportunity spread", () => {
   const result = buildUnifiedSignal({
-    opportunity: opportunity(),
+    opportunity: opportunity({ balance: 20 }),
     forecast: forecast({ 5: -55, 15: -50, 30: -35, 60: -25 }),
     trend: trend(-45, "BEARISH"),
     nowMs: 1_000_000,
