@@ -207,7 +207,9 @@ export function buildLiveForecast(
     const historicalHitRate = similar.length >= 30
       ? similar.filter((row) => row.direction === direction).length / similar.length
       : null;
-    const expectedReturnPct = similar.length >= 30 ? median(similar.map((row) => direction === "FLAT" ? row.actualReturnPct : row.actualReturnPct * (direction === "UP" ? 1 : -1))) : null;
+    // Report the signed market return, not a direction-adjusted profit proxy.
+    // A bearish forecast should show a negative expected price return when history supports it.
+    const expectedReturnPct = similar.length >= 30 ? median(similar.map((row) => row.actualReturnPct)) : null;
     const dataStatus = latestAgeSeconds !== null && latestAgeSeconds > 180 ? "STALE_OR_GAPPED" : gapAtTail ? "STALE_OR_GAPPED" : "READY";
     return {
       horizonMinutes,
