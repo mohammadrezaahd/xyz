@@ -19,6 +19,7 @@
     "../lib/research/**/*.ts",
     "../lib/test-position/**/*.ts",
     "../lib/bitpin.ts",
-    "../check-balance.ts"
+    "../check-balance.ts",
+    "../lib/wallex-ticker.ts"
   ]
 }
