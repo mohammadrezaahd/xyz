@@ -48,7 +48,7 @@ type BacktestMetric = {
 
 type RegimeBand = { label: string; samples: number; meanAbsoluteReturnPct: number | null; medianAbsoluteReturnPct: number | null; meanFutureRangePct: number | null; directionalMoveRate: number | null };
 type RegimeHorizon = { horizonMinutes: number; matchedObservations: number; bands: RegimeBand[] };
-type RegimePayload = { ok: boolean; error?: string; observationCount?: number; usableObservationCount?: number; matchedObservationCount?: number; interpretation?: string; horizons?: RegimeHorizon[] };
+type RegimePayload = { ok: boolean; error?: string; observationCount?: number; totalObservationCount?: number; usableObservationCount?: number; matchedObservationCount?: number; interpretation?: string; horizons?: RegimeHorizon[] };
 
 type BacktestPayload = {
   ok: boolean;
@@ -166,7 +166,7 @@ export function MarketForecastPanel() {
     </section>
 
     <section className="forecastSection">
-      <div className="sectionHeader"><div><div className="sectionEyebrow">STABILITY REGIME RESEARCH</div><h2>Does Stability Score anticipate a quieter market?</h2></div><span className="sectionNote">{regimes?.matchedObservationCount ?? 0} matched snapshots</span></div>
+      <div className="sectionHeader"><div><div className="sectionEyebrow">STABILITY REGIME RESEARCH</div><h2>Does Stability Score anticipate a quieter market?</h2></div><span className="sectionNote">{regimes?.matchedObservationCount ?? 0} matched · {regimes?.observationCount ?? 0} analyzed / {regimes?.totalObservationCount ?? 0} total</span></div>
       {regimes?.horizons ? regimes.horizons.map((horizon) => <div className="regimeHorizon" key={horizon.horizonMinutes}>
         <h3>{horizon.horizonMinutes}-minute future outcomes <span>{horizon.matchedObservations} matched observations</span></h3>
         <div className="forecastTableWrap"><table className="forecastTable">
