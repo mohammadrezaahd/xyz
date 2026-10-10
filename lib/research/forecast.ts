@@ -1,4 +1,4 @@
-import type { Candle } from "@/lib/candles";
+import type { Candle } from "../candles";
 
 export const FORECAST_HORIZONS = [5, 15, 30] as const;
 export type ForecastHorizon = (typeof FORECAST_HORIZONS)[number];
