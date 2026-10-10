@@ -105,14 +105,14 @@
 .balanceCompactSummary span{color:var(--color-text-secondary);line-height:1.6}
 .timingGrid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
 .timingGrid .forecastDecision{margin:0;min-width:0}
-.forecastCards--summary{grid-template-columns:repeat(3,minmax(0,1fr));gap:12px}
+.forecastCards--summary{grid-template-columns:repeat(4,minmax(0,1fr));gap:12px}
 .forecastCards--summary .forecastCard{padding:16px;min-width:0}
 .forecastCards--summary .forecastCard h3{font-size:clamp(18px,2vw,25px)}
 .forecastSummaryStats{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;margin-top:14px}
 .forecastSummaryStats>div{display:flex;flex-direction:column;gap:5px;min-width:0}
 .forecastSummaryStats span{font-size:11px;color:var(--color-text-muted)}
 .forecastSummaryStats strong{font-size:14px;overflow-wrap:anywhere}
-@media(max-width:760px){.timingGrid{grid-template-columns:1fr}.forecastCards--summary{grid-template-columns:1fr}.forecastSummaryStats{grid-template-columns:repeat(3,minmax(0,1fr))}.forecastSummaryStats strong{font-size:12px}}
+@media(max-width:760px){.forecastCards--summary{grid-template-columns:repeat(2,minmax(0,1fr))}.timingGrid{grid-template-columns:1fr}.forecastCards--summary{grid-template-columns:1fr}.forecastSummaryStats{grid-template-columns:repeat(3,minmax(0,1fr))}.forecastSummaryStats strong{font-size:12px}}
 
 .diagnosticAccordion{border:1px solid var(--color-border);border-radius:14px;background:var(--color-surface);overflow:hidden}
 .diagnosticAccordion+ .diagnosticAccordion{margin-top:10px}
@@ -137,3 +137,21 @@
 .dashboardMiniStats{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px}.dashboardMiniStats>div{display:grid;gap:5px}.dashboardMiniStats span{font-size:10px;color:var(--color-text-muted)}.dashboardMiniStats strong{font:600 12px var(--mono);overflow-wrap:anywhere}
 .dashboardBalance .buySellBalance{margin-top:12px}.dashboardBalance .balanceHeader .eyebrow{display:none}.dashboardBalance .balanceHeader h3{font-size:14px}.dashboardBalance .balanceCompactSummary{display:none}.chartsWorkspace .chartSection{margin:0}
 @media(max-width:760px){.dashboardChartGrid{grid-template-columns:1fr}.dashboardPrices{padding:12px;gap:8px}.dashboardSpread{padding:0 8px}.dashboardMiniStats{gap:8px}.dashboardMiniStats strong{font-size:11px}}
+
+
+/* Clear, horizon-separated market signals */
+.signalStrip{border:1px solid var(--color-border);border-radius:12px;background:var(--color-surface);padding:14px;display:grid;gap:12px;min-width:0}
+.signalStripHeader{display:flex;justify-content:space-between;align-items:center;gap:12px}
+.signalStripHeader h2{font-size:14px;font-weight:700;margin:0}.signalStripHeader>span{font-size:10px;color:var(--color-text-muted)}
+.signalStripGrid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px}
+.signalStripCard{display:flex;flex-direction:column;gap:7px;min-width:0;padding:11px;border:1px solid var(--color-border);border-radius:9px;background:var(--color-surface-raised,var(--color-background))}
+.signalStripHorizon{font:10px var(--mono);letter-spacing:.06em;color:var(--color-text-muted)}
+.signalStripCard strong{font-size:12px;line-height:1.3;overflow-wrap:anywhere}
+.signalStripCard small{font:10px var(--mono);color:var(--color-text-secondary)}
+.signalStripCard--bullish{border-top:2px solid var(--color-positive)}.signalStripCard--bullish strong{color:var(--color-positive)}
+.signalStripCard--bearish{border-top:2px solid var(--color-negative)}.signalStripCard--bearish strong{color:var(--color-negative)}
+.signalStripCard--neutral{border-top:2px solid var(--color-text-muted)}.signalStripCard--unknown{border-top:2px solid var(--color-warning)}
+.signalStripLink{justify-self:end}
+.signalCardGate{margin-top:10px;padding:7px 9px;border-radius:7px;background:var(--color-background);font-size:10px;font-weight:700;letter-spacing:.02em}
+.signalCardGate--wait{color:var(--color-warning)}.signalCardGate--review{color:var(--color-positive)}.signalCardGate--weak{color:var(--color-negative)}
+@media(max-width:760px){.signalStripGrid{grid-template-columns:repeat(2,minmax(0,1fr))}.signalStrip{padding:11px}.forecastCards--summary .forecastCard{padding:12px}.forecastCards--summary .forecastCard h3{font-size:18px}.forecastSummaryStats{gap:6px}.forecastSummaryStats span{font-size:10px}.forecastSummaryStats strong{font-size:12px}}
