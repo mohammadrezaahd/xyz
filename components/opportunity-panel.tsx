@@ -7,6 +7,7 @@ import {
   type PointerEvent as ReactPointerEvent,
 } from "react";
 import { PHASE_2_CONFIG } from "@/lib/opportunity/config";
+import { BuySellBalance } from "@/components/buy-sell-balance";
 import type { OpportunityAnalysis, TestResult } from "@/lib/opportunity/types";
 
 type OpportunityPanelProps = {
@@ -290,7 +291,7 @@ export function OpportunityPanel({
             Opportunity / Stability
           </div>
           <div className="symbol">
-            Historical validation · not a guaranteed prediction
+            Historical validation · research evidence only
           </div>
         </div>
         <div className="resultBadges">
@@ -306,7 +307,14 @@ export function OpportunityPanel({
         </div>
       </div>
 
-      <div className="opportunityGrid">
+      <BuySellBalance candles={analysis.candles} balance={analysis.buySellBalance} dataCompleteness={analysis.dataCompleteness} dataQuality={analysis.dataQuality} synchronizedCandlePairs={analysis.candles.synchronized} minimumRequiredCandlePairs={analysis.minimumRequiredCandlePairs} netEdgePct={analysis.edge.executionNetPct} decision={analysis.decision} />
+
+      <section className="decisionGates" aria-label="Separate decision gates">
+  <div><span>Directional gate</span><strong>{analysis.dataQuality.status === "READY" && analysis.buySellBalance.value !== null ? <>READY · {analysis.candles.synchronizedAvailable} synchronized pairs</> : "INSUFFICIENT DATA"}</strong></div>
+  <div><span>Economic gate</span><strong>{analysis.decision === "NO_TRADE_NEGATIVE_EDGE" || (analysis.edge.executionNetPct !== null && analysis.edge.executionNetPct <= 0) ? "NO_TRADE_NEGATIVE_EDGE" : analysis.decision}</strong><small>Net edge: {formatPercent(analysis.edge.executionNetPct)}</small></div>
+  <div><span>Final decision</span><strong>{analysis.decision.startsWith("NO_TRADE") ? "NO TRADE" : analysis.decision}</strong><small>{analysis.decisionReason}</small></div>
+</section>
+<div className="opportunityGrid">
         <div className="opportunityGroup">
           <h3>Current Prices</h3>
           <label className="inputField">
@@ -345,6 +353,7 @@ export function OpportunityPanel({
 
         <div className="opportunityGroup tests" ref={testsRef}>
           <h3>Stability Tests</h3>
+          <div className="candleDiagnostics"><div>Bitpin candles received: <b>{analysis.candles.bitpinReceived}</b></div><div>Wallex candles received: <b>{analysis.candles.wallexReceived}</b></div><div>Synchronized closed pairs: <b>{analysis.candles.synchronizedAvailable}</b></div><div>Pairs used for analysis: <b>{analysis.candles.synchronizedUsed}</b></div><div>Minimum required: <b>{analysis.minimumRequiredCandlePairs}</b></div><p>Directional evidence requires at least {analysis.minimumRequiredCandlePairs} synchronized closed candle pairs.</p><strong>{analysis.candles.synchronizedAvailable} of {analysis.minimumRequiredCandlePairs} required pairs available</strong></div>
           {testRows.map((test) => (
             <TestRow
               key={test.id}
@@ -393,7 +402,7 @@ export function OpportunityPanel({
           </div>
           <div className="metric">
             <span>Synchronized</span>
-            <strong>{analysis.candles.synchronized} / {analysis.candles.lookback}</strong>
+            <strong>{analysis.candles.synchronized} / {analysis.minimumRequiredCandlePairs}</strong>
           </div>
           <div className="metric">
             <span>Bitpin Bullish</span>
@@ -468,7 +477,7 @@ export function OpportunityPanel({
             </strong>
           </div>
           <div className="metric">
-            <span>Safe Target · Wallex Ticker</span>
+            <span>Fee-adjusted Target · Wallex Ticker</span>
             <strong>
               {formatPrice(analysis.target.safeTarget)}
             </strong>
