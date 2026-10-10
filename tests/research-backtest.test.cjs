@@ -17,6 +17,7 @@ test("backtest evaluates 5, 15, and 30 minute horizons with chronological splits
     assert.ok(metric.samples > 0);
     assert.equal(metric.trainSamples + metric.tuneSamples + metric.testSamples, metric.samples);
     assert.ok(metric.testSamples > 0);
+    assert.equal(metric.testSampleStatus, "INSUFFICIENT_SAMPLE");
     assert.equal(metric.costPerRoundTripPct, 0.2);
   }
   assert.equal(result.split.chronological, true);
