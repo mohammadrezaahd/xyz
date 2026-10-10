@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { dedupeSort, type Candle } from "@/lib/candles";
 import { listResearchObservations } from "@/lib/research/repository";
+import { loadCandleHistory } from "@/lib/candle-history";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 60;
@@ -18,15 +19,10 @@ type CandlePayload = { bitpin?: Candle[]; errors?: string[]; providers?: Record<
 
 export async function GET(request: Request) {
   try {
-    const origin = new URL(request.url).origin;
-    const [candleResponse, observations] = await Promise.all([
-      fetch(new URL("/api/candles", origin), { cache: "no-store" }),
+    const [candlePayload, observations] = await Promise.all([
+      loadCandleHistory() as Promise<CandlePayload>,
       listResearchObservations({ limit: 100 }),
     ]);
-    const candlePayload = await candleResponse.json().catch(() => null) as CandlePayload | null;
-    if (!candleResponse.ok || !candlePayload) {
-      return NextResponse.json({ ok: false, error: "Unable to load candle history" }, { status: 502 });
-    }
     const candles = dedupeSort(candlePayload.bitpin ?? []);
     const byTime = new Map(candles.map((candle) => [candle.time, candle]));
     const usableObservations = observations.filter((item) =>
