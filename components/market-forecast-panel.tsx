@@ -163,9 +163,9 @@ export function MarketForecastPanel({ mode = "summary" }: { mode?: "summary" | "
         </tr>)}</tbody>
       </table></div> : <p className="forecastExplanation">{backtest?.error ?? "Loading historical validation…"}</p>}
       <p className="forecastFootnote">Accuracy is calculated only on non-flat outcomes. Net returns are a simplified directional strategy simulation using the configured round-trip cost assumption; they are not a fill-accurate portfolio backtest. A model should not be treated as validated unless it beats its baseline on adequate, representative holdout data.</p>
-    </section>
+    </section>}
 
-    <section className="forecastSection">
+    {mode === "details" && <section className="forecastSection">
       <div className="sectionHeader"><div><div className="sectionEyebrow">STABILITY REGIME RESEARCH</div><h2>Does Stability Score anticipate a quieter market?</h2></div><span className="sectionNote">{regimes?.matchedObservationCount ?? 0} matched · {regimes?.observationCount ?? 0} analyzed / {regimes?.totalObservationCount ?? 0} total</span></div>
       {regimes?.horizons ? regimes.horizons.map((horizon) => <div className="regimeHorizon" key={horizon.horizonMinutes}>
         <h3>{horizon.horizonMinutes}-minute future outcomes <span>{horizon.matchedObservations} matched observations</span></h3>
@@ -177,9 +177,9 @@ export function MarketForecastPanel({ mode = "summary" }: { mode?: "summary" | "
         </table></div>
       </div>) : <p className="forecastExplanation">{regimes?.error ?? "Waiting for stored research snapshots and matching future candles…"}</p>}
       <p className="forecastFootnote">{regimes?.interpretation ?? "Only stored point-in-time stability snapshots matched to complete future candle windows can be evaluated. Missing outcomes are excluded, not imputed."}</p>
-    </section>
+    </section>}
 
-    <section className="forecastSection">
+    {mode === "details" && <section className="forecastSection">
       <div className="sectionEyebrow">INTERPRETATION</div>
       <div className="forecastNotes">
         <p><strong>Directional score is not probability.</strong> A score of +60 does not mean a 60% chance of a rise. The historical hit rate remains hidden until at least 30 prior comparable outcomes exist for that horizon.</p>
