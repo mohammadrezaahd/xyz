@@ -28,7 +28,7 @@ test("forecast reports score separately from empirical probability", () => {
   assert.equal(result.forecasts[1].horizonMinutes, 15);
   assert.equal(result.forecasts[2].horizonMinutes, 30);
   assert.equal(result.forecasts[3].horizonMinutes, 60);
-  assert.equal(new Set(result.forecasts.map((item) => item.score)).size, 3,
+  assert.equal(new Set(result.forecasts.map((item) => item.score)).size, 4,
     "each horizon must calculate its own score rather than reuse one shared score");
 });
 
@@ -75,8 +75,8 @@ test("research APIs use the shared candle loader instead of fetching their own d
 });
 
 test("flat synchronized prices do not gain bullish points from venue agreement", () => {
-  const flat = candles(100, () => 100);
-  const result = buildLiveForecast(flat, flat, (1_800_000_000 + 99 * 60 + 60) * 1000);
+  const flat = candles(160, () => 100);
+  const result = buildLiveForecast(flat, flat, (1_800_000_000 + 159 * 60 + 60) * 1000);
   assert.ok(result.forecasts.every((item) => item.direction === "FLAT"));
   assert.ok(result.forecasts.every((item) => item.score === 0));
   assert.ok(result.forecasts.every((item) => item.calibrationSamples >= 30));
