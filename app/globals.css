@@ -97,3 +97,19 @@
 .regimeHorizon h3 span{color:var(--color-text-muted);font-size:11px;font-weight:400}
 
 .forecastState--weak{color:var(--color-warning);border-color:rgba(242,190,92,.38);background:rgba(242,190,92,.06)}
+
+
+/* Focused decision view: keep operational details off the primary screen. */
+.balanceCompactSummary{display:flex;flex-direction:column;gap:4px;margin-top:14px;padding-top:12px;border-top:1px solid var(--color-border);font-size:13px}
+.balanceCompactSummary strong{font-size:14px;color:var(--color-text)}
+.balanceCompactSummary span{color:var(--color-text-secondary);line-height:1.6}
+.timingGrid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
+.timingGrid .forecastDecision{margin:0;min-width:0}
+.forecastCards--summary{grid-template-columns:repeat(3,minmax(0,1fr));gap:12px}
+.forecastCards--summary .forecastCard{padding:16px;min-width:0}
+.forecastCards--summary .forecastCard h3{font-size:clamp(18px,2vw,25px)}
+.forecastSummaryStats{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;margin-top:14px}
+.forecastSummaryStats>div{display:flex;flex-direction:column;gap:5px;min-width:0}
+.forecastSummaryStats span{font-size:11px;color:var(--color-text-muted)}
+.forecastSummaryStats strong{font-size:14px;overflow-wrap:anywhere}
+@media(max-width:760px){.timingGrid{grid-template-columns:1fr}.forecastCards--summary{grid-template-columns:1fr}.forecastSummaryStats{grid-template-columns:repeat(3,minmax(0,1fr))}.forecastSummaryStats strong{font-size:12px}}
