@@ -159,28 +159,42 @@ async function fetchWallexPrice(): Promise<number> {
   return price;
 }
 
+type MeasuredPrice = { price: number; fetchedAt: number; durationMs: number };
+
+async function measurePrice(fetcher: () => Promise<number>): Promise<MeasuredPrice> {
+  const startedAt = Date.now();
+  const price = await fetcher();
+  const fetchedAt = Date.now();
+  return { price, fetchedAt, durationMs: fetchedAt - startedAt };
+}
+
 export async function GET() {
   const [bitpin, wallex] = await Promise.allSettled([
-    fetchBitpinPrice(),
-    fetchWallexPrice(),
+    measurePrice(fetchBitpinPrice),
+    measurePrice(fetchWallexPrice),
   ]);
 
   const errors: string[] = [];
 
   const bitpinPrice =
     bitpin.status === "fulfilled"
-      ? bitpin.value
+      ? bitpin.value.price
       : (errors.push(`Bitpin ticker: ${String(bitpin.reason)}`), null);
 
   const wallexPrice =
     wallex.status === "fulfilled"
-      ? wallex.value
+      ? wallex.value.price
       : (errors.push(`Wallex ticker: ${String(wallex.reason)}`), null);
 
+  const fetchedAt = Date.now();
   return NextResponse.json({
     bitpin: bitpinPrice,
     wallex: wallexPrice,
-    fetchedAt: Date.now(),
+    fetchedAt,
+    providers: {
+      bitpin: { status: bitpin.status === "fulfilled" ? "SUCCESS" : "FAILED", fetchedAt: bitpin.status === "fulfilled" ? bitpin.value.fetchedAt : null, durationMs: bitpin.status === "fulfilled" ? bitpin.value.durationMs : null },
+      wallex: { status: wallex.status === "fulfilled" ? "SUCCESS" : "FAILED", fetchedAt: wallex.status === "fulfilled" ? wallex.value.fetchedAt : null, durationMs: wallex.status === "fulfilled" ? wallex.value.durationMs : null },
+    },
     errors,
   });
 }
