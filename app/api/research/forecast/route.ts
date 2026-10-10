@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { dedupeSort, type Candle } from "@/lib/candles";
 import { buildLiveForecast } from "@/lib/research/forecast";
+import { loadCandleHistory } from "@/lib/candle-history";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 60;
@@ -16,12 +17,7 @@ type CandlePayload = {
 
 export async function GET(request: Request) {
   try {
-    const origin = new URL(request.url).origin;
-    const response = await fetch(new URL("/api/candles", origin), { cache: "no-store" });
-    const payload = await response.json().catch(() => null) as CandlePayload | null;
-    if (!response.ok || !payload) {
-      return NextResponse.json({ ok: false, error: "Unable to load candle history", upstreamStatus: response.status }, { status: 502 });
-    }
+    const payload = await loadCandleHistory() as CandlePayload;
     const forecast = buildLiveForecast(dedupeSort(payload.bitpin ?? []), dedupeSort(payload.wallex ?? []));
     return NextResponse.json({
       ok: true,
