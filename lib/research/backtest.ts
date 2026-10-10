@@ -23,6 +23,7 @@ export type HorizonBacktestMetrics = {
   trainSamples: number;
   tuneSamples: number;
   testSamples: number;
+  testSampleStatus: "INSUFFICIENT_SAMPLE" | "EVALUATED";
   testDirectionalAccuracy: number | null;
   testBaselineAccuracy: number | null;
   testMeanAbsoluteErrorPct: number | null;
@@ -157,6 +158,7 @@ export function runResearchBacktest(
       trainSamples: train.length,
       tuneSamples: tune.length,
       testSamples: test.length,
+      testSampleStatus: test.length >= 100 ? "EVALUATED" : "INSUFFICIENT_SAMPLE",
       testDirectionalAccuracy: accuracy(test, "predictedDirection"),
       testBaselineAccuracy: accuracy(test, "baselineDirection"),
       testMeanAbsoluteErrorPct: mean(test.map((sample) => Math.abs(sample.actualReturnPct - sample.predictedReturnPct))),
