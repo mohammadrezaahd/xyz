@@ -19,7 +19,7 @@ export type LiveForecast = {
   horizonMinutes: ForecastHorizon;
   direction: ForecastDirection;
   score: number | null;
-  calibratedDirectionalRate: number | null;
+  historicalHitRate: number | null;
   calibrationSamples: number;
   expectedReturnPct: number | null;
   momentum5Pct: number | null;
@@ -122,7 +122,7 @@ export function buildLiveForecast(
     if (!currentFeatures) {
       return {
         horizonMinutes, direction: "INSUFFICIENT_DATA", score: null,
-        calibratedDirectionalRate: null, calibrationSamples: 0, expectedReturnPct: null,
+        historicalHitRate: null, calibrationSamples: 0, expectedReturnPct: null,
         momentum5Pct: null, momentum15Pct: null, momentum30Pct: null,
         realizedVolatility15Pct: null, venueAgreement: null, dataStatus: "INSUFFICIENT_DATA",
         explanation: "At least 31 synchronized, contiguous one-minute candle pairs are required.",
@@ -143,7 +143,7 @@ export function buildLiveForecast(
     }
     const direction = classify(currentFeatures.score, 20);
     const similar = historical.filter((row) => direction !== "FLAT" && Math.sign(row.score) === (direction === "UP" ? 1 : -1) && Math.abs(row.score) >= 20);
-    const calibratedDirectionalRate = similar.length >= 30
+    const historicalHitRate = similar.length >= 30
       ? similar.filter((row) => row.direction === direction).length / similar.length
       : null;
     const expectedReturnPct = similar.length >= 30 ? median(similar.map((row) => row.actualReturnPct * (direction === "UP" ? 1 : -1))) : null;
@@ -152,7 +152,7 @@ export function buildLiveForecast(
       horizonMinutes,
       direction: dataStatus === "READY" ? direction : "INSUFFICIENT_DATA",
       score: currentFeatures.score,
-      calibratedDirectionalRate,
+      historicalHitRate,
       calibrationSamples: similar.length,
       expectedReturnPct,
       momentum5Pct: currentFeatures.momentum5Pct,
@@ -161,7 +161,7 @@ export function buildLiveForecast(
       realizedVolatility15Pct: currentFeatures.volatility15Pct,
       venueAgreement: currentFeatures.venueAgreement,
       dataStatus,
-      explanation: calibratedDirectionalRate === null
+      explanation: historicalHitRate === null
         ? "Directional score only; historical calibration needs at least 30 comparable past outcomes."
         : "Historical conditional hit rate from prior comparable signals; not a guarantee.",
     };
