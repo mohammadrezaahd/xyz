@@ -113,3 +113,12 @@
 .forecastSummaryStats span{font-size:11px;color:var(--color-text-muted)}
 .forecastSummaryStats strong{font-size:14px;overflow-wrap:anywhere}
 @media(max-width:760px){.timingGrid{grid-template-columns:1fr}.forecastCards--summary{grid-template-columns:1fr}.forecastSummaryStats{grid-template-columns:repeat(3,minmax(0,1fr))}.forecastSummaryStats strong{font-size:12px}}
+
+.diagnosticAccordion{border:1px solid var(--color-border);border-radius:14px;background:var(--color-surface);overflow:hidden}
+.diagnosticAccordion+ .diagnosticAccordion{margin-top:10px}
+.diagnosticAccordion>summary{cursor:pointer;list-style:none;display:flex;align-items:center;justify-content:space-between;gap:12px;padding:16px 18px;color:var(--color-text);font-size:14px;font-weight:600}
+.diagnosticAccordion>summary::-webkit-details-marker{display:none}
+.diagnosticAccordion>summary:after{content:"+";font-size:20px;line-height:1;color:var(--color-text-muted)}
+.diagnosticAccordion[open]>summary{border-bottom:1px solid var(--color-border)}
+.diagnosticAccordion[open]>summary:after{content:"−"}
+.diagnosticAccordion>[class],.diagnosticAccordion>section{margin:12px}
