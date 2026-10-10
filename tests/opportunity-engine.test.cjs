@@ -76,6 +76,22 @@ test("missing external price is insufficient data and does not consume weight", 
   assert.equal(analysis.stabilityScore, 96.875);
 });
 
+test("Wallex cannot be reused as an independent external reference", () => {
+  const history = candles(atLeastThirty(Array(30).fill("up")));
+  const analysis = analyzeOpportunity({
+    bitpinCandles: history,
+    wallexCandles: history,
+    currentPrices: {
+      bitpin: { price: 271000, fetchedAt: nowMs },
+      wallex: { price: 280000, fetchedAt: nowMs },
+    },
+    externalReference: { price: 280000, fetchedAt: nowMs, provider: "wallex", error: null },
+    nowMs,
+  });
+  assert.equal(analysis.prices.external, null);
+  assert.equal(analysis.validation.external.status, "INSUFFICIENT_DATA");
+});
+
 test("current ticker prices drive spread independently of candle closes", () => {
   const analysis = baseAnalysis(280000, 271000, 280000);
   assert.equal(analysis.prices.bitpin, 271000);
