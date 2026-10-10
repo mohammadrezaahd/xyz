@@ -173,7 +173,7 @@ export function TrendRegimePanel({ mode = "summary" }: { mode?: "summary" | "det
         <div className="sectionEyebrow">EXIT / PROFIT MANAGEMENT</div>
         <div className="forecastDecisionTop">
           <h2>{data?.exitTiming ? exitLabels[data.exitTiming] : "Waiting for data"}</h2>
-          <span className={`forecastVerdict ${data?.exitTiming === "TAKE_PROFIT_WATCH" || data?.exitTiming === "REVERSAL_RISK" ? "forecastVerdict--down" : "forecastVerdict--wait"}`}>موقعیت باز</span>
+          <span className={`forecastVerdict ${data?.exitTiming === "TAKE_PROFIT_WATCH" || data?.exitTiming === "REVERSAL_RISK" ? "forecastVerdict--down" : "forecastVerdict--wait"}`}>Open position</span>
         </div>
         <p>{data?.exitReason ?? "Open-position management cannot be evaluated yet."}</p>
         <small>This is a review signal, not an exit order. It is rule-based, not a certainty.</small>
@@ -200,7 +200,7 @@ export function TrendRegimePanel({ mode = "summary" }: { mode?: "summary" | "det
         </table>
       </div>
       <p style={{ padding: "0 20px", color: "var(--color-text-muted)", fontSize: 11, lineHeight: 1.7 }}>
-        آزمون فقط ۲۰٪ پایانی تاریخچه را می‌سنجد و هر پیش‌بینی تنها از کندل‌های قبلی استفاده می‌کند. نمونه‌ها هم‌پوشانی دارند؛ «Mean net return / signal» بازده مرکب سرمایه نیست. برای نتیجه‌گیری قابل اتکا، آزمون باید روی چندین دوره و Status بازار تکرار شود.
+        The test uses the final 20% of history and only prior candles for each prediction. Samples overlap; mean net return per signal is not compounded portfolio return. Repeat across multiple periods and market regimes before drawing conclusions.
       </p>
     </section>}
   </section>;
