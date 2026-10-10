@@ -28,6 +28,8 @@ type TrendPayload = {
   structure?: "HIGHER_HIGHS_HIGHER_LOWS" | "LOWER_HIGHS_LOWER_LOWS" | "MIXED_OR_UNCONFIRMED";
   entryTiming?: "PULLBACK_WATCH" | "BREAKOUT_CONFIRMATION" | "CONTINUATION_WATCH" | "WAIT" | "INSUFFICIENT_DATA";
   entryReason?: string;
+  exitTiming?: "TAKE_PROFIT_WATCH" | "STRUCTURE_WEAKENING" | "REVERSAL_RISK" | "HOLD_TREND" | "INSUFFICIENT_DATA";
+  exitReason?: string;
   regimeReason?: string;
   warning?: string;
   backtest?: { costPerRoundTripPct: number; futureDataUsedForPrediction: false; horizons: HorizonResult[] };
@@ -45,6 +47,13 @@ const entryLabels: Record<NonNullable<TrendPayload["entryTiming"]>, string> = {
   BREAKOUT_CONFIRMATION: "بررسی شکست قیمت",
   CONTINUATION_WATCH: "انتظار برای ادامهٔ روند",
   WAIT: "فعلاً صبر کن",
+  INSUFFICIENT_DATA: "دادهٔ کافی نیست",
+};
+const exitLabels: Record<NonNullable<TrendPayload["exitTiming"]>, string> = {
+  TAKE_PROFIT_WATCH: "بررسی برداشت سود",
+  STRUCTURE_WEAKENING: "قدرت روند ضعیف شده",
+  REVERSAL_RISK: "ریسک تغییر جهت",
+  HOLD_TREND: "روند فعلاً پابرجاست",
   INSUFFICIENT_DATA: "دادهٔ کافی نیست",
 };
 const pct = (value: number | null | undefined, digits = 3) =>
@@ -141,14 +150,25 @@ export function TrendRegimePanel({ mode = "summary" }: { mode?: "summary" | "det
       </article>)}
     </section>
 
-    <section className="forecastDecision">
-      <div className="sectionEyebrow">SIGNAL PERSISTENCE & ENTRY TIMING</div>
-      <div className="forecastDecisionTop">
-        <h2>{data?.entryTiming ? entryLabels[data.entryTiming] : "در انتظار داده"}</h2>
-        <span className="forecastVerdict forecastVerdict--wait">{structureLabel}</span>
-      </div>
-      <p>{voteText}. جهت خام همین لحظه: {data?.rawDirection === "BULLISH" ? "صعودی" : data?.rawDirection === "BEARISH" ? "نزولی" : "خنثی"}.</p>
-      <small>تغییر جهت با رأی‌گیری سادهٔ افق‌های ۵/۱۵/۳۰ دقیقه‌ای انجام نمی‌شود؛ روند با بازده چندبازه‌ای، ساختار بازار و پایداری در پنج بررسی اخیر ارزیابی می‌شود.</small>
+    <section className="timingGrid" aria-label="زمان‌بندی ورود و مدیریت موقعیت">
+      <article className="forecastDecision">
+        <div className="sectionEyebrow">ENTRY TIMING</div>
+        <div className="forecastDecisionTop">
+          <h2>{data?.entryTiming ? entryLabels[data.entryTiming] : "در انتظار داده"}</h2>
+          <span className="forecastVerdict forecastVerdict--wait">{structureLabel}</span>
+        </div>
+        <p>{data?.entryReason ?? "زمان ورود هنوز قابل ارزیابی نیست."}</p>
+        <small>{voteText}. جهت خام همین لحظه: {data?.rawDirection === "BULLISH" ? "صعودی" : data?.rawDirection === "BEARISH" ? "نزولی" : "خنثی"}.</small>
+      </article>
+      <article className="forecastDecision">
+        <div className="sectionEyebrow">EXIT / PROFIT MANAGEMENT</div>
+        <div className="forecastDecisionTop">
+          <h2>{data?.exitTiming ? exitLabels[data.exitTiming] : "در انتظار داده"}</h2>
+          <span className={`forecastVerdict ${data?.exitTiming === "TAKE_PROFIT_WATCH" || data?.exitTiming === "REVERSAL_RISK" ? "forecastVerdict--down" : "forecastVerdict--wait"}`}>موقعیت باز</span>
+        </div>
+        <p>{data?.exitReason ?? "مدیریت موقعیت باز هنوز قابل ارزیابی نیست."}</p>
+        <small>این هشدار فقط برای بررسی موقعیت موجود است؛ به‌تنهایی دستور خروج نیست. نتیجه بر پایه قواعد است، نه پیش‌بینی قطعی.</small>
+      </article>
     </section>
 
     {mode === "details" && <section className="chartSection" aria-labelledby="trend-backtest-title">
