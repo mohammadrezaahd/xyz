@@ -127,8 +127,7 @@ export function TrendRegimePanel({ mode = "summary" }: { mode?: "summary" | "det
         </span>
       </div>
       <p className="forecastDecisionLead">{data?.regimeReason ?? "پس از دریافت دادهٔ هم‌زمان از Bitpin و Wallex، وضعیت روند محاسبه می‌شود."}</p>
-      <p>{data?.entryReason ?? "زمان‌بندی ورود هنوز قابل محاسبه نیست."}</p>
-      <small>این برچسب‌ها نتیجهٔ قواعد قابل توضیح‌اند، نه احتمال قطعی یا توصیهٔ تضمینی معامله. {data?.warning ?? ""}</small>
+      <small>برچسب روند بر پایهٔ قواعد قابل توضیح است؛ احتمال قطعی یا تضمین نتیجه نیست.</small>
     </section>
 
     {mode === "details" && <section className="forecastMetaGrid" aria-label="شاخص‌های روند">
