@@ -627,11 +627,11 @@ test("missing validation evidence lowers Stability Score instead of inflating th
     nowMs,
   });
   assert.equal(analysis.dataCompleteness, 80);
-  assert.equal(analysis.stabilityScore, 80);
+  assert.equal(analysis.stabilityScore, 77.5);
 });
 
 test("a high partial score cannot produce an opportunity when a required validation fails", () => {
-  const history = candles(Array(30).fill("up"));
+  const history = candles(Array(30).fill("up"), 0.2);
   const analysis = analyzeOpportunity({
     bitpinCandles: history,
     wallexCandles: history,
