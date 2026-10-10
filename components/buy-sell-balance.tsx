@@ -1,7 +1,7 @@
 "use client";
 import type { DataQuality, BuySellBalance as Balance, OpportunityAnalysis } from "@/lib/opportunity/types";
-type Props = { balance: Balance; candles?: OpportunityAnalysis["candles"]; dataCompleteness: number; dataQuality?: DataQuality; synchronizedCandlePairs?: number; minimumRequiredCandlePairs?: number; netEdgePct?: number | null; decision?: string; compact?: boolean };
-export function BuySellBalance({ balance, candles, dataCompleteness, dataQuality, synchronizedCandlePairs, minimumRequiredCandlePairs, netEdgePct, decision, compact = false }: Props) {
+type Props = { balance: Balance; candles?: OpportunityAnalysis["candles"]; dataCompleteness: number; dataQuality?: DataQuality; synchronizedCandlePairs?: number; minimumRequiredCandlePairs?: number; netEdgePct?: number | null; decision?: string; decisionReason?: string; compact?: boolean };
+export function BuySellBalance({ balance, candles, dataCompleteness, dataQuality, synchronizedCandlePairs, minimumRequiredCandlePairs, netEdgePct, decision, decisionReason, compact = false }: Props) {
   const hasValue = typeof balance.value === "number" && Number.isFinite(balance.value);
   const markerValue = hasValue ? Math.min(100, Math.max(0, balance.value as number)) : 50;
   const valueText = hasValue ? `${Math.round(balance.value as number)} / 100` : "— / 100";
@@ -29,8 +29,11 @@ export function BuySellBalance({ balance, candles, dataCompleteness, dataQuality
       {!hasValue && candles && (candles.bitpinReceived <= 10 || candles.wallexReceived <= 10) && <div className="providerLimitedWarning">Historical candle provider is returning only 10 or fewer candles. This is a provider/history limitation, not normal accumulation.</div>}
     </div>
     {!hasValue && <div className="balanceUnavailable"><strong>INSUFFICIENT DATA</strong><span>— · Directional evidence unavailable. Placeholder only; no balanced score is being reported.</span>{reasons.length > 0 && <div><b>Data gates:</b><ul>{reasons.map((reason) => <li key={reason}>{reason}</li>)}</ul></div>}</div>}
-    {negativeEdge && <div className="balanceEconomicGate"><strong>Economic gate: NO_TRADE_NEGATIVE_EDGE</strong><span>Net edge: {netEdgePct == null ? "—" : `${netEdgePct.toFixed(2)}%`}</span></div>}
-    {decision && decision.startsWith("NO_TRADE") && <p className="balanceDecision"><b>Final decision: NO TRADE</b></p>}
+    <section className="balanceDecisionGates" aria-label="Separate decision gates">
+      <div><span>Directional gate</span><strong>{hasValue ? <>READY · {candles?.synchronizedAvailable ?? pairs ?? 0} synchronized pairs</> : providerLimited ? "PROVIDER LIMITATION" : "INSUFFICIENT DATA"}</strong></div>
+      <div><span>Economic gate</span><strong>{negativeEdge ? "NO_TRADE_NEGATIVE_EDGE" : decision?.startsWith("NO_TRADE") ? decision : decision ? "ECONOMIC GATE READY" : "WAITING"}</strong><small>Net edge: {netEdgePct == null ? "—" : `${netEdgePct.toFixed(2)}%`}</small></div>
+      <div><span>Final decision</span><strong>{decision?.startsWith("NO_TRADE") ? "NO TRADE" : decision ?? "WAITING"}</strong><small>{decisionReason ?? reasons[0] ?? "Waiting for all decision gates."}</small></div>
+    </section>
     <p className="balanceDisclaimer">Directional evidence only · not a calibrated probability of success. A BUY or SELL bias does not override quote, target, stability, or economic gates.</p>
   </section>;
 }
