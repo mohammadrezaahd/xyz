@@ -95,3 +95,5 @@
 .regimeHorizon{margin-top:18px}
 .regimeHorizon h3{display:flex;justify-content:space-between;align-items:baseline;gap:12px;margin:0 0 8px;font-size:14px}
 .regimeHorizon h3 span{color:var(--color-text-muted);font-size:11px;font-weight:400}
+
+.forecastState--weak{color:var(--color-warning);border-color:rgba(242,190,92,.38);background:rgba(242,190,92,.06)}
