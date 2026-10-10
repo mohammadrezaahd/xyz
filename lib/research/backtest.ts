@@ -94,7 +94,7 @@ export function runResearchBacktest(
   const wallex = byTime(wallexCandles);
   const synchronizedTimes = [...bitpin.keys()].filter((time) => wallex.has(time)).sort((a, b) => a - b);
   const synchronized = synchronizedTimes.map((time) => ({ time, bitpin: bitpin.get(time)!, wallex: wallex.get(time)! }));
-  const indexByTime = new Map(synchronized.map((candle, index) => [candle.time, index]));
+  const indexByTime = new Map<number, number>(synchronized.map((candle, index): [number, number] => [candle.time, index]));
   const samples: BacktestSample[] = [];
   const lookback = 5;
 
