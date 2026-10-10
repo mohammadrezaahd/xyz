@@ -105,6 +105,16 @@ function classify(score: number, threshold: number): ForecastDirection {
   return "FLAT";
 }
 
+export function buildForecastFeatureRows(bitpinCandles: Candle[], wallexCandles: Candle[]): FeatureRow[] {
+  const pairs = makePairs(bitpinCandles, wallexCandles);
+  const rows: FeatureRow[] = [];
+  for (let index = 30; index < pairs.length; index += 1) {
+    const row = featureAt(pairs, index);
+    if (row) rows.push(row);
+  }
+  return rows;
+}
+
 export function buildLiveForecast(
   bitpinCandles: Candle[],
   wallexCandles: Candle[],
