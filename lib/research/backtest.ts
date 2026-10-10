@@ -9,6 +9,7 @@ export type BacktestSample = {
   timestamp: number;
   horizonMinutes: ResearchHorizonMinutes;
   predictedDirection: ForecastDirection;
+  directionalScore: number;
   baselineDirection: ForecastDirection;
   actualDirection: ForecastDirection;
   predictedReturnPct: number;
@@ -113,9 +114,10 @@ export function runResearchBacktest(
     if (!features) continue;
     const momentumPct = (current.bitpin.close / past.bitpin.close - 1) * 100;
     const lastCandlePct = (current.bitpin.close / previous.bitpin.close - 1) * 100;
-    const predictedDirection: ForecastDirection = features.score >= 20 ? "UP" : features.score <= -20 ? "DOWN" : "FLAT";
     const baselineDirection = direction(lastCandlePct, minimumMomentumPct);
     for (const horizonMinutes of RESEARCH_HORIZONS_MINUTES) {
+      const directionalScore = features.scoresByHorizon[horizonMinutes];
+      const predictedDirection: ForecastDirection = directionalScore >= 20 ? "UP" : directionalScore <= -20 ? "DOWN" : "FLAT";
       const futureIndex = indexByTime.get(current.time + horizonMinutes * 60);
       if (futureIndex === undefined) continue;
       const futureWindow = synchronized.slice(index, futureIndex + 1);
@@ -125,7 +127,7 @@ export function runResearchBacktest(
       const actualReturnPct = (futurePrice / current.bitpin.close - 1) * 100;
       const actualDirection = direction(actualReturnPct, flatThresholdPct);
       const takesPosition = predictedDirection !== "FLAT";
-      const predictedReturnPct = takesPosition ? Math.sign(features.score) * Math.abs(momentumPct) * (horizonMinutes / lookback) : 0;
+      const predictedReturnPct = takesPosition ? Math.sign(directionalScore) * Math.abs(momentumPct) * (horizonMinutes / lookback) : 0;
       const grossStrategyReturnPct = takesPosition
         ? (predictedDirection === "UP" ? actualReturnPct : -actualReturnPct)
         : 0;
@@ -134,6 +136,7 @@ export function runResearchBacktest(
         timestamp: current.time,
         horizonMinutes,
         predictedDirection,
+        directionalScore,
         baselineDirection,
         actualDirection,
         predictedReturnPct,
