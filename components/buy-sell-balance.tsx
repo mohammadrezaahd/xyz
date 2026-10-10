@@ -11,6 +11,11 @@ export function BuySellBalance({ balance, candles, dataCompleteness, dataQuality
   const requiredPairs = minimumRequiredCandlePairs ?? null;
   const negativeEdge = decision === "NO_TRADE_NEGATIVE_EDGE" || (typeof netEdgePct === "number" && netEdgePct < 0);
   const providerLimited = !hasValue && !!candles && (candles.bitpinReceived <= 10 || candles.wallexReceived <= 10);
+  const availablePairs = candles?.synchronizedAvailable ?? pairs ?? 0;
+  const required = requiredPairs ?? candles?.minimumRequired ?? 20;
+  const enoughHistory = availablePairs >= required && (candles?.synchronizedUsed ?? 0) >= required;
+  const weakParticipation = enoughHistory && (candles?.directionalParticipationRatio == null || candles.directionalParticipationRatio < 0.5);
+  const waitingForHistory = !hasValue && !providerLimited && !enoughHistory;
   return <section className={`buySellBalance${compact ? " buySellBalance--compact" : ""}`} role="img" aria-label={aria}>
     <div className="balanceHeader"><div><span className="eyebrow">DIRECTIONAL EVIDENCE</span><h3>Buy / Sell Balance</h3></div><strong>{valueText}</strong></div>
     <div className="balanceTrack" aria-hidden="true"><span className="balanceSellZone" /><span className="balanceNeutralZone" /><span className="balanceBuyZone" /><span className={`balanceMarker${hasValue ? "" : " balanceMarker--unknown"}`} style={{ left: `${markerValue}%`, opacity: hasValue ? 1 : 0.42 }} /></div>
@@ -24,13 +29,13 @@ export function BuySellBalance({ balance, candles, dataCompleteness, dataQuality
       <div>Synchronized closed pairs: <b>{candles?.synchronizedAvailable ?? pairs ?? "—"}</b></div>
       <div>Pairs used for analysis: <b>{candles?.synchronizedUsed ?? "—"}</b></div>
       <div>Minimum required: <b>{requiredPairs ?? candles?.minimumRequired ?? 20}</b></div>
-      <div className={hasValue ? "balanceReadiness isReady" : "balanceReadiness isWaiting"}>Directional evidence: <b>{hasValue ? "READY" : providerLimited ? "PROVIDER LIMITATION" : "WAITING FOR DATA"}</b></div>
-      {!hasValue && !providerLimited && <div>{pairs ?? candles?.synchronizedAvailable ?? 0} of {requiredPairs ?? 20} required pairs available. Waiting for more valid pairs: {Math.max(0, (requiredPairs ?? 20) - (pairs ?? candles?.synchronizedAvailable ?? 0))}.</div>}
+      <div className={hasValue ? "balanceReadiness isReady" : "balanceReadiness isWaiting"}>Directional evidence: <b>{hasValue ? "READY" : providerLimited ? "PROVIDER LIMITATION" : weakParticipation ? "DIRECTIONAL PARTICIPATION TOO LOW" : "WAITING FOR DATA"}</b></div>
+      {waitingForHistory && <div>{availablePairs} of {required} required pairs available. Waiting for {Math.max(0, required - availablePairs)} more valid pairs.</div>}{weakParticipation && <div>History is sufficient ({availablePairs} synchronized pairs), but only {Math.round((candles?.directionalParticipationRatio ?? 0) * 100)}% meets the directional movement threshold. This is a market-signal quality issue, not missing candle history.</div>}
       {!hasValue && candles && (candles.bitpinReceived <= 10 || candles.wallexReceived <= 10) && <div className="providerLimitedWarning">Historical candle provider is returning only 10 or fewer candles. This is a provider/history limitation, not normal accumulation.</div>}
     </div>
     {!hasValue && <div className="balanceUnavailable"><strong>INSUFFICIENT DATA</strong><span>— · Directional evidence unavailable. Placeholder only; no balanced score is being reported.</span>{reasons.length > 0 && <div><b>Data gates:</b><ul>{reasons.map((reason) => <li key={reason}>{reason}</li>)}</ul></div>}</div>}
     <section className="balanceDecisionGates" aria-label="Separate decision gates">
-      <div><span>Directional gate</span><strong>{hasValue ? <>READY · {candles?.synchronizedAvailable ?? pairs ?? 0} synchronized pairs</> : providerLimited ? "PROVIDER LIMITATION" : "INSUFFICIENT DATA"}</strong></div>
+      <div><span>Directional gate</span><strong>{hasValue ? <>READY · {candles?.synchronizedAvailable ?? pairs ?? 0} synchronized pairs</> : providerLimited ? "PROVIDER LIMITATION" : weakParticipation ? "DIRECTIONAL PARTICIPATION TOO LOW" : "INSUFFICIENT DATA"}</strong></div>
       <div><span>Economic gate</span><strong>{negativeEdge ? "NO_TRADE_NEGATIVE_EDGE" : decision?.startsWith("NO_TRADE") ? decision : decision ? "ECONOMIC GATE READY" : "WAITING"}</strong><small>Net edge: {netEdgePct == null ? "—" : `${netEdgePct.toFixed(2)}%`}</small></div>
       <div><span>Final decision</span><strong>{decision?.startsWith("NO_TRADE") ? "NO TRADE" : decision ?? "WAITING"}</strong><small>{decisionReason ?? reasons[0] ?? "Waiting for all decision gates."}</small></div>
     </section>
