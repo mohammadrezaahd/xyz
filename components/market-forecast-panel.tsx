@@ -151,7 +151,7 @@ export function MarketForecastPanel() {
     <section className="forecastSection">
       <div className="sectionHeader"><div><div className="sectionEyebrow">OUT-OF-SAMPLE VALIDATION</div><h2>Historical model performance</h2></div><span className="sectionNote">Chronological holdout</span></div>
       {backtest?.metrics ? <div className="forecastTableWrap"><table className="forecastTable">
-        <thead><tr><th>Horizon</th><th>Test samples</th><th>Model direction accuracy</th><th>Last-candle baseline</th><th>Mean absolute error</th><th>Net mean return</th><th>Status</th></tr></thead>
+        <thead><tr><th>Horizon</th><th>Test samples</th><th>Model direction accuracy</th><th>Last-candle baseline</th><th>Mean absolute error</th><th>Net strategy return</th><th>Status</th></tr></thead>
         <tbody>{backtest.metrics.map((metric) => <tr key={metric.horizonMinutes}>
           <td>{metric.horizonMinutes} min</td>
           <td>{metric.testSamples}</td>
