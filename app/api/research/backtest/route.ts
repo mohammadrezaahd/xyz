@@ -37,6 +37,9 @@ export async function GET(request: Request) {
       providerErrors: payload.errors ?? [],
       warning: "Research only. Results are historical, not a live prediction or guarantee. Configure RESEARCH_BACKTEST_ROUND_TRIP_COST_PCT to your actual round-trip fee/slippage assumptions before interpreting net results.",
       ...result,
+      sampleCount: result.samples.length,
+      samplesReturned: Math.min(100, result.samples.length),
+      samples: result.samples.slice(-100),
     }, { headers: { "Cache-Control": "no-store" } });
   } catch (error) {
     return NextResponse.json({ ok: false, error: error instanceof Error ? error.message : "Research backtest failed" }, { status: 500 });
