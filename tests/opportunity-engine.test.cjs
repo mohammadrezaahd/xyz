@@ -547,3 +547,33 @@ test("missing directional balance is not presented as a real 50/100 score", () =
   assert.match(component, /Directional evidence unavailable/);
   assert.doesNotMatch(component, /hasValue \? balance\.value : 50/);
 });
+
+
+test("configuration guard rejects a minimum larger than the lookback", () => {
+  const { DEFAULT_OPPORTUNITY_CONFIG, validateOpportunityConfig } = require("../.test-dist/lib/opportunity/config.js");
+  assert.throws(() => validateOpportunityConfig({ ...DEFAULT_OPPORTUNITY_CONFIG, lookbackCandles: 10, minimumCandlePairs: 20 }), /minimumCandlePairs cannot exceed lookbackCandles/);
+});
+
+test("synchronizedAvailable is uncapped while synchronizedUsed respects lookback", () => {
+  const history = candles(Array(35).fill("up"));
+  const analysis = analyzeOpportunity({ bitpinCandles: history, wallexCandles: history, currentPrices: { bitpin: 271000, wallex: 280000 }, externalPrice: 280000, nowMs });
+  assert.equal(analysis.candles.synchronizedAvailable, 35);
+  assert.equal(analysis.candles.synchronizedUsed, 30);
+  assert.equal(analysis.candles.lookback, 30);
+});
+
+test("provider responses capped at ten candles are diagnosed instead of presented as normal waiting", () => {
+  const fs = require("node:fs");
+  const route = fs.readFileSync("app/api/candles/route.ts", "utf8");
+  const component = fs.readFileSync("components/buy-sell-balance.tsx", "utf8");
+  assert.match(route, /LIMITED_OR_INCOMPLETE/);
+  assert.match(route, /const historicalChunks = await Promise\.all/);
+  assert.match(component, /PROVIDER LIMITATION/);
+  assert.match(component, /Historical candle provider is returning only 10 or fewer candles/);
+});
+
+test("SELL BIAS is marked research-only and never enables an execution route", () => {
+  const fs = require("node:fs");
+  const component = fs.readFileSync("components/buy-sell-balance.tsx", "utf8");
+  assert.match(component, /SELL BIAS · RESEARCH ONLY/);
+});
