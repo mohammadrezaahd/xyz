@@ -110,6 +110,40 @@ export function MarketForecastPanel() {
     return () => window.clearInterval(timer);
   }, [load]);
 
+  const forecastRows = forecast?.forecasts ?? [];
+  const evaluatedMetrics = backtest?.metrics ?? [];
+  const usableRows = forecastRows.filter((item) => item.dataStatus === "READY" && item.direction !== "INSUFFICIENT_DATA");
+  const upCount = usableRows.filter((item) => item.direction === "UP").length;
+  const downCount = usableRows.filter((item) => item.direction === "DOWN").length;
+  const flatCount = usableRows.filter((item) => item.direction === "FLAT").length;
+  const direction = upCount >= 2 ? "UP" : downCount >= 2 ? "DOWN" : "MIXED";
+  const directionalRows = usableRows.filter((item) => item.direction === direction);
+  const averageExpectedMove = directionalRows.length ? directionalRows.reduce((sum, item) => sum + Math.abs(item.expectedReturnPct ?? 0), 0) / directionalRows.length : null;
+  const averageVolatility = usableRows.length ? usableRows.reduce((sum, item) => sum + Math.abs(item.realizedVolatility15Pct ?? 0), 0) / usableRows.length : null;
+  const enoughComparableOutcomes = usableRows.length >= 2 && usableRows.every((item) => item.calibrationSamples >= 30 && item.historicalHitRate !== null);
+  const metricsForDirection = evaluatedMetrics.filter((item) => item.testSampleStatus === "EVALUATED" && item.testSamples >= 100);
+  const hasValidatedNetEdge = metricsForDirection.length >= 2 && metricsForDirection.filter((item) => (item.testNetStrategyReturnPct ?? -Infinity) > 0).length >= 2;
+  const latestDataUsable = forecast?.candleAgeSeconds != null && forecast.candleAgeSeconds <= 180 && usableRows.length >= 2;
+  const alignedScoresStrong = directionalRows.length >= 2 && directionalRows.filter((item) => (item.score ?? 0) * (direction === "UP" ? 1 : -1) >= 60).length >= 2;
+  const historicalSupport = enoughComparableOutcomes && directionalRows.filter((item) => (item.historicalHitRate ?? 0) >= 0.5).length >= 2;
+  const tradeVerdict = !latestDataUsable ? "WAIT" : direction === "MIXED" || flatCount >= 2 ? "WAIT" : alignedScoresStrong && historicalSupport && hasValidatedNetEdge ? direction : "WAIT";
+  const verdictHeading = tradeVerdict === "UP" ? "خرید قابل بررسی است" : tradeVerdict === "DOWN" ? "فروش قابل بررسی است" : "فعلاً معامله نکن";
+  const verdictReason = !latestDataUsable
+    ? "دادهٔ تازه و هم‌جهت در افق‌های مختلف کافی نیست؛ تا رفع مشکل داده، تصمیم معاملاتی قابل اتکا نیست."
+    : direction === "MIXED" || flatCount >= 2
+      ? "افق‌های ۵، ۱۵ و ۳۰ دقیقه‌ای جهت روشنی ندارند یا با هم توافق نمی‌کنند؛ احتمال ورود وسط نوسان‌های بی‌جهت بالاست."
+      : !enoughComparableOutcomes
+        ? `جهت کوتاه‌مدت ${direction === "UP" ? "کمی صعودی" : "کمی نزولی"} است، اما نمونه‌های تاریخی قابل‌مقایسه برای تأیید آن کافی نیستند.`
+        : !hasValidatedNetEdge
+          ? `جهت مدل ${direction === "UP" ? "صعودی" : "نزولی"} است، اما آزمون خارج از نمونه هنوز سود خالص مثبت و قابل اتکایی بعد از هزینه‌ها نشان نمی‌دهد.`
+          : !alignedScoresStrong || !historicalSupport
+            ? "جهت پیش‌بینی به‌اندازهٔ کافی قوی و در داده‌های تاریخی تأییدشده نیست؛ بهتر است برای موقعیت روشن‌تر صبر کنی."
+            : "چند افق زمانی هم‌جهت‌اند و آزمون تاریخی نیز از وجود برتری خالص حمایت می‌کند؛ با این حال این نتیجه تضمین سود نیست.";
+  const moveVsVolatility = averageExpectedMove == null || averageVolatility == null
+    ? "اندازهٔ حرکت و نوسان فعلی قابل مقایسه نیست."
+    : averageExpectedMove < averageVolatility
+      ? "حرکت پیش‌بینی‌شده نسبت به نوسان اخیر کوچک است؛ حتی با جهت درست هم فضای سود ممکن است برای جبران کارمزد و خطا کافی نباشد."
+      : "حرکت پیش‌بینی‌شده از میانگین نوسان اخیر بزرگ‌تر است؛ با این حال باید با هزینه‌ها و اعتبار تاریخی سنجیده شود.";
   return <div className="forecastWorkspace">
     <section className="forecastHero">
       <div className="forecastHeroCopy">
@@ -146,6 +180,19 @@ export function MarketForecastPanel() {
         <p className="forecastExplanation">{item.explanation}</p>
       </article>)}
       {!loading && !forecast?.forecasts?.length && <div className="emptyState">No forecast output is available yet.</div>}
+    </section>
+
+    <section className="forecastDecision" aria-live="polite" aria-labelledby="forecast-decision-title">
+      <div className="forecastDecisionTop">
+        <div><div className="sectionEyebrow">PLAIN-LANGUAGE SUMMARY</div><h2 id="forecast-decision-title">جمع‌بندی سادهٔ بازار</h2></div>
+        <span className={`forecastVerdict forecastVerdict--${tradeVerdict.toLowerCase()}`}>{verdictHeading}</span>
+      </div>
+      {loading ? <p>در حال بررسی داده‌های بازار و نتایج آزمون تاریخی…</p> : error ? <p>فعلاً امکان جمع‌بندی مطمئن وجود ندارد: {error}</p> : <>
+        <p className="forecastDecisionLead">{verdictReason}</p>
+        <p>{direction === "MIXED" ? "افق‌های زمانی تصویر یکسانی ارائه نمی‌کنند." : `جهت غالب در افق‌های موجود ${direction === "UP" ? "صعودی" : direction === "DOWN" ? "نزولی" : "خنثی"} است؛ این فقط جهت احتمالی حرکت را می‌گوید، نه تضمین نتیجه.`} {moveVsVolatility}</p>
+        <p>{hasValidatedNetEdge ? "آزمون تاریخیِ خارج از نمونه در چند افق سود خالص مثبت نشان می‌دهد." : "مهم‌ترین مانع، نبودِ برتری معاملاتیِ اثبات‌شده در آزمون خارج از نمونه پس از هزینه‌هاست."} {enoughComparableOutcomes ? "نمونه‌های تاریخی قابل‌مقایسه موجودند، اما باید همراه با نتیجهٔ خالص بررسی شوند." : "پشتیبانی تاریخی هنوز برای تصمیم‌گیری قوی کافی نیست."}</p>
+      </>}
+      <small>این جمع‌بندی خودکار از جهت افق‌ها، تازگی داده، نمونه‌های تاریخی، نوسان و بازدهٔ آزمون خارج از نمونه ساخته می‌شود. «صعودی/نزولی» به‌تنهایی به معنی خرید/فروش نیست؛ تا زمانی که مزیت خالص پس از هزینه‌ها تأیید نشود، نتیجه «عدم معامله» است.</small>
     </section>
 
     <section className="forecastSection">
