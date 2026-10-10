@@ -8,6 +8,7 @@ import { Phase3Panel } from "@/components/phase3-panel";
 import { SnapshotPage } from "@/components/snapshot-page";
 import { MarketForecastPanel } from "@/components/market-forecast-panel";
 import { TrendRegimePanel } from "@/components/trend-regime-panel";
+import { UnifiedSignalPanel } from "@/components/unified-signal-panel";
 import { TestPositionPanel } from "@/components/test-position-panel";
 import { analyzeOpportunity } from "@/lib/opportunity/engine";
 import type { Candle } from "@/lib/candles";
@@ -153,6 +154,7 @@ export default function Home() {
       <div className="dataStatusBar" role="status"><div><span className="statusMarker" aria-hidden="true" /><strong>{loading ? "Syncing market data…" : hasPrices && hasCandles ? "Bitpin and Wallex data synchronized" : hasPrices ? "Partial market data" : "Market data unavailable"}</strong></div>{view === "details" && <span>{analysis.candles.synchronized.toLocaleString("en-US")} / {analysis.candles.lookback.toLocaleString("en-US")} synchronized pairs</span>}</div>
 
       {view === "overview" && <section className="dashboardOverview">
+        <UnifiedSignalPanel analysis={analysis} />
         <TrendRegimePanel mode="compact" />
         <MarketForecastPanel mode="compact" />
         <section className="dashboardPrices" aria-label="Current market prices">
