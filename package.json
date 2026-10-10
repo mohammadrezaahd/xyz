@@ -7,7 +7,7 @@
     "prebuild": "npm test",
     "build": "next build",
     "start": "next start",
-    "test": "tsc -p tests/tsconfig.json && node .test-dist/check-balance.js && node --test tests/opportunity-engine.test.cjs tests/wallex-candles.test.cjs tests/phase3-outcome.test.cjs tests/phase3-persistence.test.cjs tests/phase4-calculations.test.cjs tests/phase4-opening.test.cjs tests/phase4-lifecycle.test.cjs tests/phase4-monitoring.test.cjs tests/phase-separation.test.cjs tests/phase5a-research.test.cjs tests/research-backtest.test.cjs tests/research-forecast.test.cjs tests/trend-regime.test.cjs"
+    "test": "tsc -p tests/tsconfig.json && node .test-dist/check-balance.js && node --test tests/opportunity-engine.test.cjs tests/wallex-candles.test.cjs tests/phase3-outcome.test.cjs tests/phase3-persistence.test.cjs tests/phase4-calculations.test.cjs tests/phase4-opening.test.cjs tests/phase4-lifecycle.test.cjs tests/phase4-monitoring.test.cjs tests/phase-separation.test.cjs tests/phase5a-research.test.cjs tests/research-backtest.test.cjs tests/research-forecast.test.cjs tests/trend-regime.test.cjs tests/wallex-ticker.test.cjs"
   },
   "dependencies": {
     "@types/node": "^22.15.0",
