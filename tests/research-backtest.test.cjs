@@ -26,6 +26,24 @@ test("backtest evaluates 5, 15, and 30 minute horizons with chronological splits
   assert.ok(result.samples.some((sample) => sample.split === "TEST"));
 });
 
+test("backtest scores and directional calls are horizon-specific", () => {
+  const candles = series(180);
+  const result = runResearchBacktest(candles, candles, { costPerRoundTripPct: 0.2 });
+  const grouped = new Map();
+  for (const sample of result.samples) {
+    if (!grouped.has(sample.timestamp)) grouped.set(sample.timestamp, []);
+    grouped.get(sample.timestamp).push(sample);
+  }
+  const sameTimestamp = [...grouped.values()].find((rows) => rows.length === 3);
+  assert.ok(sameTimestamp, "expected at least one timestamp evaluated at all horizons");
+  assert.equal(new Set(sameTimestamp.map((row) => row.directionalScore)).size, 3,
+    "5m, 15m and 30m backtest samples must not reuse one shared score");
+  for (const sample of sameTimestamp) {
+    const expected = sample.directionalScore >= 20 ? "UP" : sample.directionalScore <= -20 ? "DOWN" : "FLAT";
+    assert.equal(sample.predictedDirection, expected);
+  }
+});
+
 test("backtest never reports success when there are not enough synchronized candles", () => {
   const result = runResearchBacktest(series(10), series(9));
   assert.equal(result.input.synchronizedCandles, 9);
