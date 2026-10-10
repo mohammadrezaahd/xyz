@@ -136,7 +136,7 @@ export function MarketForecastPanel() {
         <div className="forecastScore"><strong>{number(item.score, 1)}</strong><span>/ 100 directional score</span></div>
         <div className="forecastMeter" role="img" aria-label={item.score == null ? "No directional score" : `Directional score ${item.score}`}><span style={{ left: `${((item.score ?? 0) + 100) / 2}%` }} /></div>
         <div className="forecastMetricRows">
-          <div><span>Historical directional rate</span><strong>{rate(item.historicalHitRate)}</strong></div>
+          <div><span>Historical outcome match rate</span><strong>{rate(item.historicalHitRate)}</strong></div>
           <div><span>Comparable outcomes</span><strong>{item.calibrationSamples}</strong></div>
           <div><span>Directional return estimate</span><strong>{pct(item.expectedReturnPct)}</strong></div>
           <div><span>15m realized volatility</span><strong>{pct(item.realizedVolatility15Pct)}</strong></div>
