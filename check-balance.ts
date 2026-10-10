@@ -16,10 +16,10 @@ function analyze(direction: "up" | "down" | "mixed", count: number) {
     bitpinCandles: candles,
     wallexCandles: candles,
     currentPrices: {
-      bitpin: { price: 271_000, fetchedAt: nowMs },
-      wallex: { price: 271_100, fetchedAt: nowMs },
+      bitpin: { price: 1_000, fetchedAt: nowMs },
+      wallex: { price: 1_020, fetchedAt: nowMs },
     },
-    externalReference: { price: 271_100, fetchedAt: nowMs, provider: "deterministic-fixture", error: null },
+    externalReference: { price: 1_020, fetchedAt: nowMs, provider: "deterministic-fixture", error: null },
     nowMs,
   });
 }
