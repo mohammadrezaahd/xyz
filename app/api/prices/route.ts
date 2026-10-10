@@ -3,6 +3,8 @@ import { parsePositivePrice } from "@/lib/prices";
 
 const env = (key: string, fallback = "") => process.env[key] ?? fallback;
 
+export const maxDuration = 30;
+
 function requireEnv(key: string): string {
   const value = env(key).trim();
   if (!value) throw new Error(`Missing required environment variable: ${key}`);
@@ -66,12 +68,12 @@ async function fetchBitpinPrice(): Promise<number> {
 async function fetchWithRetry(
   url: URL,
   init: RequestInit,
-  attempts = 2,
+  attempts = 3,
 ): Promise<Response> {
-  const configuredTimeoutMs = Number(env("WALLEX_TICKER_TIMEOUT_MS", "3500"));
+  const configuredTimeoutMs = Number(env("WALLEX_TICKER_TIMEOUT_MS", "8000"));
   const timeoutMs = Number.isFinite(configuredTimeoutMs)
-    ? Math.min(10_000, Math.max(1_500, configuredTimeoutMs))
-    : 3_500;
+    ? Math.min(12_000, Math.max(3_000, configuredTimeoutMs))
+    : 8_000;
   let lastError: unknown;
 
   for (let attempt = 1; attempt <= attempts; attempt += 1) {
@@ -85,7 +87,7 @@ async function fetchWithRetry(
 
       if (attempt < attempts) {
         await new Promise((resolve) =>
-          setTimeout(resolve, 500 * attempt),
+          setTimeout(resolve, 350 * attempt),
         );
       }
     }
