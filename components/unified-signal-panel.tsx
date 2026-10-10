@@ -46,6 +46,8 @@ export function UnifiedSignalPanel({ analysis }: Props) {
       setTrend(trendPayload);
       setError("");
     } catch (value) {
+      setForecast(null);
+      setTrend(null);
       setError(value instanceof Error ? value.message : "Unified signal engines are unavailable");
     } finally {
       setLoading(false);
