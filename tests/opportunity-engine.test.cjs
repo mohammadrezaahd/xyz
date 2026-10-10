@@ -354,24 +354,24 @@ test("acceptable bullish ratio receives proportional score, not full weight", ()
   assert.equal(analysis.candles.bitpinBullishRatio, 0.6);
 });
 
-test("10 synchronized Neutral/Neutral candles produce 100% alignment", () => {
+test("30 synchronized Neutral/Neutral candles produce 100% alignment", () => {
   const analysis = analyzeOpportunity({
-    bitpinCandles: candles(Array(10).fill("neutral")),
-    wallexCandles: candles(Array(10).fill("neutral")),
+    bitpinCandles: candles(Array(30).fill("neutral")),
+    wallexCandles: candles(Array(30).fill("neutral")),
     currentPrices: { bitpin: 271000, wallex: 280000 },
     externalPrice: 280000,
     nowMs,
   });
 
-  assert.equal(analysis.candles.synchronized, 10);
+  assert.equal(analysis.candles.synchronized, 30);
   assert.equal(analysis.candles.alignmentRatio, 1);
   assert.equal(analysis.validation.candleAlignment.status, "SUCCESS");
 });
 
 test("5 aligned and 5 non-aligned synchronized candles produce 50% alignment", () => {
-  const bitpinDirections = Array(10).fill("up");
-  const wallexDirections = Array.from({ length: 10 }, (_, i) =>
-    i < 5 ? "up" : "down",
+  const bitpinDirections = Array(30).fill("up");
+  const wallexDirections = Array.from({ length: 30 }, (_, i) =>
+    i < 15 ? "up" : "down",
   );
 
   const analysis = analyzeOpportunity({
@@ -382,15 +382,15 @@ test("5 aligned and 5 non-aligned synchronized candles produce 50% alignment", (
     nowMs,
   });
 
-  assert.equal(analysis.candles.synchronized, 10);
+  assert.equal(analysis.candles.synchronized, 30);
   assert.equal(analysis.candles.alignmentRatio, 0.5);
   assert.equal(analysis.validation.candleAlignment.status, "ACCEPTABLE");
 });
 
 test("3 aligned and 7 non-aligned synchronized candles produce 30% alignment", () => {
-  const bitpinDirections = Array(10).fill("up");
-  const wallexDirections = Array.from({ length: 10 }, (_, i) =>
-    i < 3 ? "up" : "down",
+  const bitpinDirections = Array(30).fill("up");
+  const wallexDirections = Array.from({ length: 30 }, (_, i) =>
+    i < 9 ? "up" : "down",
   );
 
   const analysis = analyzeOpportunity({
@@ -401,7 +401,7 @@ test("3 aligned and 7 non-aligned synchronized candles produce 30% alignment", (
     nowMs,
   });
 
-  assert.equal(analysis.candles.synchronized, 10);
+  assert.equal(analysis.candles.synchronized, 30);
   assert.equal(analysis.candles.alignmentRatio, 0.3);
   assert.equal(analysis.validation.candleAlignment.status, "FAILED");
 });
@@ -433,6 +433,8 @@ test("alignment classification is 8 SUCCESS, 7/5 ACCEPTABLE, 4 FAILED", () => {
 test("sub-0.05% movement is neutral and not bullish", () => {
   const bitpin = candles(Array(30).fill("up"));
   bitpin[0] = candle(60, 270000, 270050);
+  bitpin[1] = candle(120, 270000, 270050);
+  bitpin[2] = candle(180, 270000, 270050);
   const analysis = analyzeOpportunity({
     bitpinCandles: bitpin,
     wallexCandles: candles(Array(30).fill("up")),
