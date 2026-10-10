@@ -24,6 +24,11 @@ test("forecast reports score separately from empirical probability", () => {
   assert.ok(result.forecasts.every((item) => item.calibrationSamples >= 30));
   assert.ok(result.forecasts.every((item) => item.historicalHitRate !== null));
   assert.ok(result.forecasts.every((item) => item.direction === "UP"));
+  assert.equal(result.forecasts[0].horizonMinutes, 5);
+  assert.equal(result.forecasts[1].horizonMinutes, 15);
+  assert.equal(result.forecasts[2].horizonMinutes, 30);
+  assert.equal(new Set(result.forecasts.map((item) => item.score)).size, 3,
+    "each horizon must calculate its own score rather than reuse one shared score");
 });
 
 test("forecast rejects stale candles and gaps in the latest contiguous window", () => {
