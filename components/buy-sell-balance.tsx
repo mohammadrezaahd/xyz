@@ -25,6 +25,7 @@ export function BuySellBalance({ balance, candles, dataCompleteness, dataQuality
       <div>Minimum required: <b>{requiredPairs ?? candles?.minimumRequired ?? 20}</b></div>
       <div className={hasValue ? "balanceReadiness isReady" : "balanceReadiness isWaiting"}>Directional evidence: <b>{hasValue ? "READY" : "WAITING FOR DATA"}</b></div>
       {!hasValue && <div>{pairs ?? candles?.synchronizedAvailable ?? 0} of {requiredPairs ?? 20} required pairs available. Waiting for more valid pairs: {Math.max(0, (requiredPairs ?? 20) - (pairs ?? candles?.synchronizedAvailable ?? 0))}.</div>}
+      {!hasValue && candles && (candles.bitpinReceived <= 10 || candles.wallexReceived <= 10) && <div className="providerLimitedWarning">Historical candle provider is returning only 10 or fewer candles; this is a provider/history limitation, not normal accumulation.</div>}
     </div>
     {!hasValue && <div className="balanceUnavailable"><strong>INSUFFICIENT DATA</strong><span>— · Directional evidence unavailable. Placeholder only; no balanced score is being reported.</span>{reasons.length > 0 && <div><b>Data gates:</b><ul>{reasons.map((reason) => <li key={reason}>{reason}</li>)}</ul></div>}</div>}
     {negativeEdge && <div className="balanceEconomicGate"><strong>Economic gate: NO_TRADE_NEGATIVE_EDGE</strong><span>Net edge: {netEdgePct == null ? "—" : `${netEdgePct.toFixed(2)}%`}</span></div>}
