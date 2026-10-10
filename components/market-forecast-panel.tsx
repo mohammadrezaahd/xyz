@@ -129,7 +129,7 @@ export function MarketForecastPanel() {
 
     <section className="forecastCards" aria-label="Forecast by horizon">
       {(forecast?.forecasts ?? []).map((item) => <article className="forecastCard" key={item.horizonMinutes}>
-        <div className="forecastCardTop"><span>{item.horizonMinutes}-minute horizon</span><span className={`forecastState forecastState--${item.dataStatus.toLowerCase()}`}>{item.dataStatus.replaceAll("_", " ")}</span></div>
+        <div className="forecastCardTop"><span>{item.horizonMinutes}-minute horizon</span><span className={`forecastState forecastState--${item.dataStatus.toLowerCase()}`}>{item.dataStatus.replace(/_/g, " ")}</span></div>
         <h3>{directionLabel[item.direction]}</h3>
         <div className="forecastScore"><strong>{number(item.score, 1)}</strong><span>/ 100 directional score</span></div>
         <div className="forecastMeter" role="img" aria-label={item.score == null ? "No directional score" : `Directional score ${item.score}`}><span style={{ left: `${((item.score ?? 0) + 100) / 2}%` }} /></div>
@@ -155,7 +155,7 @@ export function MarketForecastPanel() {
           <td>{rate(metric.testBaselineAccuracy)}</td>
           <td>{pct(metric.testMeanAbsoluteErrorPct)}</td>
           <td>{pct(metric.testNetStrategyReturnPct)}</td>
-          <td><span className={`forecastState forecastState--${metric.testSampleStatus.toLowerCase()}`}>{metric.testSampleStatus.replaceAll("_", " ")}</span></td>
+          <td><span className={`forecastState forecastState--${metric.testSampleStatus.toLowerCase()}`}>{metric.testSampleStatus.replace(/_/g, " ")}</span></td>
         </tr>)}</tbody>
       </table></div> : <p className="forecastExplanation">{backtest?.error ?? "Loading historical validation…"}</p>}
       <p className="forecastFootnote">Accuracy is calculated only on non-flat outcomes. Net returns are a simplified directional strategy simulation using the configured round-trip cost assumption; they are not a fill-accurate portfolio backtest. A model should not be treated as validated unless it beats its baseline on adequate, representative holdout data.</p>
