@@ -16,7 +16,7 @@ import type { CurrentPricesResponse } from "@/lib/prices";
 import type { MarketSnapshotTrend } from "@/lib/market-snapshots/types";
 
 type CandleResponse = { bitpin: Candle[]; wallex: Candle[]; errors: string[]; fetchedAt: number; refreshMs: number };
-type View = "overview" | "opportunity" | "position" | "history" | "snapshots" | "forecast" | "calculator";
+type View = "overview" | "charts" | "opportunity" | "balance" | "position" | "history" | "snapshots" | "forecast" | "details" | "calculator";
 
 const snapshotTrends: Array<{ value: MarketSnapshotTrend; label: string }> = [
   { value: "STRONGLY_BULLISH", label: "Strongly Bullish" },
@@ -40,11 +40,14 @@ function Metric({ label, value, state, helper }: { label: string; value: string;
 
 const viewCopy: Record<View, { breadcrumb: string; title: string; footer: string }> = {
   overview: { breadcrumb: "OVERVIEW", title: "Market overview", footer: "Analysis and simulation only" },
-  opportunity: { breadcrumb: "OPPORTUNITY", title: "Opportunity diagnostics", footer: "Analysis and simulation only" },
+  charts: { breadcrumb: "CHARTS", title: "Market charts", footer: "Live exchange prices and synchronized candles" },
+  opportunity: { breadcrumb: "OPPORTUNITY", title: "Opportunity", footer: "Analysis and simulation only" },
+  balance: { breadcrumb: "BUY / SELL BALANCE", title: "Buy / Sell Balance", footer: "Directional evidence and data quality diagnostics" },
   position: { breadcrumb: "PAPER POSITION", title: "Paper Position", footer: "Paper research · No automated trading execution" },
   history: { breadcrumb: "HISTORY", title: "History", footer: "Opportunity cron results · Analysis and simulation only" },
   snapshots: { breadcrumb: "SNAPSHOTS", title: "Market snapshots", footer: "Point-in-time research archive" },
   forecast: { breadcrumb: "FORECAST", title: "Market Forecast", footer: "Experimental forecast · Historical validation required" },
+  details: { breadcrumb: "DETAILS & LOGS", title: "Details & Logs", footer: "Diagnostics, model validation and provider details" },
   calculator: { breadcrumb: "CALCULATOR", title: "Trading Calculator", footer: "Leveraged P&L simulation · No real trades" },
 };
 
@@ -55,7 +58,10 @@ const navigation: Array<[View, string, string, string]> = [
   ["history", "History", "History", "04"],
   ["snapshots", "Snapshots", "Snapshots", "05"],
   ["forecast", "Market Forecast", "Forecast", "06"],
-  ["calculator", "Trading Calculator", "Calculator", "07"],
+  ["details", "Details & Logs", "Details", "07"],
+  ["charts", "Charts", "Charts", "08"],
+  ["balance", "Buy / Sell Balance", "Balance", "09"],
+  ["calculator", "Trading Calculator", "Calculator", "10"],
 ];
 
 export default function Home() {
@@ -88,6 +94,12 @@ export default function Home() {
   }, []);
 
   useEffect(() => { void load(); const timer = window.setInterval(load, Number(process.env.NEXT_PUBLIC_CANDLE_REFRESH_MS ?? 15000)); return () => window.clearInterval(timer); }, [load, refreshTick]);
+
+  useEffect(() => {
+    const openForecast = () => setView("forecast");
+    window.addEventListener("xyz-open-forecast", openForecast);
+    return () => window.removeEventListener("xyz-open-forecast", openForecast);
+  }, []);
 
   useEffect(() => {
     if (!externalPriceCustomized && prices?.wallex != null) {
@@ -140,23 +152,40 @@ export default function Home() {
     </aside>
 
     <main className="mainContent">
-      <header className="consoleHeader"><div><div className="breadcrumb">XYZ / {copy.breadcrumb}</div><h1>{copy.title}</h1><p>Quantitative comparison for Bitpin and Wallex Tether markets.</p></div><div className="headerActions"><StatusBadge kind={statusKind}>{statusText}</StatusBadge><div className="updateMeta"><span>Last successful update</span><strong>{time(prices?.fetchedAt)}</strong></div><button className="refreshButton" type="button" onClick={() => setRefreshTick((tick) => tick + 1)} disabled={loading}>{loading ? "Updating…" : "Refresh"}</button></div></header>
-      <div className="dataStatusBar" role="status"><div><span className="statusMarker" aria-hidden="true" /><strong>{loading ? "Loading synchronized market history…" : hasPrices && hasCandles ? `Live data · Bitpin and Wallex updated ${time(prices?.fetchedAt)}` : hasPrices ? "Partial data · candle history is incomplete · analysis may be limited" : "Insufficient data · waiting for provider responses"}</strong></div><span>{analysis.candles.synchronized} / {analysis.candles.lookback} synchronized candle pairs</span></div>
+      <header className="consoleHeader"><div><div className="breadcrumb">XYZ / {copy.breadcrumb}</div><h1>{copy.title}</h1><p>Bitpin / Wallex · USDT / Toman</p></div><div className="headerActions"><StatusBadge kind={statusKind}>{statusText}</StatusBadge><div className="updateMeta"><span>Last successful update</span><strong>{time(prices?.fetchedAt)}</strong></div><button className="refreshButton" type="button" onClick={() => setRefreshTick((tick) => tick + 1)} disabled={loading}>{loading ? "Updating…" : "Refresh"}</button></div></header>
+      <div className="dataStatusBar" role="status"><div><span className="statusMarker" aria-hidden="true" /><strong>{loading ? "Syncing market data…" : hasPrices && hasCandles ? "Bitpin and Wallex data synchronized" : hasPrices ? "Partial market data" : "Market data unavailable"}</strong></div>{view === "details" && <span>{analysis.candles.synchronized.toLocaleString("en-US")} / {analysis.candles.lookback.toLocaleString("en-US")} synchronized pairs</span>}</div>
 
-      {view === "overview" && <>
-        <section className="commandCenter" aria-labelledby="command-title"><div className="commandMain"><div className="sectionEyebrow">OPPORTUNITY COMMAND CENTER</div><div className="commandHeading"><div><h2 id="command-title">{analysis.opportunity === "NONE" ? "Waiting for market data" : `${analysis.opportunity} opportunity`}</h2><p>{hasCandles ? "Historical validation is available for review. This is a research signal, not a trading instruction." : "The current opportunity cannot be evaluated yet."}</p></div><StatusBadge kind={analysis.opportunity === "NONE" ? "neutral" : analysis.opportunity === "STRONG" ? "live" : "partial"}>{analysis.riskLevel} risk</StatusBadge></div><div className="commandStats"><div><span>Stability</span><strong>{analysis.stabilityScore.toFixed(1)}<small>/100</small></strong></div><div><span>Confidence</span><strong>{analysis.dataCompleteness.toFixed(0)}<small>%</small></strong></div><div><span>Spread</span><strong>{percent(analysis.spread.percent)}</strong></div><div><span>Net edge</span><strong>{percent(analysis.edge.netPct)}</strong></div></div><div className="commandFooter"><span>{hasCandles ? `${analysis.candles.synchronized} / ${analysis.candles.lookback} candle pairs available` : "0 / 10 synchronized candle pairs available"}</span><div className="commandFooterActions"><button type="button" className="refreshButton" onClick={openSnapshotDialog}>Snapshot</button><button type="button" className="primaryButton" onClick={() => nav("opportunity")}>View diagnostics</button></div></div></div><div className="verdictRail"><span>RESEARCH VERDICT</span><strong>{analysis.opportunity === "NONE" ? "WAITING" : analysis.opportunity}</strong><p>{analysis.target.safeTarget == null ? "No target calculated" : `Target ${price(analysis.target.safeTarget)} Toman`}</p></div></section>
-        <section className="marketComparison" aria-labelledby="comparison-title"><div className="sectionHeader"><div><div className="sectionEyebrow">MARKET COMPARISON</div><h2 id="comparison-title">Current exchange prices</h2></div><span className="sectionNote">Toman · live ticker</span></div><div className="comparisonGrid"><div className="exchangeQuote exchangeQuote--bitpin"><div><span className="exchangeCode">B</span><strong>Bitpin</strong><small>Ticker</small></div><b>{price(prices?.bitpin)}</b></div><div className="spreadBridge"><span>SPREAD</span><strong>{percent(analysis.spread.percent)}</strong><small>Wallex premium</small></div><div className="exchangeQuote exchangeQuote--wallex"><div><span className="exchangeCode">W</span><strong>Wallex</strong><small>Ticker</small></div><b>{price(prices?.wallex)}</b></div></div></section>
-        <section className="metricGrid" aria-label="Decision metrics"><Metric label="Spread" value={percent(analysis.spread.percent)} state={analysis.spread.percent == null ? "Insufficient data" : "Exchange delta"} helper={analysis.spread.absolute == null ? "Awaiting both tickers" : `${price(analysis.spread.absolute)} Toman absolute`} /><Metric label="Stability score" value={`${analysis.stabilityScore.toFixed(1)} / 100`} state="Historical validation" helper={`${analysis.candles.synchronized} synchronized pairs`} /><Metric label="Confidence" value={`${analysis.dataCompleteness.toFixed(0)}%`} state="Data completeness" helper="Based on available inputs" /><Metric label="Net edge" value={percent(analysis.edge.netPct)} state="Fee-adjusted" helper={`Fees ${analysis.edge.feesPct.toFixed(2)}%`} /></section>
-        <BuySellBalance candles={analysis.candles} balance={analysis.buySellBalance} dataCompleteness={analysis.dataCompleteness} dataQuality={analysis.dataQuality} synchronizedCandlePairs={analysis.candles.synchronizedAvailable} minimumRequiredCandlePairs={analysis.minimumRequiredCandlePairs} netEdgePct={analysis.edge.executionNetPct} decision={analysis.decision} decisionReason={analysis.decisionReason} />
-        <section className="chartSection" aria-labelledby="chart-title"><div className="sectionHeader"><div><div className="sectionEyebrow">PRICE RELATIONSHIP</div><h2 id="chart-title">Synchronized candle history</h2></div><span className="sectionNote">1 minute · {data?.bitpin.length ?? 0} Bitpin / {data?.wallex.length ?? 0} Wallex candles</span></div><div className="chartPair"><div className="chartPane"><div className="chartPaneHeader"><div><strong>Bitpin</strong><span>{price(prices?.bitpin)} Toman</span></div><span>{data?.bitpin.length ?? 0} candles</span></div><CandleChart candles={data?.bitpin ?? []} /></div><div className="chartPane"><div className="chartPaneHeader"><div><strong>Wallex</strong><span>{price(prices?.wallex)} Toman</span></div><span>{data?.wallex.length ?? 0} candles</span></div><CandleChart candles={data?.wallex ?? []} /></div></div></section>
-      </>}
-
-      {view === "opportunity" && <section className="workspacePage"><div className="pageIntro"><div className="sectionEyebrow">RESEARCH WORKSPACE</div><h2>Opportunity and stability</h2><p>Inspect every validation test, threshold, price input, and target calculation without losing the underlying API behavior.</p></div><OpportunityPanel analysis={analysis} externalPrice={externalPrice} onExternalPriceChange={(value) => { setExternalPriceCustomized(true); setExternalPrice(value); }} /></section>}
+      {view === "overview" && <section className="dashboardOverview">
+        <TrendRegimePanel mode="compact" />
+        <MarketForecastPanel mode="compact" />
+        <section className="dashboardPrices" aria-label="Current market prices">
+          <div className="dashboardPrice"><span>BITPIN</span><strong>{price(prices?.bitpin)}</strong><small>TOMAN</small></div>
+          <div className="dashboardSpread"><span>SPREAD</span><strong>{percent(analysis.spread.percent)}</strong></div>
+          <div className="dashboardPrice"><span>WALLEX</span><strong>{price(prices?.wallex)}</strong><small>TOMAN</small></div>
+        </section>
+        <section className="dashboardChartGrid" aria-label="Market charts">
+          <article className="chartPane"><div className="chartPaneHeader"><div><strong>Bitpin</strong><span>{price(prices?.bitpin)} Toman</span></div><span>{data?.bitpin.length ?? 0} candles</span></div><CandleChart candles={data?.bitpin ?? []} /></article>
+          <article className="chartPane"><div className="chartPaneHeader"><div><strong>Wallex</strong><span>{price(prices?.wallex)} Toman</span></div><span>{data?.wallex.length ?? 0} candles</span></div><CandleChart candles={data?.wallex ?? []} /></article>
+        </section>
+        <section className="dashboardOpportunity" aria-label="Current opportunity">
+          <div className="dashboardWidgetHeader"><h2>Opportunity</h2><button type="button" className="textLinkButton" onClick={() => nav("opportunity")}>Open ↗</button></div>
+          <div className="dashboardOpportunityMain"><strong>{analysis.opportunity === "NONE" ? "WAITING" : analysis.opportunity}</strong><span>{analysis.decision?.startsWith("NO_TRADE") ? "NO TRADE" : analysis.decision ?? "WAITING FOR DATA"}</span></div>
+          <div className="dashboardMiniStats"><div><span>Opportunity %</span><strong>{percent(analysis.spread.percent)}</strong></div><div><span>Net edge</span><strong>{percent(analysis.edge.executionNetPct)}</strong></div><div><span>Target</span><strong>{price(analysis.target.safeTarget)}</strong></div></div>
+        </section>
+        <section className="dashboardBalance">
+          <div className="dashboardWidgetHeader"><h2>Buy / Sell Balance</h2><button type="button" className="textLinkButton" onClick={() => nav("balance")}>Open ↗</button></div>
+          <BuySellBalance candles={analysis.candles} balance={analysis.buySellBalance} dataCompleteness={analysis.dataCompleteness} dataQuality={analysis.dataQuality} synchronizedCandlePairs={analysis.candles.synchronizedAvailable} minimumRequiredCandlePairs={analysis.minimumRequiredCandlePairs} netEdgePct={analysis.edge.executionNetPct} decision={analysis.decision} decisionReason={analysis.decisionReason} compact />
+        </section>
+      </section>}
+      {view === "charts" && <section className="workspacePage chartsWorkspace"><section className="chartSection" aria-label="Synchronized candle history"><div className="sectionHeader"><div><div className="sectionEyebrow">LIVE MARKET</div><h2>Synchronized candle history</h2></div><span className="sectionNote">1 minute · {data?.bitpin.length ?? 0} Bitpin / {data?.wallex.length ?? 0} Wallex candles</span></div><div className="chartPair"><div className="chartPane"><div className="chartPaneHeader"><div><strong>Bitpin</strong><span>{price(prices?.bitpin)} Toman</span></div><span>{data?.bitpin.length ?? 0} candles</span></div><CandleChart candles={data?.bitpin ?? []} /></div><div className="chartPane"><div className="chartPaneHeader"><div><strong>Wallex</strong><span>{price(prices?.wallex)} Toman</span></div><span>{data?.wallex.length ?? 0} candles</span></div><CandleChart candles={data?.wallex ?? []} /></div></div></section></section>}
+      {view === "opportunity" && <section className="workspacePage"><div className="pageIntro"><div className="sectionEyebrow">OPPORTUNITY</div><h2>Current opportunity</h2></div><section className="commandCenter" aria-label="Opportunity decision"><div className="commandMain"><div className="sectionEyebrow">DECISION</div><div className="commandHeading"><div><h2>{analysis.decision?.startsWith("NO_TRADE") ? "NO TRADE" : analysis.decision ?? "WAITING FOR DATA"}</h2></div><StatusBadge kind={analysis.decision?.startsWith("NO_TRADE") ? "partial" : "neutral"}>{analysis.opportunity} opportunity</StatusBadge></div><div className="commandStats"><div><span>Opportunity %</span><strong>{percent(analysis.spread.percent)}</strong></div><div><span>Net edge</span><strong>{percent(analysis.edge.executionNetPct)}</strong></div><div><span>Entry · Bitpin</span><strong>{price(analysis.target.entryPrice)}</strong></div><div><span>Fee-adjusted target</span><strong>{price(analysis.target.safeTarget)}</strong></div></div><div className="commandFooter"><label className="inputField"><span>External Tether Price</span><input inputMode="decimal" type="text" value={externalPrice} onChange={(event) => { setExternalPriceCustomized(true); setExternalPrice(event.target.value); }} placeholder="Wallex ticker" /></label><div className="commandFooterActions"><button type="button" className="primaryButton" onClick={() => nav("details")}>Open diagnostics</button></div></div></div><div className="verdictRail"><span>ECONOMIC GATE</span><strong>{analysis.edge.executionNetPct != null && analysis.edge.executionNetPct > 0 ? "CHECK OTHER GATES" : "NO TRADE"}</strong><p>{analysis.edge.executionNetPct == null ? "Net edge unavailable" : `Net edge ${percent(analysis.edge.executionNetPct)}`}</p></div></section></section>}
+      {view === "balance" && <section className="workspacePage"><BuySellBalance candles={analysis.candles} balance={analysis.buySellBalance} dataCompleteness={analysis.dataCompleteness} dataQuality={analysis.dataQuality} synchronizedCandlePairs={analysis.candles.synchronizedAvailable} minimumRequiredCandlePairs={analysis.minimumRequiredCandlePairs} netEdgePct={analysis.edge.executionNetPct} decision={analysis.decision} decisionReason={analysis.decisionReason} /></section>}
       {view === "position" && <section className="workspacePage"><div className="pageIntro"><div className="sectionEyebrow">PHASE 4 WORKSPACE</div><h2>Paper Position</h2><p>Run and monitor a research-only paper position. No real funds or exchange orders are used.</p></div><TestPositionPanel currentPrice={prices?.bitpin ?? null} /></section>}
       {view === "history" && <section className="workspacePage"><div className="pageIntro"><div className="sectionEyebrow">PHASE 3 RESULTS</div><h2>History</h2><p>Review opportunity cron results, validation scores, and simulated outcomes.</p></div><Phase3Panel /></section>}
       {view === "snapshots" && <SnapshotPage />}
-      {view === "forecast" && <section className="workspacePage"><TrendRegimePanel /><MarketForecastPanel /></section>}
+      {view === "forecast" && <section className="workspacePage"><MarketForecastPanel mode="summary" /></section>}
       {view === "calculator" && <TradingCalculator />}
+      {view === "details" && <section className="workspacePage"><div className="pageIntro"><div className="sectionEyebrow">DETAILS &amp; LOGS</div><h2>Technical details and logs</h2></div><details className="diagnosticAccordion"><summary>Opportunity &amp; Stability diagnostics</summary><OpportunityPanel analysis={analysis} externalPrice={externalPrice} onExternalPriceChange={(value) => { setExternalPriceCustomized(true); setExternalPrice(value); }} /></details><details className="diagnosticAccordion"><summary>Trend regime and exit-timing backtest</summary><TrendRegimePanel mode="details" /></details><details className="diagnosticAccordion"><summary>Short-term forecast, validation and stability research</summary><MarketForecastPanel mode="details" /></details><details className="diagnosticAccordion"><summary>Synchronized raw candle charts</summary><section className="chartSection" aria-labelledby="chart-title"><div className="sectionHeader"><div><div className="sectionEyebrow">PRICE RELATIONSHIP</div><h2 id="chart-title">Synchronized candle history</h2></div><span className="sectionNote">1 minute · {data?.bitpin.length ?? 0} Bitpin / {data?.wallex.length ?? 0} Wallex candles</span></div><div className="chartPair"><div className="chartPane"><div className="chartPaneHeader"><div><strong>Bitpin</strong><span>{price(prices?.bitpin)} Toman</span></div><span>{data?.bitpin.length ?? 0} candles</span></div><CandleChart candles={data?.bitpin ?? []} /></div><div className="chartPane"><div className="chartPaneHeader"><div><strong>Wallex</strong><span>{price(prices?.wallex)} Toman</span></div><span>{data?.wallex.length ?? 0} candles</span></div><CandleChart candles={data?.wallex ?? []} /></div></div></section></details></section>}
       {error && view !== "snapshots" && view !== "forecast" && <div className="errorBanner" role="alert"><strong>Provider warning</strong><span>{error}</span></div>}
       <footer className="consoleFooter"><span>XYZ Research Console</span><span>{copy.footer}</span></footer>
     </main>

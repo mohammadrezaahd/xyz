@@ -98,48 +98,168 @@
 
 .forecastState--weak{color:var(--color-warning);border-color:rgba(242,190,92,.38);background:rgba(242,190,92,.06)}
 
+
+/* Focused decision view: keep operational details off the primary screen. */
+.balanceCompactSummary{display:flex;flex-direction:column;gap:4px;margin-top:14px;padding-top:12px;border-top:1px solid var(--color-border);font-size:13px}
+.balanceCompactSummary strong{font-size:14px;color:var(--color-text)}
+.balanceCompactSummary span{color:var(--color-text-secondary);line-height:1.6}
+.timingGrid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
+.timingGrid .forecastDecision{margin:0;min-width:0}
+.forecastCards--summary{grid-template-columns:repeat(4,minmax(0,1fr));gap:12px}
+.forecastCards--summary .forecastCard{padding:16px;min-width:0}
+.forecastCards--summary .forecastCard h3{font-size:clamp(18px,2vw,25px)}
+.forecastSummaryStats{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;margin-top:14px}
+.forecastSummaryStats>div{display:flex;flex-direction:column;gap:5px;min-width:0}
+.forecastSummaryStats span{font-size:11px;color:var(--color-text-muted)}
+.forecastSummaryStats strong{font-size:14px;overflow-wrap:anywhere}
+@media(max-width:760px){.forecastCards--summary{grid-template-columns:repeat(2,minmax(0,1fr))}.timingGrid{grid-template-columns:1fr}.forecastCards--summary{grid-template-columns:1fr}.forecastSummaryStats{grid-template-columns:repeat(3,minmax(0,1fr))}.forecastSummaryStats strong{font-size:12px}}
+
+.diagnosticAccordion{border:1px solid var(--color-border);border-radius:14px;background:var(--color-surface);overflow:hidden}
+.diagnosticAccordion+ .diagnosticAccordion{margin-top:10px}
+.diagnosticAccordion>summary{cursor:pointer;list-style:none;display:flex;align-items:center;justify-content:space-between;gap:12px;padding:16px 18px;color:var(--color-text);font-size:14px;font-weight:600}
+.diagnosticAccordion>summary::-webkit-details-marker{display:none}
+.diagnosticAccordion>summary:after{content:"+";font-size:20px;line-height:1;color:var(--color-text-muted)}
+.diagnosticAccordion[open]>summary{border-bottom:1px solid var(--color-border)}
+.diagnosticAccordion[open]>summary:after{content:"−"}
+.diagnosticAccordion>[class],.diagnosticAccordion>section{margin:12px}
+
+/* Minimal dashboard layout */
+.dashboardOverview{display:grid;gap:14px;min-width:0}.dashboardTrend,.dashboardPrices,.dashboardOpportunity,.dashboardBalance{min-width:0;border:1px solid var(--color-border);border-radius:12px;background:var(--color-surface)}
+.dashboardTrend{padding:16px 18px;display:grid;gap:10px}.dashboardTrendTitle,.dashboardTrendFoot,.dashboardWidgetHeader{display:flex;justify-content:space-between;align-items:center;gap:12px}
+.dashboardTrendTitle>span{font-size:10px;font-weight:800;letter-spacing:.13em;color:var(--color-text-muted)}.dashboardTrendTitle small{font:10px var(--mono);color:var(--color-text-muted)}
+.dashboardTrendVerdict{font-size:clamp(24px,3vw,34px);font-weight:800;letter-spacing:-.04em;line-height:1.15}.dashboardTrendVerdict.isBullish{color:var(--color-positive)}.dashboardTrendVerdict.isBearish{color:var(--color-negative)}.dashboardTrendVerdict.isNeutral{color:var(--color-text)}
+.dashboardTrendFoot{font-size:11px;color:var(--color-text-muted)}.dashboardTrendError{font-size:11px;color:var(--color-warning)}
+.dashboardPrices{display:grid;grid-template-columns:1fr auto 1fr;align-items:center;padding:14px 18px;gap:14px}.dashboardPrice{display:grid;gap:4px}.dashboardPrice>span,.dashboardSpread>span{font:10px var(--mono);letter-spacing:.08em;color:var(--color-text-muted)}
+.dashboardPrice strong{font:600 clamp(16px,2vw,22px) var(--mono);overflow-wrap:anywhere}.dashboardPrice small{font-size:10px;color:var(--color-text-muted)}.dashboardSpread{text-align:center;padding:0 14px;border-left:1px solid var(--color-border);border-right:1px solid var(--color-border)}.dashboardSpread strong{display:block;margin-top:5px;font:600 15px var(--mono)}
+.dashboardChartGrid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;min-width:0}.dashboardChartGrid .chartPane{min-width:0;padding:12px;border:1px solid var(--color-border);border-radius:12px;background:var(--color-surface)}.dashboardChartGrid .chartPaneHeader{padding:0 0 10px}
+.dashboardOpportunity,.dashboardBalance{padding:15px}.dashboardWidgetHeader h2{margin:0;font-size:15px;font-weight:700}.textLinkButton{border:0;background:transparent;color:var(--color-accent);font-size:11px;font-weight:700;cursor:pointer;white-space:nowrap}
+.dashboardOpportunityMain{display:flex;justify-content:space-between;align-items:center;gap:12px;margin:15px 0;padding:13px 0;border-top:1px solid var(--color-border);border-bottom:1px solid var(--color-border)}.dashboardOpportunityMain>strong{font-size:18px}.dashboardOpportunityMain>span{font:10px var(--mono);color:var(--color-text-secondary)}
+.dashboardMiniStats{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px}.dashboardMiniStats>div{display:grid;gap:5px}.dashboardMiniStats span{font-size:10px;color:var(--color-text-muted)}.dashboardMiniStats strong{font:600 12px var(--mono);overflow-wrap:anywhere}
+.dashboardBalance .buySellBalance{margin-top:12px}.dashboardBalance .balanceHeader .eyebrow{display:none}.dashboardBalance .balanceHeader h3{font-size:14px}.dashboardBalance .balanceCompactSummary{display:none}.chartsWorkspace .chartSection{margin:0}
+@media(max-width:760px){.dashboardChartGrid{grid-template-columns:1fr}.dashboardPrices{padding:12px;gap:8px}.dashboardSpread{padding:0 8px}.dashboardMiniStats{gap:8px}.dashboardMiniStats strong{font-size:11px}}
+
+
+/* Clear, horizon-separated market signals */
+.signalStrip{border:1px solid var(--color-border);border-radius:12px;background:var(--color-surface);padding:14px;display:grid;gap:12px;min-width:0}
+.signalStripHeader{display:flex;justify-content:space-between;align-items:center;gap:12px}
+.signalStripHeader h2{font-size:14px;font-weight:700;margin:0}.signalStripHeader>span{font-size:10px;color:var(--color-text-muted)}
+.signalStripGrid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px}
+.signalStripCard{display:flex;flex-direction:column;gap:7px;min-width:0;padding:11px;border:1px solid var(--color-border);border-radius:9px;background:var(--color-surface-raised,var(--color-background))}
+.signalStripHorizon{font:10px var(--mono);letter-spacing:.06em;color:var(--color-text-muted)}
+.signalStripCard strong{font-size:12px;line-height:1.3;overflow-wrap:anywhere}
+.signalStripCard small{font:10px var(--mono);color:var(--color-text-secondary)}
+.signalStripCard--bullish{border-top:2px solid var(--color-positive)}.signalStripCard--bullish strong{color:var(--color-positive)}
+.signalStripCard--bearish{border-top:2px solid var(--color-negative)}.signalStripCard--bearish strong{color:var(--color-negative)}
+.signalStripCard--neutral{border-top:2px solid var(--color-text-muted)}.signalStripCard--unknown{border-top:2px solid var(--color-warning)}
+.signalStripLink{justify-self:end}
+.signalCardGate{margin-top:10px;padding:7px 9px;border-radius:7px;background:var(--color-background);font-size:10px;font-weight:700;letter-spacing:.02em}
+.signalCardGate--wait{color:var(--color-warning)}.signalCardGate--review{color:var(--color-positive)}.signalCardGate--weak{color:var(--color-negative)}
+@media(max-width:760px){.signalStripGrid{grid-template-columns:repeat(2,minmax(0,1fr))}.signalStrip{padding:11px}.forecastCards--summary .forecastCard{padding:12px}.forecastCards--summary .forecastCard h3{font-size:18px}.forecastSummaryStats{gap:6px}.forecastSummaryStats span{font-size:10px}.forecastSummaryStats strong{font-size:12px}}
+
+
+/* Unified market intelligence */
+.unifiedSignal{border:1px solid var(--border-color,rgba(148,163,184,.28));border-radius:16px;padding:20px;background:var(--panel-bg,rgba(15,23,42,.32));display:grid;gap:16px;min-width:0}
+.unifiedSignalHeader{display:flex;align-items:flex-start;justify-content:space-between;gap:16px}
+.unifiedSignalHeader h2{margin:5px 0;font-size:1.25rem}
+.unifiedSignalHeader p{margin:0;color:var(--muted,#94a3b8);font-size:.86rem}
+.unifiedSignalStatus{display:inline-flex;align-items:center;justify-content:center;border-radius:999px;padding:7px 10px;font-size:.7rem;font-weight:800;letter-spacing:.04em;text-align:center}
+.unifiedSignalStatus.isAligned{background:rgba(34,197,94,.13);color:#4ade80}
+.unifiedSignalStatus.isBlocked{background:rgba(245,158,11,.13);color:#fbbf24}
+.unifiedSignalStatus.isUnavailable{background:rgba(148,163,184,.15);color:#cbd5e1}
+.unifiedSignalMain{display:grid;grid-template-columns:minmax(180px,.7fr) minmax(0,1.3fr);gap:18px;align-items:center}
+.unifiedSignalDirection{display:grid;gap:5px}
+.unifiedSignalDirection>span,.unifiedSignalFooter span{font-size:.72rem;color:var(--muted,#94a3b8)}
+.unifiedSignalDirection>strong{font-size:1.5rem;letter-spacing:.02em}
+.unifiedSignalDirection>small{color:var(--muted,#94a3b8);font-size:.75rem}
+.unifiedSignalMain>p{margin:0;line-height:1.65;font-size:.9rem}
+.unifiedHorizonGrid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px}
+.unifiedHorizon{border:1px solid var(--border-color,rgba(148,163,184,.22));border-radius:12px;padding:12px;display:grid;gap:7px;min-width:0}
+.unifiedHorizon>span{font-size:.7rem;color:var(--muted,#94a3b8);font-weight:800}
+.unifiedHorizon>strong{font-size:.82rem;overflow-wrap:anywhere}
+.unifiedHorizon>small{font-size:.69rem;color:var(--muted,#94a3b8);line-height:1.45}
+.unifiedHorizon--bullish{border-top:2px solid #22c55e}
+.unifiedHorizon--bearish{border-top:2px solid #ef4444}
+.unifiedHorizon--conflict{border-top:2px solid #f59e0b}
+.unifiedHorizon--neutral,.unifiedHorizon--insufficient-data{border-top:2px solid #94a3b8}
+.unifiedSignalFooter{display:flex;flex-wrap:wrap;gap:12px 24px;padding-top:13px;border-top:1px solid var(--border-color,rgba(148,163,184,.2))}
+.unifiedSignalFooter>div{display:grid;gap:4px}
+.unifiedSignalFooter strong{font-size:.78rem}
+.unifiedSignalWarning{margin:0;color:#fbbf24;font-size:.8rem;line-height:1.55}
+.unifiedSignalBlockers{border-top:1px solid var(--border-color,rgba(148,163,184,.2));padding-top:12px;font-size:.8rem}
+.unifiedSignalBlockers summary{cursor:pointer;font-weight:700}
+.unifiedSignalBlockers ul{margin:10px 0 0;padding-inline-start:20px;display:grid;gap:7px;color:var(--muted,#94a3b8);line-height:1.5}
+.unifiedSignalDisclaimer{margin:0;color:var(--muted,#94a3b8);font-size:.72rem;line-height:1.55}
+@media(max-width:760px){.unifiedSignal{padding:15px}.unifiedSignalHeader{flex-direction:column}.unifiedSignalMain{grid-template-columns:1fr}.unifiedHorizonGrid{grid-template-columns:repeat(2,minmax(0,1fr))}.unifiedHorizon{padding:10px}.unifiedSignalDirection>strong{font-size:1.25rem}}
+
+/* Trading calculator workspace styles carried forward from main. */
+
+
 /* Multi-trade leveraged P&L calculator */
 .calculatorWorkspace{display:grid;gap:18px}
+
 .calculatorSettings{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px;padding:16px;border:1px solid var(--color-border);border-radius:13px;background:var(--color-surface)}
+
 .calculatorSettings label,.calculatorTradeFields label{display:grid;align-content:start;gap:7px;color:var(--color-text-secondary);font-size:11px;font-weight:700}
+
 .calculatorSettings input,.calculatorTradeFields input,.calculatorTradeFields select{width:100%;min-width:0;min-height:42px;padding:10px 11px;border:1px solid var(--color-border-strong);border-radius:8px;background:var(--color-surface-raised);color:var(--color-text);font:12px var(--mono)}
+
 .calculatorSettings small,.calculatorTradeFields small{color:var(--color-text-muted);font-size:10px;line-height:1.5;font-weight:400}
+
 .calculatorSummary{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px}
+
 .calculatorSummary article{display:grid;gap:8px;min-width:0;padding:17px;border:1px solid var(--color-border);border-radius:12px;background:var(--color-surface)}
+
 .calculatorSummary article>span,.calculatorTradeMeta span,.calculatorTradeResult span{color:var(--color-text-muted);font-size:11px}
+
 .calculatorSummary strong{overflow-wrap:anywhere;font:600 clamp(17px,2vw,24px) var(--mono)}
+
 .calculatorSummary strong small{font:10px var(--mono);color:var(--color-text-muted)}
+
 .calculatorSummary em,.calculatorTradeResult em{font:11px var(--mono);font-style:normal;color:var(--color-text-secondary)}
+
 .calculatorPositive strong,.calculatorPositive em,.calculatorTradeResult.isProfit>div:first-child strong,.calculatorTradeResult.isProfit>div:first-child em{color:var(--color-positive)}
+
 .calculatorNegative strong,.calculatorNegative em,.calculatorTradeResult.isLoss>div:first-child strong,.calculatorTradeResult.isLoss>div:first-child em{color:var(--color-negative)}
+
 .calculatorTradesHeader{display:flex;align-items:center;justify-content:space-between;gap:14px;margin-top:8px}
-.calculatorTradesHeader h3{margin:0;font-size:18px}.calculatorTradesHeader p{margin:6px 0 0;color:var(--color-text-secondary);font-size:11px;line-height:1.5}
+
+.calculatorTradesHeader h3{margin:0;font-size:18px}
+.calculatorTradesHeader p{margin:6px 0 0;color:var(--color-text-secondary);font-size:11px;line-height:1.5}
+
 .calculatorTradeList{display:grid;gap:12px}
+
 .calculatorTrade{display:grid;gap:14px;min-width:0;padding:17px;border:1px solid var(--color-border);border-radius:13px;background:var(--color-surface)}
+
 .calculatorTradeTitle{display:flex;align-items:center;justify-content:space-between;gap:12px}
-.calculatorTradeTitle>div{display:grid;gap:5px}.calculatorTradeTitle span{color:var(--color-accent);font:10px var(--mono);letter-spacing:.1em}.calculatorTradeTitle strong{font-size:14px}
-.calculatorRemove{padding:7px 10px;border:1px solid var(--color-border);border-radius:7px;background:transparent;color:var(--color-text-secondary);font-size:10px}.calculatorRemove:disabled{opacity:.3;cursor:not-allowed}
+
+.calculatorTradeTitle>div{display:grid;gap:5px}
+.calculatorTradeTitle span{color:var(--color-accent);font:10px var(--mono);letter-spacing:.1em}
+.calculatorTradeTitle strong{font-size:14px}
+
+.calculatorRemove{padding:7px 10px;border:1px solid var(--color-border);border-radius:7px;background:transparent;color:var(--color-text-secondary);font-size:10px}
+.calculatorRemove:disabled{opacity:.3;cursor:not-allowed}
+
 .calculatorTradeFields{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px}
+
 .calculatorTradeMeta{display:flex;flex-wrap:wrap;gap:8px 22px;padding:11px;border-radius:8px;background:rgba(255,255,255,.025)}
-.calculatorTradeMeta span{display:flex;flex-wrap:wrap;gap:7px;align-items:center}.calculatorTradeMeta strong{color:var(--color-text);font:11px var(--mono)}
+
+.calculatorTradeMeta span{display:flex;flex-wrap:wrap;gap:7px;align-items:center}
+.calculatorTradeMeta strong{color:var(--color-text);font:11px var(--mono)}
+
 .calculatorTradeResult{display:grid;grid-template-columns:1.2fr .8fr 1fr;gap:12px;padding:12px;border:1px solid var(--color-border);border-radius:9px;background:var(--color-surface-raised)}
-.calculatorTradeResult>div{display:grid;align-content:start;gap:6px;min-width:0}.calculatorTradeResult strong{overflow-wrap:anywhere;font:600 12px var(--mono)}
+
+.calculatorTradeResult>div{display:grid;align-content:start;gap:6px;min-width:0}
+.calculatorTradeResult strong{overflow-wrap:anywhere;font:600 12px var(--mono)}
+
 .calculatorLossNote{margin:0;padding:9px 11px;border:1px solid rgba(255,107,114,.25);border-radius:8px;color:var(--color-negative);background:rgba(255,107,114,.05);font-size:11px}
+
 .calculatorDisclaimer{margin:0;color:var(--color-text-muted);font-size:11px;line-height:1.7}
-@media(max-width:1050px){.calculatorSettings,.calculatorTradeFields{grid-template-columns:repeat(2,minmax(0,1fr))}}
-@media(max-width:650px){.calculatorSummary{grid-template-columns:1fr}.calculatorTradesHeader{align-items:flex-start;flex-direction:column}.calculatorTradesHeader button{width:100%}.calculatorTradeResult{grid-template-columns:1fr}.calculatorTradeMeta{display:grid;grid-template-columns:1fr 1fr}.calculatorTrade{padding:13px}}
-@media(max-width:400px){.calculatorSettings,.calculatorTradeFields{grid-template-columns:1fr}.calculatorTradeMeta{grid-template-columns:1fr}}
-
-
-/* Plain-language, data-driven forecast decision */
-.forecastDecision{display:grid;gap:10px;padding:20px;border:1px solid var(--color-border-strong);border-radius:13px;background:linear-gradient(120deg,rgba(124,131,255,.075),rgba(16,21,29,.42))}
-.forecastDecisionTop{display:flex;justify-content:space-between;align-items:flex-start;gap:16px}
-.forecastDecisionTop h2{margin:7px 0 0;font-size:20px;letter-spacing:-.025em}
-.forecastDecision p{margin:0;color:var(--color-text-secondary);font-size:13px;line-height:1.75}
-.forecastDecision .forecastDecisionLead{color:var(--color-text);font-size:15px;font-weight:750}
-.forecastDecision small{display:block;margin-top:4px;color:var(--color-text-muted);font-size:10px;line-height:1.7}
-.forecastVerdict{display:inline-flex;flex:0 0 auto;align-items:center;padding:8px 11px;border:1px solid var(--color-border-strong);border-radius:8px;background:var(--color-surface-raised);font-size:12px;font-weight:800}
-.forecastVerdict--wait{color:var(--color-warning);border-color:rgba(242,190,92,.38);background:rgba(242,190,92,.06)}
-.forecastVerdict--up{color:var(--color-positive);border-color:rgba(53,211,145,.32)}
-.forecastVerdict--down{color:var(--color-negative);border-color:rgba(255,107,114,.32)}
-@media(max-width:650px){.forecastDecision{padding:15px}.forecastDecisionTop{display:grid}.forecastVerdict{justify-self:start}.forecastDecision .forecastDecisionLead{font-size:14px}}
+.calculatorSettings,.calculatorTradeFields{grid-template-columns:repeat(2,minmax(0,1fr))}
+.calculatorSummary{grid-template-columns:1fr}
+.calculatorTradesHeader{align-items:flex-start;flex-direction:column}
+.calculatorTradesHeader button{width:100%}
+.calculatorTradeResult{grid-template-columns:1fr}
+.calculatorTradeMeta{display:grid;grid-template-columns:1fr 1fr}
+.calculatorTrade{padding:13px}
+.calculatorSettings,.calculatorTradeFields{grid-template-columns:1fr}
+.calculatorTradeMeta{grid-template-columns:1fr}

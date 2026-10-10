@@ -9,10 +9,10 @@ function series(count, priceFn = (i) => 100 + i * 0.1) {
   });
 }
 
-test("backtest evaluates 5, 15, and 30 minute horizons with chronological splits", () => {
+test("backtest evaluates 5, 15, 30, and 60 minute horizons with chronological splits", () => {
   const candles = series(180);
   const result = runResearchBacktest(candles, candles, { costPerRoundTripPct: 0.2 });
-  assert.deepEqual(result.metrics.map((metric) => metric.horizonMinutes), [5, 15, 30]);
+  assert.deepEqual(result.metrics.map((metric) => metric.horizonMinutes), [5, 15, 30, 60]);
   assert.equal(result.method, "multi-feature-regime-v1");
   for (const metric of result.metrics) {
     assert.ok(metric.samples > 0);
@@ -24,6 +24,24 @@ test("backtest evaluates 5, 15, and 30 minute horizons with chronological splits
   assert.equal(result.split.chronological, true);
   assert.equal(result.assumptions.futureDataUsedForPrediction, false);
   assert.ok(result.samples.some((sample) => sample.split === "TEST"));
+});
+
+test("backtest scores and directional calls are horizon-specific", () => {
+  const candles = series(180);
+  const result = runResearchBacktest(candles, candles, { costPerRoundTripPct: 0.2 });
+  const grouped = new Map();
+  for (const sample of result.samples) {
+    if (!grouped.has(sample.timestamp)) grouped.set(sample.timestamp, []);
+    grouped.get(sample.timestamp).push(sample);
+  }
+  const sameTimestamp = [...grouped.values()].find((rows) => rows.length === 4);
+  assert.ok(sameTimestamp, "expected at least one timestamp evaluated at all horizons");
+  assert.equal(new Set(sameTimestamp.map((row) => row.directionalScore)).size, 4,
+    "5m, 15m, 30m and 1h backtest samples must not reuse one shared score");
+  for (const sample of sameTimestamp) {
+    const expected = sample.directionalScore >= 20 ? "UP" : sample.directionalScore <= -20 ? "DOWN" : "FLAT";
+    assert.equal(sample.predictedDirection, expected);
+  }
 });
 
 test("backtest never reports success when there are not enough synchronized candles", () => {
