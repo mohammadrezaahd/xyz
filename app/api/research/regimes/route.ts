@@ -17,7 +17,7 @@ const BANDS: Band[] = [
 
 type CandlePayload = { bitpin?: Candle[]; errors?: string[]; providers?: Record<string, string>; diagnostics?: Record<string, unknown> };
 
-export async function GET(request: Request) {
+export async function GET() {
   try {
     const [candlePayload, observations] = await Promise.all([
       loadCandleHistory() as Promise<CandlePayload>,
