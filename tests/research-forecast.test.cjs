@@ -62,4 +62,6 @@ test("flat synchronized prices do not gain bullish points from venue agreement",
   const result = buildLiveForecast(flat, flat, (1_800_000_000 + 99 * 60 + 60) * 1000);
   assert.ok(result.forecasts.every((item) => item.direction === "FLAT"));
   assert.ok(result.forecasts.every((item) => item.score === 0));
+  assert.ok(result.forecasts.every((item) => item.calibrationSamples >= 30));
+  assert.ok(result.forecasts.every((item) => item.historicalHitRate === 1));
 });
