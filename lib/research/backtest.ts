@@ -94,6 +94,7 @@ export function runResearchBacktest(
   const wallex = byTime(wallexCandles);
   const synchronizedTimes = [...bitpin.keys()].filter((time) => wallex.has(time)).sort((a, b) => a - b);
   const synchronized = synchronizedTimes.map((time) => ({ time, bitpin: bitpin.get(time)!, wallex: wallex.get(time)! }));
+  const indexByTime = new Map(synchronized.map((candle, index) => [candle.time, index]));
   const samples: BacktestSample[] = [];
   const lookback = 5;
 
@@ -101,6 +102,8 @@ export function runResearchBacktest(
     const current = synchronized[index];
     const past = synchronized[index - lookback];
     const previous = synchronized[index - 1];
+    const window = synchronized.slice(index - lookback, index + 1);
+    if (window.some((candle, offset) => offset > 0 && candle.time - window[offset - 1].time !== 60)) continue;
     if (!finitePositive(current.bitpin.close) || !finitePositive(past.bitpin.close) || !finitePositive(previous.bitpin.close)) continue;
 
     const momentumPct = (current.bitpin.close / past.bitpin.close - 1) * 100;
@@ -110,8 +113,10 @@ export function runResearchBacktest(
     const predictedReturnPct = Math.abs(momentumPct) >= minimumMomentumPct ? momentumPct : 0;
 
     for (const horizonMinutes of RESEARCH_HORIZONS_MINUTES) {
-      const futureIndex = index + horizonMinutes;
-      if (futureIndex >= synchronized.length) continue;
+      const futureIndex = indexByTime.get(current.time + horizonMinutes * 60);
+      if (futureIndex === undefined) continue;
+      const futureWindow = synchronized.slice(index, futureIndex + 1);
+      if (futureWindow.length !== horizonMinutes + 1 || futureWindow.some((candle, offset) => offset > 0 && candle.time - futureWindow[offset - 1].time !== 60)) continue;
       const futurePrice = synchronized[futureIndex].bitpin.close;
       if (!finitePositive(futurePrice)) continue;
       const actualReturnPct = (futurePrice / current.bitpin.close - 1) * 100;
