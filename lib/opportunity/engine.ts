@@ -1,9 +1,12 @@
 import type { Candle } from "../candles";
 import { DEFAULT_OPPORTUNITY_CONFIG, type OpportunityConfig, type OpportunityDecision } from "./config";
 import type { CandleDirection, ExternalReferencePrice, OpportunityAnalysis, OpportunityLevel, RiskLevel, TestResult } from "./types";
-import { quoteAgeMs } from "../market/quotes";
+
 
 const MINUTE_SECONDS = 60;
+function quoteAgeMs(fetchedAt: number | null | undefined, nowMs: number): number | null {
+  return typeof fetchedAt === "number" && Number.isFinite(fetchedAt) ? Math.max(0, nowMs - fetchedAt) : null;
+}
 
 function insufficient(threshold: number | null = null): TestResult {
   return { status: "INSUFFICIENT_DATA", actual: null, threshold };
