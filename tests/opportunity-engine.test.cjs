@@ -73,7 +73,7 @@ test("missing external price is insufficient data and does not consume weight", 
   const analysis = baseAnalysis(null);
   assert.equal(analysis.validation.external.status, "INSUFFICIENT_DATA");
   assert.equal(analysis.dataCompleteness, 80);
-  assert.equal(analysis.stabilityScore, 96.875);
+  assert.equal(analysis.stabilityScore, 77.5);
 });
 
 test("configured Wallex reference is honored by current reference validation", () => {
@@ -611,4 +611,40 @@ test("SELL BIAS is marked research-only and never enables an execution route", (
   const fs = require("node:fs");
   const component = fs.readFileSync("components/buy-sell-balance.tsx", "utf8");
   assert.match(component, /SELL BIAS · RESEARCH ONLY/);
+});
+
+
+test("missing validation evidence lowers Stability Score instead of inflating the available-only average", () => {
+  const history = candles(Array(30).fill("up"));
+  const analysis = analyzeOpportunity({
+    bitpinCandles: history,
+    wallexCandles: history,
+    currentPrices: {
+      bitpin: { price: 100000, fetchedAt: nowMs },
+      wallex: { price: 103000, fetchedAt: nowMs },
+    },
+    externalReference: { price: null, fetchedAt: null, provider: null, error: "missing" },
+    nowMs,
+  });
+  assert.equal(analysis.dataCompleteness, 80);
+  assert.equal(analysis.stabilityScore, 80);
+});
+
+test("a high partial score cannot produce an opportunity when a required validation fails", () => {
+  const history = candles(Array(30).fill("up"));
+  const analysis = analyzeOpportunity({
+    bitpinCandles: history,
+    wallexCandles: history,
+    currentPrices: {
+      bitpin: { price: 100000, fetchedAt: nowMs },
+      wallex: { price: 103000, fetchedAt: nowMs },
+    },
+    externalReference: { price: 100000, fetchedAt: nowMs, provider: "independent-reference", error: null },
+    nowMs,
+  });
+  assert.equal(analysis.validation.external.status, "FAILED");
+  assert.ok(analysis.stabilityScore >= 80);
+  assert.equal(analysis.eligibleForSignal, false);
+  assert.equal(analysis.opportunity, "NONE");
+  assert.equal(analysis.decision, "WATCH");
 });
