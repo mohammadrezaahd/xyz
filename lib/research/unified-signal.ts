@@ -127,7 +127,7 @@ export function buildUnifiedSignal(input: {
   if (direction === "BEARISH") blockers.push("Bearish directional evidence conflicts with the currently supported long spread route.");
   if (direction === "NEUTRAL") blockers.push("No sufficiently clear short-term direction.");
   const opportunityEligible = opportunity.eligibleForSignal && opportunity.decision === "BUY_CHEAP_SELL_EXPENSIVE" && opportunity.dataQuality.status === "READY";
-  const canTrade = opportunityEligible && direction === "BULLISH" && nearTerm.every((row) => row.direction === "BULLISH" && row.evidenceStrength !== "CONFLICT");
+  const canTrade = opportunityEligible && usableTrend?.direction !== "REVERSAL_WATCH" && direction === "BULLISH" && nearTerm.every((row) => row.direction === "BULLISH" && row.evidenceStrength !== "CONFLICT" && !row.conflictReasons.includes("The trend engine reports reversal risk."));
   const action: UnifiedAction = !usableForecast || !usableTrend ? "INSUFFICIENT_DATA" : canTrade ? "BUY_CHEAP_SELL_EXPENSIVE" : opportunityEligible ? "WAIT_FOR_CONFIRMATION" : "NO_TRADE";
   const evidenceStrength = hasConflict || direction === "CONFLICT" ? "CONFLICT" : !usableForecast ? "UNAVAILABLE" : Math.abs(score ?? 0) >= 45 ? "STRONG" : Math.abs(score ?? 0) >= 25 ? "MODERATE" : "WEAK";
   const summary = action === "BUY_CHEAP_SELL_EXPENSIVE"
