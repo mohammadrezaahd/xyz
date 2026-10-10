@@ -206,7 +206,9 @@ export function buildLiveForecast(
         ? "Historical comparison needs at least 30 comparable past outcomes for this direction or flat regime."
         : direction === "FLAT"
           ? "Historical flat-regime match rate: the share of comparable prior outcomes that stayed within the flat-return threshold."
-          : "Historical same-direction hit rate from prior comparable signals; not a guarantee.",
+          : historicalHitRate < 0.5
+            ? "Comparable prior signals matched this direction less than half the time; treat the directional score as weak evidence, not a trade signal."
+            : "Historical same-direction hit rate from prior comparable signals; not a guarantee.",
     };
   });
   return {
