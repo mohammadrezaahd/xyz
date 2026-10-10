@@ -1,0 +1,44 @@
+import { NextResponse } from "next/server";
+import { dedupeSort, type Candle } from "@/lib/candles";
+import { runResearchBacktest } from "@/lib/research/backtest";
+
+export const dynamic = "force-dynamic";
+export const maxDuration = 60;
+
+type CandleResponse = {
+  bitpin?: Candle[];
+  wallex?: Candle[];
+  errors?: string[];
+  fetchedAt?: number;
+  providers?: Record<string, string>;
+};
+
+export async function GET(request: Request) {
+  try {
+    const origin = new URL(request.url).origin;
+    const response = await fetch(new URL("/api/candles", origin), { cache: "no-store" });
+    const payload = await response.json().catch(() => null) as CandleResponse | null;
+    if (!response.ok || !payload) {
+      return NextResponse.json({ error: "Unable to load historical candles", upstreamStatus: response.status }, { status: 502 });
+    }
+
+    const bitpin = dedupeSort(payload.bitpin ?? []);
+    const wallex = dedupeSort(payload.wallex ?? []);
+    const cost = Number(process.env.RESEARCH_BACKTEST_ROUND_TRIP_COST_PCT ?? "0.2");
+    if (!Number.isFinite(cost) || cost < 0) {
+      return NextResponse.json({ error: "RESEARCH_BACKTEST_ROUND_TRIP_COST_PCT must be a non-negative percentage" }, { status: 500 });
+    }
+
+    const result = runResearchBacktest(bitpin, wallex, { costPerRoundTripPct: cost });
+    return NextResponse.json({
+      ok: true,
+      marketDataFetchedAt: payload.fetchedAt ?? null,
+      providerStatus: payload.providers ?? {},
+      providerErrors: payload.errors ?? [],
+      warning: "Research only. Results are historical, not a live prediction or guarantee. Configure RESEARCH_BACKTEST_ROUND_TRIP_COST_PCT to your actual round-trip fee/slippage assumptions before interpreting net results.",
+      ...result,
+    }, { headers: { "Cache-Control": "no-store" } });
+  } catch (error) {
+    return NextResponse.json({ ok: false, error: error instanceof Error ? error.message : "Research backtest failed" }, { status: 500 });
+  }
+}
