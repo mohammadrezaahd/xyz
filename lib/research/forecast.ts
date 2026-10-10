@@ -110,7 +110,9 @@ export function buildLiveForecast(
   wallexCandles: Candle[],
   nowMs = Date.now(),
 ): ForecastResult {
-  const pairs = makePairs(bitpinCandles, wallexCandles);
+  const currentMinuteStart = Math.floor(nowMs / 60_000) * 60;
+  // Exclude the currently forming minute; predictions must use closed candles only.
+  const pairs = makePairs(bitpinCandles, wallexCandles).filter((pair) => pair.time < currentMinuteStart);
   const latest = pairs[pairs.length - 1];
   const latestAgeSeconds = latest ? Math.max(0, Math.floor(nowMs / 1000) - (latest.time + 60)) : null;
   const gapAtTail = pairs.length < 31 || pairs.slice(-31).some((pair, offset, rows) => offset > 0 && pair.time - rows[offset - 1].time !== 60);
