@@ -70,7 +70,7 @@ const directionLabel: Record<ForecastRow["direction"], string> = {
   INSUFFICIENT_DATA: "Insufficient data",
 };
 
-export function MarketForecastPanel() {
+export function MarketForecastPanel({ mode = "summary" }: { mode?: "summary" | "details" }) {
   const [forecast, setForecast] = useState<ForecastPayload | null>(null);
   const [backtest, setBacktest] = useState<BacktestPayload | null>(null);
   const [regimes, setRegimes] = useState<RegimePayload | null>(null);
@@ -122,33 +122,33 @@ export function MarketForecastPanel() {
 
     {error && <div className="errorBanner" role="alert"><strong>Forecast unavailable</strong><span>{error}</span></div>}
 
-    <section className="forecastMetaGrid">
+    {mode === "details" && <section className="forecastMetaGrid">
       <div className="forecastMeta"><span>Model</span><strong>{forecast?.model ?? "—"}</strong></div>
       <div className="forecastMeta"><span>Synchronized candles</span><strong>{forecast?.synchronizedCandles?.toLocaleString("en-US") ?? "—"}</strong></div>
       <div className="forecastMeta"><span>Latest candle age</span><strong>{forecast?.candleAgeSeconds == null ? "—" : `${forecast.candleAgeSeconds}s`}</strong></div>
       <div className="forecastMeta"><span>Last calculation</span><strong>{forecast?.generatedAt ? new Date(forecast.generatedAt).toLocaleTimeString("en-US") : "—"}</strong></div>
-    </section>
+    </section>}
 
-    <section className="forecastCards" aria-label="Forecast by horizon">
+    <section className={`forecastCards forecastCards--${mode}`} aria-label="Forecast by horizon">
       {(forecast?.forecasts ?? []).map((item) => <article className="forecastCard" key={item.horizonMinutes}>
-        <div className="forecastCardTop"><span>{item.horizonMinutes}-minute horizon</span><span className={`forecastState forecastState--${item.dataStatus.toLowerCase()}`}>{item.dataStatus.replace(/_/g, " ")}</span><span className={`forecastState ${item.historicalHitRate === null ? "forecastState--insufficient_data" : item.direction !== "FLAT" && item.historicalHitRate < 0.5 ? "forecastState--weak" : "forecastState--evaluated"}`}>{item.historicalHitRate === null ? "NOT CALIBRATED" : item.direction === "FLAT" ? "FLAT REGIME MATCH" : item.historicalHitRate < 0.5 ? "WEAK HISTORICAL SUPPORT" : "HISTORICAL SUPPORT"}</span></div>
+        <div className="forecastCardTop"><span>{item.horizonMinutes}-minute horizon</span>{mode === "details" && <><span className={`forecastState forecastState--${item.dataStatus.toLowerCase()}`}>{item.dataStatus.replace(/_/g, " ")}</span><span className={`forecastState ${item.historicalHitRate === null ? "forecastState--insufficient_data" : item.direction !== "FLAT" && item.historicalHitRate < 0.5 ? "forecastState--weak" : "forecastState--evaluated"}`}>{item.historicalHitRate === null ? "NOT CALIBRATED" : item.direction === "FLAT" ? "FLAT REGIME MATCH" : item.historicalHitRate < 0.5 ? "WEAK HISTORICAL SUPPORT" : "HISTORICAL SUPPORT"}</span></>}</div>
         <h3>{directionLabel[item.direction]}</h3>
         <div className="forecastScore"><strong>{number(item.score, 1)}</strong><span>/ 100 directional score</span></div>
         <div className="forecastMeter" role="img" aria-label={item.score == null ? "No directional score" : `Directional score ${item.score}`}><span style={{ left: `${((item.score ?? 0) + 100) / 2}%` }} /></div>
-        <div className="forecastMetricRows">
+        {mode === "details" ? <div className="forecastMetricRows">
           <div><span>Historical outcome match rate</span><strong>{rate(item.historicalHitRate)}</strong></div>
           <div><span>Comparable outcomes</span><strong>{item.calibrationSamples}</strong></div>
           <div><span>Directional return estimate</span><strong>{pct(item.expectedReturnPct)}</strong></div>
           <div><span>15m realized volatility</span><strong>{pct(item.realizedVolatility15Pct)}</strong></div>
           <div><span>5m volume-weighted pressure</span><strong>{pct(item.volumePressure5Pct)}</strong></div>
           <div><span>Momentum acceleration</span><strong>{pct(item.momentumAccelerationPct)}</strong></div>
-        </div>
-        <p className="forecastExplanation">{item.explanation}</p>
+        </div> : <div className="forecastSummaryStats"><div><span>Historical match</span><strong>{rate(item.historicalHitRate)}</strong></div><div><span>Expected directional return</span><strong>{pct(item.expectedReturnPct)}</strong></div><div><span>Comparable samples</span><strong>{item.calibrationSamples}</strong></div></div>}
+        {mode === "details" && <p className="forecastExplanation">{item.explanation}</p>}
       </article>)}
       {!loading && !forecast?.forecasts?.length && <div className="emptyState">No forecast output is available yet.</div>}
     </section>
 
-    <section className="forecastSection">
+    {mode === "details" && <section className="forecastSection">
       <div className="sectionHeader"><div><div className="sectionEyebrow">OUT-OF-SAMPLE VALIDATION</div><h2>Historical model performance</h2></div><span className="sectionNote">Chronological holdout</span></div>
       {backtest?.metrics ? <div className="forecastTableWrap"><table className="forecastTable">
         <thead><tr><th>Horizon</th><th>Test samples</th><th>Model direction accuracy</th><th>Last-candle baseline</th><th>Mean absolute error</th><th>Net strategy return</th><th>Status</th></tr></thead>
@@ -186,8 +186,8 @@ export function MarketForecastPanel() {
         <p><strong>Stability is not direction.</strong> The regime table tests whether stored Stability Score bands are associated with smaller subsequent price moves and ranges; small samples are not reliable evidence.</p>
         <p><strong>No data, no signal.</strong> Stale candles, missing contiguous windows, or insufficient history must prevent a live directional call.</p>
       </div>
-    </section>
-    {forecast?.warning && <p className="forecastFootnote">{forecast.warning}</p>}
-    {forecast?.providerErrors && forecast.providerErrors.length > 0 && <div className="errorBanner"><strong>Provider diagnostics</strong><span>{forecast.providerErrors.join(" · ")}</span></div>}
+    </section>}
+    {mode === "details" && forecast?.warning && <p className="forecastFootnote">{forecast.warning}</p>}
+    {mode === "details" && forecast?.providerErrors && forecast.providerErrors.length > 0 && <div className="errorBanner"><strong>Provider diagnostics</strong><span>{forecast.providerErrors.join(" · ")}</span></div>}
   </div>;
 }
