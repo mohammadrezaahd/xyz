@@ -349,7 +349,7 @@ export function OpportunityPanel({
 
         <div className="opportunityGroup tests" ref={testsRef}>
           <h3>Stability Tests</h3>
-          <div className="candleDiagnostics"><div>Bitpin candles received: <b>{analysis.candles.bitpinReceived}</b></div><div>Wallex candles received: <b>{analysis.candles.wallexReceived}</b></div><div>Synchronized closed pairs: <b>{analysis.candles.synchronizedAvailable}</b></div><div>Pairs used for analysis: <b>{analysis.candles.synchronizedUsed}</b></div><div>Minimum required: <b>{analysis.minimumRequiredCandlePairs}</b></div><p>Directional evidence requires at least {analysis.minimumRequiredCandlePairs} synchronized closed candle pairs.</p><strong>{analysis.candles.synchronizedAvailable} of {analysis.minimumRequiredCandlePairs} required pairs available</strong></div>
+          <div className="candleDiagnostics"><div>Bitpin candles received: <b>{analysis.candles.bitpinReceived}</b></div><div>Wallex candles received: <b>{analysis.candles.wallexReceived}</b></div><div>Synchronized closed pairs available: <b>{analysis.candles.synchronizedAvailable}</b></div><div>Directional pairs used: <b>{analysis.candles.synchronizedUsed}</b></div><div>Stability pairs evaluated: <b>{analysis.candles.stabilitySelected.length}</b></div><div>Directional minimum required: <b>{analysis.minimumRequiredCandlePairs}</b></div><p>Directional evidence requires at least {analysis.minimumRequiredCandlePairs} synchronized closed candle pairs.</p><strong>{analysis.candles.synchronizedAvailable} of {analysis.minimumRequiredCandlePairs} required pairs available</strong></div>
           {testRows.map((test) => (
             <TestRow
               key={test.id}
