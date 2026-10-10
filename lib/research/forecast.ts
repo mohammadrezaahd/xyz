@@ -179,7 +179,7 @@ export function buildLiveForecast(
   return {
     generatedAt: new Date(nowMs).toISOString(),
     model: "multi-feature-regime-v1",
-    warning: "Research-only experimental model. A directional score is not a probability. Calibrated rates are shown only with at least 30 prior comparable outcomes. No live-trading recommendation.",
+    warning: "Research-only experimental model. A directional score is not a probability. Historical hit rates are shown only with at least 30 prior comparable outcomes. No live-trading recommendation.",
     synchronizedCandles: pairs.length,
     latestCandleTime: latest?.time ?? null,
     candleAgeSeconds: latestAgeSeconds,
