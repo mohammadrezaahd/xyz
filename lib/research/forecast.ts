@@ -1,6 +1,6 @@
 import type { Candle } from "../candles";
 
-export const FORECAST_HORIZONS = [5, 15, 30] as const;
+export const FORECAST_HORIZONS = [5, 15, 30, 60] as const;
 export type ForecastHorizon = (typeof FORECAST_HORIZONS)[number];
 export type ForecastDirection = "UP" | "DOWN" | "FLAT" | "INSUFFICIENT_DATA";
 
@@ -134,18 +134,26 @@ function featureAt(pairs: Pair[], index: number): FeatureRow | null {
             { value: venueAgreement, weight: 0.16 },
             { value: volumePressure5Pct === null ? 0 : Math.tanh(volumePressure5Pct / 0.02), weight: volumePressure5Pct === null ? 0 : 0.12 },
           ]
-        : [
+        : horizon === 30
+        ? [
             { value: Math.tanh(m5 / 0.04), weight: 0.08 },
             { value: Math.tanh(m15 / 0.08), weight: 0.25 },
             { value: Math.tanh(m30 / 0.15), weight: 0.35 },
             { value: Math.tanh(momentumAccelerationPct / 0.02), weight: 0.05 },
             { value: venueAgreement, weight: 0.17 },
             { value: volumePressure5Pct === null ? 0 : Math.tanh(volumePressure5Pct / 0.02), weight: volumePressure5Pct === null ? 0 : 0.10 },
+          ]
+        : [
+            { value: Math.tanh(m15 / 0.08), weight: 0.30 },
+            { value: Math.tanh(m30 / 0.15), weight: 0.42 },
+            { value: venueAgreement, weight: 0.18 },
+            { value: Math.tanh(momentumAccelerationPct / 0.02), weight: 0.05 },
+            { value: volumePressure5Pct === null ? 0 : Math.tanh(volumePressure5Pct / 0.02), weight: volumePressure5Pct === null ? 0 : 0.05 },
           ];
     const totalWeight = components.reduce((sum, item) => sum + item.weight, 0);
     return Math.max(-100, Math.min(100, components.reduce((sum, item) => sum + item.value * item.weight, 0) / totalWeight * 100));
   };
-  const scoresByHorizon: Record<ForecastHorizon, number> = { 5: scoreFor(5), 15: scoreFor(15), 30: scoreFor(30) };
+  const scoresByHorizon: Record<ForecastHorizon, number> = { 5: scoreFor(5), 15: scoreFor(15), 30: scoreFor(30), 60: scoreFor(60) };
   return { time: current.time, score: scoresByHorizon[15], scoresByHorizon, momentum5Pct: m5, momentum15Pct: m15, momentum30Pct: m30, volatility15Pct, venueAgreement, momentumAccelerationPct, volumePressure5Pct };
 }
 
