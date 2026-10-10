@@ -602,8 +602,7 @@ test("provider responses capped at ten candles are diagnosed instead of presente
   const route = fs.readFileSync("lib/candle-history.ts", "utf8");
   const component = fs.readFileSync("components/buy-sell-balance.tsx", "utf8");
   assert.match(route, /LIMITED_OR_INCOMPLETE/);
-  assert.match(route, /fetchWallexChunks\(chunks, async \(chunk\)/);
-  assert.match(route, /initialDays = Math\.max\(20/);
+  assert.match(route, /const historicalChunks = await Promise\.all/);
   assert.match(component, /PROVIDER LIMITATION/);
   assert.match(component, /Historical candle provider is returning only 10 or fewer candles/);
 });
