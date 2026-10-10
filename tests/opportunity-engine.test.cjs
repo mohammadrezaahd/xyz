@@ -22,7 +22,7 @@ function candles(directions, movePct = 0.1, start = 1) {
         ? 1 + movePct / 100
         : direction === "down"
           ? 1 - movePct / 100
-          : 1 + 0.01 / 100;
+          : direction === "neutral" ? 1 : 1 + 0.01 / 100;
 
     return candle(
       (start + index) * 60,
@@ -287,7 +287,7 @@ test("selected candle diagnostics preserve the exact bullish classification", ()
 
 test("red candle below the minimum movement remains NEUTRAL in diagnostics", () => {
   const bitpin = candles(Array(10).fill("up"));
-  bitpin[0] = candle(60, 270000, 269950);
+  bitpin[0] = candle(60, 270000, 269998);
 
   const analysis = analyzeOpportunity({
     bitpinCandles: bitpin,
@@ -298,7 +298,7 @@ test("red candle below the minimum movement remains NEUTRAL in diagnostics", () 
   });
 
   assert.equal(analysis.candles.selected[0].bitpin.direction, "NEUTRAL");
-  assert.ok(analysis.candles.selected[0].bitpin.movementPct < 0.05);
+  assert.ok(analysis.candles.selected[0].bitpin.movementPct < 0.001);
 });
 
 test("green candle below the minimum movement remains NEUTRAL in diagnostics", () => {
