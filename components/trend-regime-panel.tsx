@@ -54,7 +54,7 @@ const rate = (value: number | null | undefined) =>
 const number = (value: number | null | undefined, digits = 1) =>
   value == null || !Number.isFinite(value) ? "—" : value.toLocaleString("en-US", { maximumFractionDigits: digits });
 
-export function TrendRegimePanel() {
+export function TrendRegimePanel({ mode = "summary" }: { mode?: "summary" | "details" }) {
   const [data, setData] = useState<TrendPayload | null>(null);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -122,7 +122,7 @@ export function TrendRegimePanel() {
       <small>این برچسب‌ها نتیجهٔ قواعد قابل توضیح‌اند، نه احتمال قطعی یا توصیهٔ تضمینی معامله. {data?.warning ?? ""}</small>
     </section>
 
-    <section className="forecastMetaGrid" aria-label="شاخص‌های روند">
+    {mode === "details" && <section className="forecastMetaGrid" aria-label="شاخص‌های روند">
       <div className="forecastMeta"><span>قیمت Bitpin</span><strong>{number(data?.price, 0)}</strong></div>
       <div className="forecastMeta"><span>امتیاز جهت</span><strong>{data?.score == null ? "—" : number(data.score, 1) + " / 100"}</strong></div>
       <div className="forecastMeta"><span>کندل‌های هم‌زمان</span><strong>{data?.synchronizedCandles?.toLocaleString("en-US") ?? "—"}</strong></div>
@@ -151,7 +151,7 @@ export function TrendRegimePanel() {
       <small>تغییر جهت با رأی‌گیری سادهٔ افق‌های ۵/۱۵/۳۰ دقیقه‌ای انجام نمی‌شود؛ روند با بازده چندبازه‌ای، ساختار بازار و پایداری در پنج بررسی اخیر ارزیابی می‌شود.</small>
     </section>
 
-    <section className="chartSection" aria-labelledby="trend-backtest-title">
+    {mode === "details" && <section className="chartSection" aria-labelledby="trend-backtest-title">
       <div className="sectionHeader">
         <div><div className="sectionEyebrow">CHRONOLOGICAL HOLDOUT</div><h2 id="trend-backtest-title">اعتبارسنجی تاریخی روند</h2></div>
         <span className="sectionNote">هزینه رفت‌وبرگشت: {pct(data?.backtest?.costPerRoundTripPct, 2)}</span>
@@ -173,6 +173,6 @@ export function TrendRegimePanel() {
       <p style={{ padding: "0 20px", color: "var(--color-text-muted)", fontSize: 11, lineHeight: 1.7 }}>
         آزمون فقط ۲۰٪ پایانی تاریخچه را می‌سنجد و هر پیش‌بینی تنها از کندل‌های قبلی استفاده می‌کند. نمونه‌ها هم‌پوشانی دارند؛ «میانگین خالص هر سیگنال» بازده مرکب سرمایه نیست. برای نتیجه‌گیری قابل اتکا، آزمون باید روی چندین دوره و وضعیت بازار تکرار شود.
       </p>
-    </section>
+    </section>}
   </section>;
 }
