@@ -32,6 +32,22 @@ test("backtest never reports success when there are not enough synchronized cand
   assert.ok(result.metrics.every((metric) => metric.testDirectionalAccuracy === null));
 });
 
+test("backtest excludes windows crossing missing minute candles", () => {
+  const complete = series(120);
+  const gapTime = complete[55].time;
+  const bitpin = complete.filter((candle) => candle.time !== gapTime);
+  const wallex = complete.filter((candle) => candle.time !== gapTime);
+  const result = runResearchBacktest(bitpin, wallex);
+  for (const sample of result.samples) {
+    for (let offset = 1; offset <= 5; offset += 1) {
+      assert.ok(bitpin.some((candle) => candle.time === sample.timestamp - offset * 60));
+    }
+    for (let offset = 1; offset <= sample.horizonMinutes; offset += 1) {
+      assert.ok(bitpin.some((candle) => candle.time === sample.timestamp + offset * 60));
+    }
+  }
+});
+
 test("backtest validates transaction cost assumptions", () => {
   assert.throws(() => runResearchBacktest(series(60), series(60), { costPerRoundTripPct: -1 }), /non-negative/);
 });
