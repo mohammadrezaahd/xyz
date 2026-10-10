@@ -154,6 +154,7 @@ export default function Home() {
 
       {view === "overview" && <section className="dashboardOverview">
         <TrendRegimePanel mode="compact" />
+        <MarketForecastPanel mode="compact" />
         <section className="dashboardPrices" aria-label="Current market prices">
           <div className="dashboardPrice"><span>BITPIN</span><strong>{price(prices?.bitpin)}</strong><small>TOMAN</small></div>
           <div className="dashboardSpread"><span>SPREAD</span><strong>{percent(analysis.spread.percent)}</strong></div>
