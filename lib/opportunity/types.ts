@@ -33,6 +33,8 @@ export type CandleSyncDiagnostics = {
   synchronizedUsed: number;
   minimumRequired: number;
   lookbackLimit: number;
+  stabilityLookback: number;
+  stabilitySelected: SelectedCandlePair[];
   currentCandleExcluded: boolean;
 };
 
