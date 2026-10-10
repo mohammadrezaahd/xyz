@@ -97,3 +97,35 @@
 .regimeHorizon h3 span{color:var(--color-text-muted);font-size:11px;font-weight:400}
 
 .forecastState--weak{color:var(--color-warning);border-color:rgba(242,190,92,.38);background:rgba(242,190,92,.06)}
+
+/* Multi-trade leveraged P&L calculator */
+.calculatorWorkspace{display:grid;gap:18px}
+.calculatorSettings{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px;padding:16px;border:1px solid var(--color-border);border-radius:13px;background:var(--color-surface)}
+.calculatorSettings label,.calculatorTradeFields label{display:grid;align-content:start;gap:7px;color:var(--color-text-secondary);font-size:11px;font-weight:700}
+.calculatorSettings input,.calculatorTradeFields input,.calculatorTradeFields select{width:100%;min-width:0;min-height:42px;padding:10px 11px;border:1px solid var(--color-border-strong);border-radius:8px;background:var(--color-surface-raised);color:var(--color-text);font:12px var(--mono)}
+.calculatorSettings small,.calculatorTradeFields small{color:var(--color-text-muted);font-size:10px;line-height:1.5;font-weight:400}
+.calculatorSummary{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px}
+.calculatorSummary article{display:grid;gap:8px;min-width:0;padding:17px;border:1px solid var(--color-border);border-radius:12px;background:var(--color-surface)}
+.calculatorSummary article>span,.calculatorTradeMeta span,.calculatorTradeResult span{color:var(--color-text-muted);font-size:11px}
+.calculatorSummary strong{overflow-wrap:anywhere;font:600 clamp(17px,2vw,24px) var(--mono)}
+.calculatorSummary strong small{font:10px var(--mono);color:var(--color-text-muted)}
+.calculatorSummary em,.calculatorTradeResult em{font:11px var(--mono);font-style:normal;color:var(--color-text-secondary)}
+.calculatorPositive strong,.calculatorPositive em,.calculatorTradeResult.isProfit>div:first-child strong,.calculatorTradeResult.isProfit>div:first-child em{color:var(--color-positive)}
+.calculatorNegative strong,.calculatorNegative em,.calculatorTradeResult.isLoss>div:first-child strong,.calculatorTradeResult.isLoss>div:first-child em{color:var(--color-negative)}
+.calculatorTradesHeader{display:flex;align-items:center;justify-content:space-between;gap:14px;margin-top:8px}
+.calculatorTradesHeader h3{margin:0;font-size:18px}.calculatorTradesHeader p{margin:6px 0 0;color:var(--color-text-secondary);font-size:11px;line-height:1.5}
+.calculatorTradeList{display:grid;gap:12px}
+.calculatorTrade{display:grid;gap:14px;min-width:0;padding:17px;border:1px solid var(--color-border);border-radius:13px;background:var(--color-surface)}
+.calculatorTradeTitle{display:flex;align-items:center;justify-content:space-between;gap:12px}
+.calculatorTradeTitle>div{display:grid;gap:5px}.calculatorTradeTitle span{color:var(--color-accent);font:10px var(--mono);letter-spacing:.1em}.calculatorTradeTitle strong{font-size:14px}
+.calculatorRemove{padding:7px 10px;border:1px solid var(--color-border);border-radius:7px;background:transparent;color:var(--color-text-secondary);font-size:10px}.calculatorRemove:disabled{opacity:.3;cursor:not-allowed}
+.calculatorTradeFields{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px}
+.calculatorTradeMeta{display:flex;flex-wrap:wrap;gap:8px 22px;padding:11px;border-radius:8px;background:rgba(255,255,255,.025)}
+.calculatorTradeMeta span{display:flex;flex-wrap:wrap;gap:7px;align-items:center}.calculatorTradeMeta strong{color:var(--color-text);font:11px var(--mono)}
+.calculatorTradeResult{display:grid;grid-template-columns:1.2fr .8fr 1fr;gap:12px;padding:12px;border:1px solid var(--color-border);border-radius:9px;background:var(--color-surface-raised)}
+.calculatorTradeResult>div{display:grid;align-content:start;gap:6px;min-width:0}.calculatorTradeResult strong{overflow-wrap:anywhere;font:600 12px var(--mono)}
+.calculatorLossNote{margin:0;padding:9px 11px;border:1px solid rgba(255,107,114,.25);border-radius:8px;color:var(--color-negative);background:rgba(255,107,114,.05);font-size:11px}
+.calculatorDisclaimer{margin:0;color:var(--color-text-muted);font-size:11px;line-height:1.7}
+@media(max-width:1050px){.calculatorSettings,.calculatorTradeFields{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(max-width:650px){.calculatorSummary{grid-template-columns:1fr}.calculatorTradesHeader{align-items:flex-start;flex-direction:column}.calculatorTradesHeader button{width:100%}.calculatorTradeResult{grid-template-columns:1fr}.calculatorTradeMeta{display:grid;grid-template-columns:1fr 1fr}.calculatorTrade{padding:13px}}
+@media(max-width:400px){.calculatorSettings,.calculatorTradeFields{grid-template-columns:1fr}.calculatorTradeMeta{grid-template-columns:1fr}}
