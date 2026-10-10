@@ -91,3 +91,7 @@
 .forecastFootnote{margin:0}
 @media(max-width:1050px){.forecastCards{grid-template-columns:1fr}.forecastMetaGrid{grid-template-columns:repeat(2,minmax(0,1fr))}.forecastNotes{grid-template-columns:1fr}}
 @media(max-width:650px){.forecastHero{flex-direction:column}.forecastMetaGrid{grid-template-columns:1fr 1fr}.forecastMeta{padding:11px}.forecastMeta strong{font-size:11px}.forecastSection{padding:13px}}
+
+.regimeHorizon{margin-top:18px}
+.regimeHorizon h3{display:flex;justify-content:space-between;align-items:baseline;gap:12px;margin:0 0 8px;font-size:14px}
+.regimeHorizon h3 span{color:var(--color-text-muted);font-size:11px;font-weight:400}
