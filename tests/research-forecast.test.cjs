@@ -31,6 +31,17 @@ test("forecast reports score separately from empirical probability", () => {
     "each horizon must calculate its own score rather than reuse one shared score");
 });
 
+test("bearish forecast reports a signed negative market-return estimate", () => {
+  const bitpin = candles(240, (i) => 100 - i * 0.2);
+  const wallex = candles(240, (i) => 101 - i * 0.2);
+  const result = buildLiveForecast(bitpin, wallex, (1_800_000_000 + 239 * 60 + 60) * 1000);
+  for (const item of result.forecasts) {
+    assert.equal(item.direction, "DOWN");
+    assert.ok(item.expectedReturnPct !== null && item.expectedReturnPct < 0,
+      "expectedReturnPct is a signed price-return estimate, not a direction-adjusted profit proxy");
+  }
+});
+
 test("forecast rejects stale candles and gaps in the latest contiguous window", () => {
   const full = candles(100);
   const gapTime = full[95].time;
