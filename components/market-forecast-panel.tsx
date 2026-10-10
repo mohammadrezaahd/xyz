@@ -110,6 +110,32 @@ export function MarketForecastPanel({ mode = "summary" }: { mode?: "summary" | "
     return () => window.clearInterval(timer);
   }, [load]);
 
+  const forecastRows = forecast?.forecasts ?? [];
+  const usableRows = forecastRows.filter((item) => item.dataStatus === "READY" && item.direction !== "INSUFFICIENT_DATA");
+  const upCount = usableRows.filter((item) => item.direction === "UP").length;
+  const downCount = usableRows.filter((item) => item.direction === "DOWN").length;
+  const direction = upCount >= 2 ? "UP" : downCount >= 2 ? "DOWN" : "MIXED";
+  const directionalRows = usableRows.filter((item) => item.direction === direction);
+  const freshAndAligned = forecast?.candleAgeSeconds != null && forecast.candleAgeSeconds <= 180 && usableRows.length >= 2 && direction !== "MIXED";
+  const enoughComparableOutcomes = directionalRows.length >= 2 && directionalRows.every((item) => item.calibrationSamples >= 30 && item.historicalHitRate !== null);
+  const historicalSupport = directionalRows.filter((item) => item.historicalHitRate != null && item.historicalHitRate >= 0.5).length >= 2;
+  const signedReturnSupport = directionalRows.filter((item) => item.expectedReturnPct != null && (direction === "UP" ? item.expectedReturnPct > 0 : item.expectedReturnPct < 0)).length >= 2;
+  const evaluatedBacktests = (backtest?.metrics ?? []).filter((item) => item.testSampleStatus === "EVALUATED" && item.testSamples >= 100);
+  const validatedEdge = evaluatedBacktests.filter((item) => item.testNetStrategyReturnPct != null && item.testNetStrategyReturnPct > 0 && item.testDirectionalAccuracy != null && item.testBaselineAccuracy != null && item.testDirectionalAccuracy > item.testBaselineAccuracy).length >= 2;
+  const forecastCanSupportTrade = Boolean(freshAndAligned && enoughComparableOutcomes && historicalSupport && signedReturnSupport && validatedEdge);
+  const forecastDirectionLabel = direction === "UP" ? "صعودی" : direction === "DOWN" ? "نزولی" : "نامشخص";
+  const summaryReason = !freshAndAligned
+    ? "دادهٔ تازه یا توافق کافی بین افق‌ها وجود ندارد."
+    : !enoughComparableOutcomes
+      ? "نمونه‌های تاریخی قابل‌مقایسه برای تأیید جهت کافی نیستند."
+      : !historicalSupport
+        ? "نرخ تطابق تاریخی در افق‌های هم‌جهت به ۵۰٪ نمی‌رسد."
+        : !signedReturnSupport
+          ? "بازده مورد انتظارِ علامت‌دار با جهت مدل هم‌راستا نیست."
+          : !validatedEdge
+            ? "آزمون خارج از نمونه هنوز برتری مثبت پس از هزینه‌ها نسبت به خط مبنا نشان نداده است."
+            : "هم‌جهتی، بازده تاریخی و آزمون پس از هزینه‌ها از بررسی بیشتر این وضعیت پشتیبانی می‌کنند؛ تضمین معامله نیست.";
+
   return <div className="forecastWorkspace">
     <section className="forecastHero">
       <div className="forecastHeroCopy">
@@ -121,6 +147,13 @@ export function MarketForecastPanel({ mode = "summary" }: { mode?: "summary" | "
     </section>
 
     {error && <div className="errorBanner" role="alert"><strong>Forecast unavailable</strong><span>{error}</span></div>}
+
+    {mode === "summary" && <section className="forecastDecision forecastTakeaway" aria-live="polite">
+      <div className="sectionEyebrow">FORECAST TAKEAWAY</div>
+      <div className="forecastDecisionTop"><h2>{forecastDirectionLabel} · {forecastCanSupportTrade ? "بررسی موقعیت" : "فعلاً معامله نکن"}</h2><span className={`forecastVerdict ${forecastCanSupportTrade ? "forecastVerdict--wait" : "forecastVerdict--down"}`}>{forecastCanSupportTrade ? "VALIDATION PASSED" : "NO TRADE"}</span></div>
+      <p>{summaryReason}</p>
+      <small>جهت مدل پیش‌بینی است، نه احتمال موفقیت. تا وقتی برتری خارج از نمونه پس از هزینه‌ها تأیید نشده، نتیجه «عدم معامله» است.</small>
+    </section>}
 
     {mode === "details" && <section className="forecastMetaGrid">
       <div className="forecastMeta"><span>Model</span><strong>{forecast?.model ?? "—"}</strong></div>
