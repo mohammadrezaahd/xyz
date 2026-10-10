@@ -104,7 +104,7 @@ export function MarketForecastPanel() {
 
   useEffect(() => {
     void load();
-    const timer = window.setInterval(() => void load(true), 15000);
+    const timer = window.setInterval(() => void load(true), 60000);
     return () => window.clearInterval(timer);
   }, [load]);
 
