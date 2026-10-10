@@ -156,8 +156,10 @@ export function analyzeOpportunity({
   ] as const;
   const availablePoints = weights.reduce((sum, [result, weight]) => sum + (result.status === "INSUFFICIENT_DATA" ? 0 : weight), 0);
   const earnedPoints = weights.reduce((sum, [result, weight], index) => sum + (result.status === "SUCCESS" ? (index === 5 && result.actual !== null ? result.actual : weight) : result.status === "ACCEPTABLE" && result.actual !== null ? (index === 5 ? result.actual : result.actual * weight) : 0), 0);
-  const dataCompleteness = round(availablePoints);
-  const stabilityScore = availablePoints ? round(Math.min(100, Math.max(0, earnedPoints / availablePoints * 100))) : 0;
+  const totalConfiguredPoints = weights.reduce((sum, [, weight]) => sum + weight, 0);
+  const dataCompleteness = totalConfiguredPoints > 0 ? round(availablePoints / totalConfiguredPoints * 100) : 0;
+  // Missing checks count as zero evidence instead of disappearing from the denominator.
+  const stabilityScore = totalConfiguredPoints > 0 ? round(Math.min(100, Math.max(0, earnedPoints / totalConfiguredPoints * 100))) : 0;
   const qualityMultiplier = directional.agreement !== null && directional.participation !== null ? (directional.agreement + directional.participation) / 2 : null;
   const bullishPairCount = pairs.filter((pair) => classifyCandle(pair.bitpin, config.minCandleMovePct).direction === "BULLISH" && classifyCandle(pair.wallex, config.minCandleMovePct).direction === "BULLISH").length;
   const bearishPairCount = pairs.filter((pair) => classifyCandle(pair.bitpin, config.minCandleMovePct).direction === "BEARISH" && classifyCandle(pair.wallex, config.minCandleMovePct).direction === "BEARISH").length;
@@ -182,12 +184,14 @@ export function analyzeOpportunity({
   const requiredDataMissing = dataQualityReasons.length > 0;
   const invalidTarget = safeTarget === null || bitpinPrice === null || safeTarget <= bitpinPrice || (bitpinPrice * (1 + totalCostPct / 100) > safeTarget);
   const negativeEdge = netPct === null || expectedNetProfit === null || netPct <= config.executionCosts.minimumNetEdgePct || expectedNetProfit < config.executionCosts.minimumAbsoluteProfit;
+  const failedRequiredValidation = [externalValidation, wallexAboveBitpin, spreadTest, candleAlignment, bitpinBullish, wallexBullish, targetViability].some((result) => result.status === "FAILED");
   let decision: OpportunityDecision = "WATCH"; let decisionReason = "Evidence is available but the route is not yet eligible.";
   if (stale) { decision = "NO_TRADE_STALE_QUOTE"; decisionReason = "A required market or external reference quote is stale."; }
   else if (requiredDataMissing) { decision = "NO_TRADE_INSUFFICIENT_DATA"; decisionReason = "Required reference price, candle history, or directional participation is incomplete."; }
   else if (wallexPrice !== null && bitpinPrice !== null && wallexPrice <= bitpinPrice) { decision = "NO_TRADE_DIRECTION_CONFLICT"; decisionReason = "Wallex is not richer than Bitpin for the supported long spread route."; }
   else if (invalidTarget) { decision = "NO_TRADE_INVALID_TARGET"; decisionReason = "The fee-adjusted target is not strictly above entry and break-even."; }
   else if (negativeEdge) { decision = "NO_TRADE_NEGATIVE_EDGE"; decisionReason = "Expected profit after fees and configured execution buffers is below the minimum."; }
+  else if (failedRequiredValidation) { decision = "WATCH"; decisionReason = "One or more required validation checks failed; a high partial score cannot override failed evidence."; }
   else if (stabilityScore < config.opportunityThresholds.moderate) { decision = "WATCH"; decisionReason = "The route is economic but stability evidence is below the activation threshold."; }
   else { decision = "BUY_CHEAP_SELL_EXPENSIVE"; decisionReason = "The long spread route passes data-quality, direction, target, and economic gates."; }
   const eligibleForSignal = decision === "BUY_CHEAP_SELL_EXPENSIVE";
