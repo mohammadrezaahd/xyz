@@ -44,6 +44,10 @@ type BacktestMetric = {
   testWinRate: number | null;
 };
 
+type RegimeBand = { label: string; samples: number; meanAbsoluteReturnPct: number | null; medianAbsoluteReturnPct: number | null; meanFutureRangePct: number | null; directionalMoveRate: number | null };
+type RegimeHorizon = { horizonMinutes: number; matchedObservations: number; bands: RegimeBand[] };
+type RegimePayload = { ok: boolean; error?: string; observationCount?: number; usableObservationCount?: number; matchedObservationCount?: number; interpretation?: string; horizons?: RegimeHorizon[] };
+
 type BacktestPayload = {
   ok: boolean;
   error?: string;
@@ -67,6 +71,7 @@ const directionLabel: Record<ForecastRow["direction"], string> = {
 export function MarketForecastPanel() {
   const [forecast, setForecast] = useState<ForecastPayload | null>(null);
   const [backtest, setBacktest] = useState<BacktestPayload | null>(null);
+  const [regimes, setRegimes] = useState<RegimePayload | null>(null);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState("");
@@ -74,17 +79,20 @@ export function MarketForecastPanel() {
   const load = useCallback(async (silent = false) => {
     if (silent) setRefreshing(true); else setLoading(true);
     try {
-      const [forecastResponse, backtestResponse] = await Promise.all([
+      const [forecastResponse, backtestResponse, regimesResponse] = await Promise.all([
         fetch("/api/research/forecast", { cache: "no-store" }),
         fetch("/api/research/backtest", { cache: "no-store" }),
+        fetch("/api/research/regimes", { cache: "no-store" }),
       ]);
-      const [forecastJson, backtestJson] = await Promise.all([
+      const [forecastJson, backtestJson, regimesJson] = await Promise.all([
         forecastResponse.json() as Promise<ForecastPayload>,
         backtestResponse.json() as Promise<BacktestPayload>,
+        regimesResponse.json() as Promise<RegimePayload>,
       ]);
       if (!forecastResponse.ok || !forecastJson.ok) throw new Error(forecastJson.error ?? `Forecast API HTTP ${forecastResponse.status}`);
       setForecast(forecastJson);
       setBacktest(backtestResponse.ok && backtestJson.ok ? backtestJson : { ok: false, error: backtestJson.error ?? `Backtest API HTTP ${backtestResponse.status}` });
+      setRegimes(regimesResponse.ok && regimesJson.ok ? regimesJson : { ok: false, error: regimesJson.error ?? `Regime API HTTP ${regimesResponse.status}` });
       setError("");
     } catch (value) {
       setError(value instanceof Error ? value.message : "Unable to load forecast");
@@ -154,10 +162,24 @@ export function MarketForecastPanel() {
     </section>
 
     <section className="forecastSection">
+      <div className="sectionHeader"><div><div className="sectionEyebrow">STABILITY REGIME RESEARCH</div><h2>Does Stability Score anticipate a quieter market?</h2></div><span className="sectionNote">{regimes?.matchedObservationCount ?? 0} matched snapshots</span></div>
+      {regimes?.horizons ? regimes.horizons.map((horizon) => <div className="regimeHorizon" key={horizon.horizonMinutes}>
+        <h3>{horizon.horizonMinutes}-minute future outcomes <span>{horizon.matchedObservations} matched observations</span></h3>
+        <div className="forecastTableWrap"><table className="forecastTable">
+          <thead><tr><th>Stability band</th><th>Samples</th><th>Mean absolute return</th><th>Median absolute return</th><th>Mean future high-low range</th><th>Directional move rate</th></tr></thead>
+          <tbody>{horizon.bands.map((band) => <tr key={band.label}>
+            <td>{band.label}</td><td>{band.samples}</td><td>{pct(band.meanAbsoluteReturnPct)}</td><td>{pct(band.medianAbsoluteReturnPct)}</td><td>{pct(band.meanFutureRangePct)}</td><td>{rate(band.directionalMoveRate)}</td>
+          </tr>)}</tbody>
+        </table></div>
+      </div>) : <p className="forecastExplanation">{regimes?.error ?? "Waiting for stored research snapshots and matching future candles…"}</p>}
+      <p className="forecastFootnote">{regimes?.interpretation ?? "Only stored point-in-time stability snapshots matched to complete future candle windows can be evaluated. Missing outcomes are excluded, not imputed."}</p>
+    </section>
+
+    <section className="forecastSection">
       <div className="sectionEyebrow">INTERPRETATION</div>
       <div className="forecastNotes">
         <p><strong>Directional score is not probability.</strong> A score of +60 does not mean a 60% chance of a rise. The empirical rate remains hidden until at least 30 prior comparable outcomes exist for that horizon.</p>
-        <p><strong>Stability is not direction.</strong> Volatility is shown separately. The next research step is to validate the existing Stability Score against future volatility and directional outcomes using point-in-time snapshots.</p>
+        <p><strong>Stability is not direction.</strong> The regime table tests whether stored Stability Score bands are associated with smaller subsequent price moves and ranges; small samples are not reliable evidence.</p>
         <p><strong>No data, no signal.</strong> Stale candles, missing contiguous windows, or insufficient history must prevent a live directional call.</p>
       </div>
     </section>
