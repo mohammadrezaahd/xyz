@@ -14,6 +14,8 @@ type ForecastRow = {
   momentum30Pct: number | null;
   realizedVolatility15Pct: number | null;
   venueAgreement: number | null;
+  momentumAccelerationPct: number | null;
+  volumePressure5Pct: number | null;
   dataStatus: "READY" | "INSUFFICIENT_DATA" | "STALE_OR_GAPPED";
   explanation: string;
 };
@@ -138,6 +140,8 @@ export function MarketForecastPanel() {
           <div><span>Comparable outcomes</span><strong>{item.calibrationSamples}</strong></div>
           <div><span>Directional return estimate</span><strong>{pct(item.expectedReturnPct)}</strong></div>
           <div><span>15m realized volatility</span><strong>{pct(item.realizedVolatility15Pct)}</strong></div>
+          <div><span>5m volume-weighted pressure</span><strong>{pct(item.volumePressure5Pct)}</strong></div>
+          <div><span>Momentum acceleration</span><strong>{pct(item.momentumAccelerationPct)}</strong></div>
         </div>
         <p className="forecastExplanation">{item.explanation}</p>
       </article>)}
