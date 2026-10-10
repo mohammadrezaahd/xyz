@@ -122,4 +122,5 @@ test("a reversal-watch regime is excluded from trend weighting", () => {
     nowMs: 1_000_000,
   });
   assert.equal(result.horizons.find((row) => row.horizonMinutes === 15).trendScore, null);
+  assert.notEqual(result.action, "BUY_CHEAP_SELL_EXPENSIVE");
 });
