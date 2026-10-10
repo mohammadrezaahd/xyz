@@ -43,3 +43,16 @@ test("forecast does not calibrate from fewer than 30 comparable historical outco
   const result = buildLiveForecast(bitpin, wallex, (1_800_000_000 + 49 * 60 + 60) * 1000);
   assert.ok(result.forecasts.every((item) => item.historicalHitRate === null));
 });
+
+test("research APIs use the shared candle loader instead of fetching their own deployment URL", () => {
+  const fs = require("node:fs");
+  for (const path of [
+    "app/api/research/forecast/route.ts",
+    "app/api/research/backtest/route.ts",
+    "app/api/research/regimes/route.ts",
+  ]) {
+    const route = fs.readFileSync(path, "utf8");
+    assert.match(route, /loadCandleHistory/);
+    assert.doesNotMatch(route, /fetch\(new URL\("\/api\/candles"/);
+  }
+});
