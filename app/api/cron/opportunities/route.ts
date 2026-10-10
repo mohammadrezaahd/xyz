@@ -96,7 +96,6 @@ export async function GET(request: Request) {
       analysis.target.safeTarget !== null;
     let researchError: string | null = null;
     async function collectResearch(sourceOpportunityId: ObjectId | null) {
-      if (!validOpportunity) return null;
       try {
         const result = await createResearchObservation(
           buildResearchObservation({
@@ -228,14 +227,18 @@ export async function GET(request: Request) {
     }
 
     if (!validOpportunity) {
+      stage = "collect-no-trade-research";
+      const research = await collectResearch(null);
       stage = "return-no-opportunity";
       return NextResponse.json({
         ok: true,
         action: "NO_OPPORTUNITY",
+        decision: "NO_TRADE",
         opportunity: analysis.opportunity,
         score: analysis.stabilityScore,
         errors,
-        research: null,
+        research,
+        researchError,
       });
     }
 
