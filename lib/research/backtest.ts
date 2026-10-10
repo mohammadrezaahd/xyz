@@ -1,7 +1,7 @@
 import type { Candle } from "../candles";
 import { buildForecastFeatureRows } from "./forecast";
 
-export const RESEARCH_HORIZONS_MINUTES = [5, 15, 30] as const;
+export const RESEARCH_HORIZONS_MINUTES = [5, 15, 30, 60] as const;
 export type ResearchHorizonMinutes = (typeof RESEARCH_HORIZONS_MINUTES)[number];
 export type ForecastDirection = "UP" | "DOWN" | "FLAT";
 
