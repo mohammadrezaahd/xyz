@@ -62,6 +62,12 @@ test("observation key is deterministic and separates detection windows", () => {
   const same = observation();
   const later = observation({ detectedAt: new Date("2026-10-07T10:01:00.000Z") });
   assert.equal(first.observationKey, same.observationKey);
+  const sameWindowDifferentPrice = buildResearchObservation({
+    analysis: analyzeOpportunity({ bitpinCandles: [], wallexCandles: [], currentPrices: { bitpin: 101, wallex: 103 }, externalPrice: 103 }),
+    detectedAt: new Date("2026-10-07T10:00:30.000Z"),
+    source: "LIVE_CRON",
+  });
+  assert.equal(sameWindowDifferentPrice.observationKey, first.observationKey);
   assert.notEqual(first.observationKey, later.observationKey);
 });
 

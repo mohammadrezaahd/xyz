@@ -2,9 +2,11 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { CandleChart } from "@/components/candle-chart";
+import { BuySellBalance } from "@/components/buy-sell-balance";
 import { OpportunityPanel } from "@/components/opportunity-panel";
 import { Phase3Panel } from "@/components/phase3-panel";
 import { SnapshotPage } from "@/components/snapshot-page";
+import { MarketForecastPanel } from "@/components/market-forecast-panel";
 import { TestPositionPanel } from "@/components/test-position-panel";
 import { analyzeOpportunity } from "@/lib/opportunity/engine";
 import type { Candle } from "@/lib/candles";
@@ -12,7 +14,7 @@ import type { CurrentPricesResponse } from "@/lib/prices";
 import type { MarketSnapshotTrend } from "@/lib/market-snapshots/types";
 
 type CandleResponse = { bitpin: Candle[]; wallex: Candle[]; errors: string[]; fetchedAt: number; refreshMs: number };
-type View = "overview" | "opportunity" | "position" | "history" | "snapshots";
+type View = "overview" | "opportunity" | "position" | "history" | "snapshots" | "forecast";
 
 const snapshotTrends: Array<{ value: MarketSnapshotTrend; label: string }> = [
   { value: "STRONGLY_BULLISH", label: "Strongly Bullish" },
@@ -40,6 +42,7 @@ const viewCopy: Record<View, { breadcrumb: string; title: string; footer: string
   position: { breadcrumb: "PAPER POSITION", title: "Paper Position", footer: "Paper research · No automated trading execution" },
   history: { breadcrumb: "HISTORY", title: "History", footer: "Opportunity cron results · Analysis and simulation only" },
   snapshots: { breadcrumb: "SNAPSHOTS", title: "Market snapshots", footer: "Point-in-time research archive" },
+  forecast: { breadcrumb: "FORECAST", title: "Market Forecast", footer: "Experimental forecast · Historical validation required" },
 };
 
 const navigation: Array<[View, string, string, string]> = [
@@ -48,6 +51,7 @@ const navigation: Array<[View, string, string, string]> = [
   ["position", "Paper Position", "Paper Position", "03"],
   ["history", "History", "History", "04"],
   ["snapshots", "Snapshots", "Snapshots", "05"],
+  ["forecast", "Market Forecast", "Forecast", "06"],
 ];
 
 export default function Home() {
@@ -87,7 +91,7 @@ export default function Home() {
     }
   }, [prices?.wallex, externalPriceCustomized]);
 
-  const analysis = useMemo(() => analyzeOpportunity({ bitpinCandles: data?.bitpin ?? [], wallexCandles: data?.wallex ?? [], currentPrices: { bitpin: prices?.bitpin ?? null, wallex: prices?.wallex ?? null }, externalPrice: externalPrice.trim() ? Number(externalPrice) : null, nowMs: Date.now() }), [data, prices, externalPrice]);
+  const analysis = useMemo(() => analyzeOpportunity({ bitpinCandles: data?.bitpin ?? [], wallexCandles: data?.wallex ?? [], currentPrices: { bitpin: prices?.bitpin ?? null, wallex: prices?.wallex ?? null, fetchedAt: prices?.fetchedAt ?? null }, externalPrice: externalPrice.trim() ? Number(externalPrice) : null, nowMs: Date.now() }), [data, prices, externalPrice]);
   const hasPrices = prices?.bitpin != null && prices?.wallex != null;
   const hasCandles = analysis.candles.synchronized > 0;
   const statusKind = loading ? "neutral" : error ? "error" : hasPrices && hasCandles ? "live" : hasPrices ? "partial" : "stale";
@@ -139,6 +143,7 @@ export default function Home() {
         <section className="commandCenter" aria-labelledby="command-title"><div className="commandMain"><div className="sectionEyebrow">OPPORTUNITY COMMAND CENTER</div><div className="commandHeading"><div><h2 id="command-title">{analysis.opportunity === "NONE" ? "Waiting for market data" : `${analysis.opportunity} opportunity`}</h2><p>{hasCandles ? "Historical validation is available for review. This is a research signal, not a trading instruction." : "The current opportunity cannot be evaluated yet."}</p></div><StatusBadge kind={analysis.opportunity === "NONE" ? "neutral" : analysis.opportunity === "STRONG" ? "live" : "partial"}>{analysis.riskLevel} risk</StatusBadge></div><div className="commandStats"><div><span>Stability</span><strong>{analysis.stabilityScore.toFixed(1)}<small>/100</small></strong></div><div><span>Confidence</span><strong>{analysis.dataCompleteness.toFixed(0)}<small>%</small></strong></div><div><span>Spread</span><strong>{percent(analysis.spread.percent)}</strong></div><div><span>Net edge</span><strong>{percent(analysis.edge.netPct)}</strong></div></div><div className="commandFooter"><span>{hasCandles ? `${analysis.candles.synchronized} / ${analysis.candles.lookback} candle pairs available` : "0 / 10 synchronized candle pairs available"}</span><div className="commandFooterActions"><button type="button" className="refreshButton" onClick={openSnapshotDialog}>Snapshot</button><button type="button" className="primaryButton" onClick={() => nav("opportunity")}>View diagnostics</button></div></div></div><div className="verdictRail"><span>RESEARCH VERDICT</span><strong>{analysis.opportunity === "NONE" ? "WAITING" : analysis.opportunity}</strong><p>{analysis.target.safeTarget == null ? "No target calculated" : `Target ${price(analysis.target.safeTarget)} Toman`}</p></div></section>
         <section className="marketComparison" aria-labelledby="comparison-title"><div className="sectionHeader"><div><div className="sectionEyebrow">MARKET COMPARISON</div><h2 id="comparison-title">Current exchange prices</h2></div><span className="sectionNote">Toman · live ticker</span></div><div className="comparisonGrid"><div className="exchangeQuote exchangeQuote--bitpin"><div><span className="exchangeCode">B</span><strong>Bitpin</strong><small>Ticker</small></div><b>{price(prices?.bitpin)}</b></div><div className="spreadBridge"><span>SPREAD</span><strong>{percent(analysis.spread.percent)}</strong><small>Wallex premium</small></div><div className="exchangeQuote exchangeQuote--wallex"><div><span className="exchangeCode">W</span><strong>Wallex</strong><small>Ticker</small></div><b>{price(prices?.wallex)}</b></div></div></section>
         <section className="metricGrid" aria-label="Decision metrics"><Metric label="Spread" value={percent(analysis.spread.percent)} state={analysis.spread.percent == null ? "Insufficient data" : "Exchange delta"} helper={analysis.spread.absolute == null ? "Awaiting both tickers" : `${price(analysis.spread.absolute)} Toman absolute`} /><Metric label="Stability score" value={`${analysis.stabilityScore.toFixed(1)} / 100`} state="Historical validation" helper={`${analysis.candles.synchronized} synchronized pairs`} /><Metric label="Confidence" value={`${analysis.dataCompleteness.toFixed(0)}%`} state="Data completeness" helper="Based on available inputs" /><Metric label="Net edge" value={percent(analysis.edge.netPct)} state="Fee-adjusted" helper={`Fees ${analysis.edge.feesPct.toFixed(2)}%`} /></section>
+        <BuySellBalance candles={analysis.candles} balance={analysis.buySellBalance} dataCompleteness={analysis.dataCompleteness} dataQuality={analysis.dataQuality} synchronizedCandlePairs={analysis.candles.synchronizedAvailable} minimumRequiredCandlePairs={analysis.minimumRequiredCandlePairs} netEdgePct={analysis.edge.executionNetPct} decision={analysis.decision} decisionReason={analysis.decisionReason} />
         <section className="chartSection" aria-labelledby="chart-title"><div className="sectionHeader"><div><div className="sectionEyebrow">PRICE RELATIONSHIP</div><h2 id="chart-title">Synchronized candle history</h2></div><span className="sectionNote">1 minute · {data?.bitpin.length ?? 0} Bitpin / {data?.wallex.length ?? 0} Wallex candles</span></div><div className="chartPair"><div className="chartPane"><div className="chartPaneHeader"><div><strong>Bitpin</strong><span>{price(prices?.bitpin)} Toman</span></div><span>{data?.bitpin.length ?? 0} candles</span></div><CandleChart candles={data?.bitpin ?? []} /></div><div className="chartPane"><div className="chartPaneHeader"><div><strong>Wallex</strong><span>{price(prices?.wallex)} Toman</span></div><span>{data?.wallex.length ?? 0} candles</span></div><CandleChart candles={data?.wallex ?? []} /></div></div></section>
       </>}
 
@@ -146,7 +151,8 @@ export default function Home() {
       {view === "position" && <section className="workspacePage"><div className="pageIntro"><div className="sectionEyebrow">PHASE 4 WORKSPACE</div><h2>Paper Position</h2><p>Run and monitor a research-only paper position. No real funds or exchange orders are used.</p></div><TestPositionPanel currentPrice={prices?.bitpin ?? null} /></section>}
       {view === "history" && <section className="workspacePage"><div className="pageIntro"><div className="sectionEyebrow">PHASE 3 RESULTS</div><h2>History</h2><p>Review opportunity cron results, validation scores, and simulated outcomes.</p></div><Phase3Panel /></section>}
       {view === "snapshots" && <SnapshotPage />}
-      {error && view !== "snapshots" && <div className="errorBanner" role="alert"><strong>Provider warning</strong><span>{error}</span></div>}
+      {view === "forecast" && <section className="workspacePage"><MarketForecastPanel /></section>}
+      {error && view !== "snapshots" && view !== "forecast" && <div className="errorBanner" role="alert"><strong>Provider warning</strong><span>{error}</span></div>}
       <footer className="consoleFooter"><span>XYZ Research Console</span><span>{copy.footer}</span></footer>
     </main>
 

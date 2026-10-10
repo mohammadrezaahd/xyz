@@ -2,7 +2,7 @@ const test = require("node:test");
 const assert = require("node:assert/strict");
 const { analyzeOpportunity } = require("../.test-dist/lib/opportunity/engine.js");
 
-const nowMs = 11 * 60 * 1000;
+const nowMs = 40 * 60 * 1000;
 
 function candle(time, open, close) {
   return {
@@ -22,7 +22,7 @@ function candles(directions, movePct = 0.1, start = 1) {
         ? 1 + movePct / 100
         : direction === "down"
           ? 1 - movePct / 100
-          : 1 + 0.01 / 100;
+          : direction === "neutral" ? 1 : 1 + 0.01 / 100;
 
     return candle(
       (start + index) * 60,
@@ -30,6 +30,10 @@ function candles(directions, movePct = 0.1, start = 1) {
       open * multiplier,
     );
   });
+}
+
+function atLeastThirty(directions) {
+  return Array.from({ length: 30 }, (_, index) => directions[index % directions.length]);
 }
 
 function baseAnalysis(
@@ -40,8 +44,8 @@ function baseAnalysis(
   wallexDirections = Array(10).fill("up"),
 ) {
   return analyzeOpportunity({
-    bitpinCandles: candles(bitpinDirections),
-    wallexCandles: candles(wallexDirections),
+    bitpinCandles: candles(atLeastThirty(bitpinDirections)),
+    wallexCandles: candles(atLeastThirty(wallexDirections)),
     currentPrices: { bitpin, wallex },
     externalPrice,
     nowMs,
@@ -70,6 +74,22 @@ test("missing external price is insufficient data and does not consume weight", 
   assert.equal(analysis.validation.external.status, "INSUFFICIENT_DATA");
   assert.equal(analysis.dataCompleteness, 80);
   assert.equal(analysis.stabilityScore, 96.875);
+});
+
+test("configured Wallex reference is honored by current reference validation", () => {
+  const history = candles(atLeastThirty(Array(30).fill("up")));
+  const analysis = analyzeOpportunity({
+    bitpinCandles: history,
+    wallexCandles: history,
+    currentPrices: {
+      bitpin: { price: 271000, fetchedAt: nowMs },
+      wallex: { price: 280000, fetchedAt: nowMs },
+    },
+    externalReference: { price: 280000, fetchedAt: nowMs, provider: "wallex", error: null },
+    nowMs,
+  });
+  assert.equal(analysis.prices.external, 280000);
+  assert.equal(analysis.validation.external.status, "SUCCESS");
 });
 
 test("current ticker prices drive spread independently of candle closes", () => {
@@ -152,10 +172,12 @@ test("Wallex below Bitpin fails independently from spread", () => {
   assert.ok((analysis.spread.percent ?? 0) < 0);
 });
 
-test("10 synchronized closed candles are used", () => {
+test("analysis uses a 30-pair window while requiring at least 20 pairs", () => {
   const analysis = baseAnalysis();
-  assert.equal(analysis.candles.lookback, 10);
-  assert.equal(analysis.candles.synchronized, 10);
+  assert.equal(analysis.candles.lookback, 30);
+  assert.equal(analysis.candles.synchronizedAvailable, 30);
+  assert.equal(analysis.candles.synchronizedUsed, 30);
+  assert.equal(analysis.candles.minimumRequired, 20);
 });
 
 test("current incomplete minute is excluded", () => {
@@ -174,8 +196,8 @@ test("current incomplete minute is excluded", () => {
 });
 
 test("1-minute bucket synchronization matches offset timestamps", () => {
-  const bitpin = candles(Array(10).fill("up"));
-  const wallex = candles(Array(10).fill("up")).map((c) => ({
+  const bitpin = candles(Array(25).fill("up"));
+  const wallex = candles(Array(25).fill("up")).map((c) => ({
     ...c,
     time: c.time + 30,
   }));
@@ -188,19 +210,16 @@ test("1-minute bucket synchronization matches offset timestamps", () => {
     nowMs,
   });
 
-  assert.equal(analysis.candles.synchronized, 10);
-  assert.equal(analysis.validation.candleAlignment.status, "SUCCESS");
-  assert.equal(analysis.candles.alignmentRatio, 1);
+  assert.equal(analysis.candles.synchronizedAvailable, 0);
+  assert.equal(analysis.validation.candleAlignment.status, "INSUFFICIENT_DATA");
+  assert.equal(analysis.candles.alignmentRatio, null);
 });
 
 test("duplicate candles in one minute bucket do not inflate synchronization", () => {
   const bitpin = candles(Array(10).fill("up")).concat([
     candle(60 + 45, 270000, 270270),
   ]);
-  const wallex = candles(Array(10).fill("up")).map((c) => ({
-    ...c,
-    time: c.time + 30,
-  }));
+  const wallex = candles(Array(10).fill("up"));
 
   const analysis = analyzeOpportunity({
     bitpinCandles: bitpin,
@@ -258,10 +277,10 @@ test("selected candle diagnostics preserve the exact bullish classification", ()
     Array(10).fill("up"),
   );
 
-  assert.equal(analysis.candles.selected.length, 10);
+  assert.equal(analysis.candles.selected.length, 30);
   assert.equal(analysis.candles.bitpinBullishRatio, 0.4);
   assert.deepEqual(
-    analysis.candles.selected.map((pair) => pair.bitpin.direction),
+    analysis.candles.selected.slice(0, 10).map((pair) => pair.bitpin.direction),
     [
       "BULLISH",
       "BULLISH",
@@ -284,7 +303,7 @@ test("selected candle diagnostics preserve the exact bullish classification", ()
 
 test("red candle below the minimum movement remains NEUTRAL in diagnostics", () => {
   const bitpin = candles(Array(10).fill("up"));
-  bitpin[0] = candle(60, 270000, 269950);
+  bitpin[0] = candle(60, 270000, 269998);
 
   const analysis = analyzeOpportunity({
     bitpinCandles: bitpin,
@@ -295,12 +314,12 @@ test("red candle below the minimum movement remains NEUTRAL in diagnostics", () 
   });
 
   assert.equal(analysis.candles.selected[0].bitpin.direction, "NEUTRAL");
-  assert.ok(analysis.candles.selected[0].bitpin.movementPct < 0.05);
+  assert.ok(analysis.candles.selected[0].bitpin.movementPct < 0.001);
 });
 
 test("green candle below the minimum movement remains NEUTRAL in diagnostics", () => {
   const bitpin = candles(Array(10).fill("up"));
-  bitpin[0] = candle(60, 270000, 270050);
+  bitpin[0] = candle(60, 270000, 270001);
 
   const analysis = analyzeOpportunity({
     bitpinCandles: bitpin,
@@ -311,7 +330,7 @@ test("green candle below the minimum movement remains NEUTRAL in diagnostics", (
   });
 
   assert.equal(analysis.candles.selected[0].bitpin.direction, "NEUTRAL");
-  assert.ok(analysis.candles.selected[0].bitpin.movementPct < 0.05);
+  assert.ok(analysis.candles.selected[0].bitpin.movementPct < 0.001);
 });
 
 test("bullish ratio classification is 40 FAILED, 50/70 ACCEPTABLE, 80/100 SUCCESS", () => {
@@ -351,24 +370,24 @@ test("acceptable bullish ratio receives proportional score, not full weight", ()
   assert.equal(analysis.candles.bitpinBullishRatio, 0.6);
 });
 
-test("10 synchronized Neutral/Neutral candles produce 100% alignment", () => {
+test("30 synchronized Neutral/Neutral candles produce 100% alignment", () => {
   const analysis = analyzeOpportunity({
-    bitpinCandles: candles(Array(10).fill("neutral")),
-    wallexCandles: candles(Array(10).fill("neutral")),
+    bitpinCandles: candles(Array(30).fill("neutral")),
+    wallexCandles: candles(Array(30).fill("neutral")),
     currentPrices: { bitpin: 271000, wallex: 280000 },
     externalPrice: 280000,
     nowMs,
   });
 
-  assert.equal(analysis.candles.synchronized, 10);
+  assert.equal(analysis.candles.synchronized, 30);
   assert.equal(analysis.candles.alignmentRatio, 1);
   assert.equal(analysis.validation.candleAlignment.status, "SUCCESS");
 });
 
 test("5 aligned and 5 non-aligned synchronized candles produce 50% alignment", () => {
-  const bitpinDirections = Array(10).fill("up");
-  const wallexDirections = Array.from({ length: 10 }, (_, i) =>
-    i < 5 ? "up" : "down",
+  const bitpinDirections = Array(30).fill("up");
+  const wallexDirections = Array.from({ length: 30 }, (_, i) =>
+    i < 25 ? "up" : "down",
   );
 
   const analysis = analyzeOpportunity({
@@ -379,15 +398,15 @@ test("5 aligned and 5 non-aligned synchronized candles produce 50% alignment", (
     nowMs,
   });
 
-  assert.equal(analysis.candles.synchronized, 10);
+  assert.equal(analysis.candles.synchronized, 30);
   assert.equal(analysis.candles.alignmentRatio, 0.5);
   assert.equal(analysis.validation.candleAlignment.status, "ACCEPTABLE");
 });
 
 test("3 aligned and 7 non-aligned synchronized candles produce 30% alignment", () => {
-  const bitpinDirections = Array(10).fill("up");
-  const wallexDirections = Array.from({ length: 10 }, (_, i) =>
-    i < 3 ? "up" : "down",
+  const bitpinDirections = Array(30).fill("up");
+  const wallexDirections = Array.from({ length: 30 }, (_, i) =>
+    i < 23 ? "up" : "down",
   );
 
   const analysis = analyzeOpportunity({
@@ -398,7 +417,7 @@ test("3 aligned and 7 non-aligned synchronized candles produce 30% alignment", (
     nowMs,
   });
 
-  assert.equal(analysis.candles.synchronized, 10);
+  assert.equal(analysis.candles.synchronized, 30);
   assert.equal(analysis.candles.alignmentRatio, 0.3);
   assert.equal(analysis.validation.candleAlignment.status, "FAILED");
 });
@@ -428,11 +447,14 @@ test("alignment classification is 8 SUCCESS, 7/5 ACCEPTABLE, 4 FAILED", () => {
 });
 
 test("sub-0.05% movement is neutral and not bullish", () => {
-  const bitpin = candles(Array(10).fill("up"));
-  bitpin[0] = candle(60, 270000, 270050);
+  const bitpin = candles(Array(30).fill("up"));
+  bitpin[0] = candle(60, 270000, 270001);
+  bitpin[1] = candle(120, 270000, 270001);
+  bitpin[2] = candle(180, 270000, 270001);
+  bitpin[20] = candle(21 * 60, 270000, 270001);
   const analysis = analyzeOpportunity({
     bitpinCandles: bitpin,
-    wallexCandles: candles(Array(10).fill("up")),
+    wallexCandles: candles(Array(30).fill("up")),
     currentPrices: { bitpin: 271000, wallex: 280000 },
     externalPrice: 280000,
     nowMs,
@@ -448,8 +470,8 @@ test("momentum uses fixed 0.20% reference and clamps at 5", () => {
     [0.5, 5],
   ]) {
     const analysis = analyzeOpportunity({
-      bitpinCandles: candles(Array(10).fill("up"), averageMove),
-      wallexCandles: candles(Array(10).fill("up"), averageMove),
+      bitpinCandles: candles(Array(30).fill("up"), averageMove),
+      wallexCandles: candles(Array(30).fill("up"), averageMove),
       currentPrices: { bitpin: 271000, wallex: 280000 },
       externalPrice: 280000,
       nowMs,
@@ -482,4 +504,111 @@ test("invalid prices and candle values never produce non-finite analysis numbers
   assert.equal(analysis.spread.percent, null);
   assert.equal(analysis.edge.netPct, null);
   assert.equal(analysis.validation.external.status, "INSUFFICIENT_DATA");
+});
+
+
+test("10 synchronized pairs remain insufficient and are counted before the analysis gate", () => {
+  const ten = candles(Array(10).fill("up"));
+  const analysis = analyzeOpportunity({ bitpinCandles: ten, wallexCandles: ten, currentPrices: { bitpin: { price: 271000, fetchedAt: nowMs }, wallex: { price: 280000, fetchedAt: nowMs } }, externalReference: { price: 280000, fetchedAt: nowMs, provider: "fixture", error: null }, nowMs });
+  assert.equal(analysis.buySellBalance.value, null);
+  assert.equal(analysis.buySellBalance.label, "INSUFFICIENT DATA");
+  assert.equal(analysis.candles.synchronizedAvailable, 10);
+  assert.equal(analysis.candles.minimumRequired, 20);
+});
+
+test("25 aligned bullish pairs produce BUY BIAS independently from economic rejection", () => {
+  const up = candles(Array(25).fill("up"));
+  const analysis = analyzeOpportunity({ bitpinCandles: up, wallexCandles: up, currentPrices: { bitpin: { price: 1000, fetchedAt: nowMs }, wallex: { price: 1020, fetchedAt: nowMs } }, externalReference: { price: 1020, fetchedAt: nowMs, provider: "fixture", error: null }, nowMs });
+  assert.notEqual(analysis.buySellBalance.value, null);
+  assert.equal(analysis.buySellBalance.label, "BUY BIAS");
+  assert.equal(analysis.candles.synchronizedAvailable, 25);
+  assert.equal(analysis.candles.synchronizedUsed, 25);
+  assert.equal(analysis.decision, "NO_TRADE_NEGATIVE_EDGE");
+});
+
+test("25 aligned bearish pairs produce research-only SELL BIAS", () => {
+  const down = candles(Array(25).fill("down"));
+  const analysis = analyzeOpportunity({ bitpinCandles: down, wallexCandles: down, currentPrices: { bitpin: { price: 271000, fetchedAt: nowMs }, wallex: { price: 271100, fetchedAt: nowMs } }, externalReference: { price: 271100, fetchedAt: nowMs, provider: "fixture", error: null }, nowMs });
+  assert.notEqual(analysis.buySellBalance.value, null);
+  assert.equal(analysis.buySellBalance.label, "SELL BIAS");
+  assert.equal(analysis.buySellBalance.executionRoute, "NONE");
+});
+
+test("25 mixed aligned pairs produce a real balanced numeric score", () => {
+  const mixed = candles(Array.from({ length: 25 }, (_, i) => i % 2 ? "up" : "down"));
+  const analysis = analyzeOpportunity({ bitpinCandles: mixed, wallexCandles: mixed, currentPrices: { bitpin: { price: 271000, fetchedAt: nowMs }, wallex: { price: 271100, fetchedAt: nowMs } }, externalReference: { price: 271100, fetchedAt: nowMs, provider: "fixture", error: null }, nowMs });
+  assert.notEqual(analysis.buySellBalance.value, null);
+  assert.equal(analysis.buySellBalance.label, "BALANCED");
+});
+
+
+
+test("stability uses main's last 10 pairs while directional evidence keeps its separate 30-pair window", () => {
+  const history = candles(Array(30).fill("neutral"));
+  const analysis = analyzeOpportunity({
+    bitpinCandles: history,
+    wallexCandles: history,
+    currentPrices: { bitpin: { price: 271000, fetchedAt: nowMs }, wallex: { price: 280000, fetchedAt: nowMs } },
+    externalReference: { price: 280000, fetchedAt: nowMs, provider: "wallex", error: null },
+    nowMs,
+  });
+  assert.equal(analysis.candles.stabilityLookback, 10);
+  assert.equal(analysis.candles.stabilitySelected.length, 10);
+  assert.equal(analysis.candles.lookback, 30);
+  assert.equal(analysis.candles.selected.length, 30);
+  assert.equal(analysis.candles.alignmentRatio, 1);
+  assert.equal(analysis.validation.candleAlignment.status, "SUCCESS");
+});
+
+test("configuration uses a 30-pair lookback and validates the 20-pair minimum", () => {
+  const fs = require("node:fs");
+  const config = fs.readFileSync("lib/opportunity/config.ts", "utf8");
+  assert.match(config, /lookbackCandles:\s*30/);
+  assert.match(config, /minimumCandlePairs:\s*20/);
+  assert.match(config, /minimumCandlePairs cannot exceed lookbackCandles/);
+});
+
+test("minute-offset candles are not treated as minute-aligned synchronized pairs", () => {
+  const fs = require("node:fs");
+  const engine = fs.readFileSync("lib/opportunity/engine.ts", "utf8");
+  assert.match(engine, /candle\.time % MINUTE_SECONDS !== 0/);
+});
+
+test("missing directional balance is not presented as a real 50/100 score", () => {
+  const fs = require("node:fs");
+  const component = fs.readFileSync("components/buy-sell-balance.tsx", "utf8");
+  assert.match(component, /hasValue \? .* : "— \/ 100"/);
+  assert.match(component, /balanceMarker--unknown/);
+  assert.match(component, /Directional evidence unavailable/);
+  assert.doesNotMatch(component, /hasValue \? balance\.value : 50/);
+});
+
+
+test("configuration guard rejects a minimum larger than the lookback", () => {
+  const { DEFAULT_OPPORTUNITY_CONFIG, validateOpportunityConfig } = require("../.test-dist/lib/opportunity/config.js");
+  assert.throws(() => validateOpportunityConfig({ ...DEFAULT_OPPORTUNITY_CONFIG, lookbackCandles: 10, minimumCandlePairs: 20 }), /minimumCandlePairs cannot exceed lookbackCandles/);
+});
+
+test("synchronizedAvailable is uncapped while synchronizedUsed respects lookback", () => {
+  const history = candles(Array(35).fill("up"));
+  const analysis = analyzeOpportunity({ bitpinCandles: history, wallexCandles: history, currentPrices: { bitpin: 271000, wallex: 280000 }, externalPrice: 280000, nowMs });
+  assert.equal(analysis.candles.synchronizedAvailable, 35);
+  assert.equal(analysis.candles.synchronizedUsed, 30);
+  assert.equal(analysis.candles.lookback, 30);
+});
+
+test("provider responses capped at ten candles are diagnosed instead of presented as normal waiting", () => {
+  const fs = require("node:fs");
+  const route = fs.readFileSync("lib/candle-history.ts", "utf8");
+  const component = fs.readFileSync("components/buy-sell-balance.tsx", "utf8");
+  assert.match(route, /LIMITED_OR_INCOMPLETE/);
+  assert.match(route, /const historicalChunks = await Promise\.all/);
+  assert.match(component, /PROVIDER LIMITATION/);
+  assert.match(component, /Historical candle provider is returning only 10 or fewer candles/);
+});
+
+test("SELL BIAS is marked research-only and never enables an execution route", () => {
+  const fs = require("node:fs");
+  const component = fs.readFileSync("components/buy-sell-balance.tsx", "utf8");
+  assert.match(component, /SELL BIAS · RESEARCH ONLY/);
 });

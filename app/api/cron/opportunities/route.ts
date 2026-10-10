@@ -80,10 +80,19 @@ export async function GET(request: Request) {
       bitpinCandles: candles.bitpin ?? [],
       wallexCandles: candles.wallex ?? [],
       currentPrices: {
-        bitpin: prices.bitpin,
-        wallex: prices.wallex,
+        bitpin: prices.providers
+          ? { price: prices.bitpin, fetchedAt: prices.providers.bitpin.fetchedAt }
+          : { price: prices.bitpin, fetchedAt: prices.fetchedAt },
+        wallex: prices.providers
+          ? { price: prices.wallex, fetchedAt: prices.providers.wallex.fetchedAt }
+          : { price: prices.wallex, fetchedAt: prices.fetchedAt },
       },
-      externalPrice: prices.wallex,
+      externalReference: {
+        price: prices.wallex,
+        fetchedAt: prices.providers?.wallex.fetchedAt ?? prices.fetchedAt,
+        provider: "wallex",
+        error: prices.wallex === null ? "Wallex ticker unavailable" : null,
+      },
       nowMs: prices.fetchedAt,
     });
 
@@ -96,7 +105,6 @@ export async function GET(request: Request) {
       analysis.target.safeTarget !== null;
     let researchError: string | null = null;
     async function collectResearch(sourceOpportunityId: ObjectId | null) {
-      if (!validOpportunity) return null;
       try {
         const result = await createResearchObservation(
           buildResearchObservation({
@@ -228,14 +236,18 @@ export async function GET(request: Request) {
     }
 
     if (!validOpportunity) {
+      stage = "collect-no-trade-research";
+      const research = await collectResearch(null);
       stage = "return-no-opportunity";
       return NextResponse.json({
         ok: true,
         action: "NO_OPPORTUNITY",
+        decision: "NO_TRADE",
         opportunity: analysis.opportunity,
         score: analysis.stabilityScore,
         errors,
-        research: null,
+        research,
+        researchError,
       });
     }
 

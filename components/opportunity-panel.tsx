@@ -7,6 +7,7 @@ import {
   type PointerEvent as ReactPointerEvent,
 } from "react";
 import { PHASE_2_CONFIG } from "@/lib/opportunity/config";
+import { BuySellBalance } from "@/components/buy-sell-balance";
 import type { OpportunityAnalysis, TestResult } from "@/lib/opportunity/types";
 
 type OpportunityPanelProps = {
@@ -290,7 +291,7 @@ export function OpportunityPanel({
             Opportunity / Stability
           </div>
           <div className="symbol">
-            Historical validation · not a guaranteed prediction
+            Historical validation · research evidence only
           </div>
         </div>
         <div className="resultBadges">
@@ -306,7 +307,10 @@ export function OpportunityPanel({
         </div>
       </div>
 
-      <div className="opportunityGrid">
+      <BuySellBalance candles={analysis.candles} balance={analysis.buySellBalance} dataCompleteness={analysis.dataCompleteness} dataQuality={analysis.dataQuality} synchronizedCandlePairs={analysis.candles.synchronized} minimumRequiredCandlePairs={analysis.minimumRequiredCandlePairs} netEdgePct={analysis.edge.executionNetPct} decision={analysis.decision} decisionReason={analysis.decisionReason} />
+
+      
+<div className="opportunityGrid">
         <div className="opportunityGroup">
           <h3>Current Prices</h3>
           <label className="inputField">
@@ -345,6 +349,7 @@ export function OpportunityPanel({
 
         <div className="opportunityGroup tests" ref={testsRef}>
           <h3>Stability Tests</h3>
+          <div className="candleDiagnostics"><div>Bitpin candles received: <b>{analysis.candles.bitpinReceived}</b></div><div>Wallex candles received: <b>{analysis.candles.wallexReceived}</b></div><div>Synchronized closed pairs available: <b>{analysis.candles.synchronizedAvailable}</b></div><div>Directional pairs used: <b>{analysis.candles.synchronizedUsed}</b></div><div>Stability pairs evaluated: <b>{analysis.candles.stabilitySelected.length}</b></div><div>Directional minimum required: <b>{analysis.minimumRequiredCandlePairs}</b></div><p>Directional evidence requires at least {analysis.minimumRequiredCandlePairs} synchronized closed candle pairs.</p><strong>{analysis.candles.synchronizedAvailable} of {analysis.minimumRequiredCandlePairs} required pairs available</strong></div>
           {testRows.map((test) => (
             <TestRow
               key={test.id}
@@ -354,7 +359,7 @@ export function OpportunityPanel({
               explanation={getTestExplanation(
                 test.id,
                 test.result,
-                analysis.candles.lookback,
+                analysis.candles.stabilityLookback,
               )}
               formatActual={
                 test.id === "external" ||
@@ -388,12 +393,16 @@ export function OpportunityPanel({
         <div className="opportunityGroup">
           <h3>Candle Statistics</h3>
           <div className="metric">
-            <span>Lookback</span>
-            <strong>{analysis.candles.lookback}</strong>
+            <span>Directional evidence window</span>
+            <strong>{analysis.candles.lookback} pairs</strong>
           </div>
           <div className="metric">
-            <span>Synchronized</span>
-            <strong>{analysis.candles.synchronized} / {analysis.candles.lookback}</strong>
+            <span>Directional pairs available / required</span>
+            <strong>{analysis.candles.synchronized} / {analysis.minimumRequiredCandlePairs}</strong>
+          </div>
+          <div className="metric">
+            <span>Stability Score window</span>
+            <strong>{analysis.candles.stabilityLookback} synchronized pairs</strong>
           </div>
           <div className="metric">
             <span>Bitpin Bullish</span>
@@ -442,11 +451,23 @@ export function OpportunityPanel({
             </strong>
           </div>
           <div className="metric">
-            <span>Selected synchronized candles</span>
-            <strong>{analysis.candles.selected.length} / {analysis.candles.lookback}</strong>
+            <span>Stability candles evaluated</span>
+            <strong>{analysis.candles.stabilitySelected.length} / {analysis.candles.stabilityLookback}</strong>
           </div>
           <details>
-            <summary>Inspect selected candle classification</summary>
+            <summary>Inspect stability-window candle classification</summary>
+            <div>
+              {analysis.candles.stabilitySelected.map((pair) => (
+                <div key={pair.timestamp}>
+                  <strong>{new Date(pair.timestamp * 1000).toLocaleTimeString("en-US")}</strong>
+                  <span> · Bitpin {pair.bitpin.direction} ({pair.bitpin.movementPct.toFixed(3)}%)</span>
+                  <span> · Wallex {pair.wallex.direction} ({pair.wallex.movementPct.toFixed(3)}%)</span>
+                </div>
+              ))}
+            </div>
+          </details>
+          <details>
+            <summary>Inspect directional-evidence candle window ({analysis.candles.selected.length} pairs)</summary>
             <div>
               {analysis.candles.selected.map((pair) => (
                 <div key={pair.timestamp}>
@@ -468,7 +489,7 @@ export function OpportunityPanel({
             </strong>
           </div>
           <div className="metric">
-            <span>Safe Target · Wallex Ticker</span>
+            <span>Fee-adjusted Target · Wallex Ticker</span>
             <strong>
               {formatPrice(analysis.target.safeTarget)}
             </strong>
