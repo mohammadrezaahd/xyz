@@ -1,4 +1,5 @@
 import type { Candle } from "../candles";
+import { buildForecastFeatureRows } from "./forecast";
 
 export const RESEARCH_HORIZONS_MINUTES = [5, 15, 30] as const;
 export type ResearchHorizonMinutes = (typeof RESEARCH_HORIZONS_MINUTES)[number];
@@ -36,7 +37,7 @@ export type HorizonBacktestMetrics = {
 
 export type ResearchBacktestResult = {
   generatedAt: string;
-  method: "synchronized-close-momentum-v1";
+  method: "multi-feature-regime-v1";
   input: { bitpinCandles: number; wallexCandles: number; synchronizedCandles: number };
   split: { trainPct: 60; tunePct: 20; testPct: 20; chronological: true };
   assumptions: {
@@ -96,8 +97,9 @@ export function runResearchBacktest(
   const synchronizedTimes = [...bitpin.keys()].filter((time) => wallex.has(time)).sort((a, b) => a - b);
   const synchronized = synchronizedTimes.map((time) => ({ time, bitpin: bitpin.get(time)!, wallex: wallex.get(time)! }));
   const indexByTime = new Map<number, number>(synchronized.map((candle, index): [number, number] => [candle.time, index]));
+  const featuresByTime = new Map(buildForecastFeatureRows(bitpinCandles, wallexCandles).map((row) => [row.time, row]));
   const samples: BacktestSample[] = [];
-  const lookback = 5;
+  const lookback = 30;
 
   for (let index = lookback; index < synchronized.length; index += 1) {
     const current = synchronized[index];
@@ -107,9 +109,11 @@ export function runResearchBacktest(
     if (window.some((candle, offset) => offset > 0 && candle.time - window[offset - 1].time !== 60)) continue;
     if (!finitePositive(current.bitpin.close) || !finitePositive(past.bitpin.close) || !finitePositive(previous.bitpin.close)) continue;
 
+    const features = featuresByTime.get(current.time);
+    if (!features) continue;
     const momentumPct = (current.bitpin.close / past.bitpin.close - 1) * 100;
     const lastCandlePct = (current.bitpin.close / previous.bitpin.close - 1) * 100;
-    const predictedDirection = direction(momentumPct, minimumMomentumPct);
+    const predictedDirection: ForecastDirection = features.score >= 20 ? "UP" : features.score <= -20 ? "DOWN" : "FLAT";
     const baselineDirection = direction(lastCandlePct, minimumMomentumPct);
     for (const horizonMinutes of RESEARCH_HORIZONS_MINUTES) {
       const futureIndex = indexByTime.get(current.time + horizonMinutes * 60);
@@ -121,7 +125,7 @@ export function runResearchBacktest(
       const actualReturnPct = (futurePrice / current.bitpin.close - 1) * 100;
       const actualDirection = direction(actualReturnPct, flatThresholdPct);
       const takesPosition = predictedDirection !== "FLAT";
-      const predictedReturnPct = takesPosition ? momentumPct * (horizonMinutes / lookback) : 0;
+      const predictedReturnPct = takesPosition ? Math.sign(features.score) * Math.abs(momentumPct) * (horizonMinutes / lookback) : 0;
       const grossStrategyReturnPct = takesPosition
         ? (predictedDirection === "UP" ? actualReturnPct : -actualReturnPct)
         : 0;
@@ -172,7 +176,7 @@ export function runResearchBacktest(
 
   return {
     generatedAt: new Date().toISOString(),
-    method: "synchronized-close-momentum-v1",
+    method: "multi-feature-regime-v1",
     input: { bitpinCandles: bitpinCandles.length, wallexCandles: wallexCandles.length, synchronizedCandles: synchronized.length },
     split: { trainPct: 60, tunePct: 20, testPct: 20, chronological: true },
     assumptions: {
