@@ -22,6 +22,8 @@ test("trend engine identifies a persistent multi-hour bearish regime", () => {
   assert.ok(result.score < -18);
   assert.ok(result.persistenceVotes.bearish >= 3);
   assert.equal(result.backtest.futureDataUsedForPrediction, false);
+  assert.equal(result.exitTiming, "TAKE_PROFIT_WATCH");
+  assert.match(result.exitReason, /موقعیت فروش باز/);
 });
 
 test("trend engine does not call a brief counter-move a confirmed regime reversal", () => {
@@ -37,6 +39,7 @@ test("trend engine refuses to infer a multi-hour regime from insufficient histor
   assert.equal(result.dataStatus, "INSUFFICIENT_DATA");
   assert.equal(result.direction, "INSUFFICIENT_DATA");
   assert.equal(result.entryTiming, "INSUFFICIENT_DATA");
+  assert.equal(result.exitTiming, "INSUFFICIENT_DATA");
 });
 
 test("trend backtest uses a chronological holdout and validates costs", () => {
