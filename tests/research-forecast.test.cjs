@@ -11,7 +11,7 @@ function candles(count, fn = (i) => 100 + i * 0.1, start = 1_800_000_000) {
 
 test("forecast refuses to issue a directional call with too little history", () => {
   const result = buildLiveForecast(candles(20), candles(20));
-  assert.equal(result.forecasts.length, 3);
+  assert.equal(result.forecasts.length, 4);
   assert.ok(result.forecasts.every((item) => item.direction === "INSUFFICIENT_DATA"));
   assert.ok(result.forecasts.every((item) => item.historicalHitRate === null));
 });
@@ -27,6 +27,7 @@ test("forecast reports score separately from empirical probability", () => {
   assert.equal(result.forecasts[0].horizonMinutes, 5);
   assert.equal(result.forecasts[1].horizonMinutes, 15);
   assert.equal(result.forecasts[2].horizonMinutes, 30);
+  assert.equal(result.forecasts[3].horizonMinutes, 60);
   assert.equal(new Set(result.forecasts.map((item) => item.score)).size, 3,
     "each horizon must calculate its own score rather than reuse one shared score");
 });
