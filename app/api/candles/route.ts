@@ -174,23 +174,42 @@ export async function GET() {
     );
   }
 
+  const fetchedAt = Date.now();
+  const staleThresholdMs = 180_000;
+  function candleFreshness(data: Candle[]) {
+    const latest = data.reduce<Candle | null>((current, candle) => !current || candle.time > current.time ? candle : current, null);
+    const latestCandleTime = latest?.time ?? null;
+    const ageMs = latestCandleTime === null ? null : Math.max(0, fetchedAt - (latestCandleTime + 60) * 1000);
+    return {
+      latestCandleTime,
+      ageMs,
+      staleThresholdMs,
+      stale: ageMs === null || ageMs > staleThresholdMs,
+    };
+  }
+  const bitpinFreshness = candleFreshness(bitpinData);
+  const wallexFreshness = candleFreshness(wallexData);
+
   return NextResponse.json({
     bitpin: bitpinData,
     wallex: wallexData,
     errors,
     providers: {
-      bitpinHistorical: bitpin.status !== "fulfilled" ? "FAILED" : bitpinData.length <= 10 ? "LIMITED_OR_INCOMPLETE" : "SUCCESS",
+      bitpinHistorical: bitpin.status !== "fulfilled" ? "FAILED" : bitpinData.length <= 10 ? "LIMITED_OR_INCOMPLETE" : bitpinFreshness.stale ? "STALE" : "SUCCESS",
       wallexHistorical:
         wallex.status !== "fulfilled"
           ? "FAILED"
-          : wallexChunkFailures.length === 0
-            ? "SUCCESS"
-            : wallexData.length > 0
-              ? "PARTIAL"
-              : "FAILED",
+          : wallexChunkFailures.length > 0
+            ? wallexData.length > 0 ? "PARTIAL" : "FAILED"
+            : wallexFreshness.stale ? "STALE" : "SUCCESS",
     },
-    diagnostics: { bitpinReceived: bitpinData.length, wallexReceived: wallexData.length },
-    fetchedAt: Date.now(),
+    diagnostics: {
+      bitpinReceived: bitpinData.length,
+      wallexReceived: wallexData.length,
+      bitpin: bitpinFreshness,
+      wallex: wallexFreshness,
+    },
+    fetchedAt,
     refreshMs: Number(env("CANDLE_REFRESH_MS", "15000")),
   });
 }
