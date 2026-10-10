@@ -393,12 +393,16 @@ export function OpportunityPanel({
         <div className="opportunityGroup">
           <h3>Candle Statistics</h3>
           <div className="metric">
-            <span>Lookback</span>
-            <strong>{analysis.candles.lookback}</strong>
+            <span>Directional evidence window</span>
+            <strong>{analysis.candles.lookback} pairs</strong>
           </div>
           <div className="metric">
-            <span>Synchronized</span>
+            <span>Directional pairs available / required</span>
             <strong>{analysis.candles.synchronized} / {analysis.minimumRequiredCandlePairs}</strong>
+          </div>
+          <div className="metric">
+            <span>Stability Score window</span>
+            <strong>{analysis.candles.stabilityLookback} synchronized pairs</strong>
           </div>
           <div className="metric">
             <span>Bitpin Bullish</span>
@@ -447,11 +451,23 @@ export function OpportunityPanel({
             </strong>
           </div>
           <div className="metric">
-            <span>Selected synchronized candles</span>
-            <strong>{analysis.candles.selected.length} / {analysis.candles.lookback}</strong>
+            <span>Stability candles evaluated</span>
+            <strong>{analysis.candles.stabilitySelected.length} / {analysis.candles.stabilityLookback}</strong>
           </div>
           <details>
-            <summary>Inspect selected candle classification</summary>
+            <summary>Inspect stability-window candle classification</summary>
+            <div>
+              {analysis.candles.stabilitySelected.map((pair) => (
+                <div key={pair.timestamp}>
+                  <strong>{new Date(pair.timestamp * 1000).toLocaleTimeString("en-US")}</strong>
+                  <span> · Bitpin {pair.bitpin.direction} ({pair.bitpin.movementPct.toFixed(3)}%)</span>
+                  <span> · Wallex {pair.wallex.direction} ({pair.wallex.movementPct.toFixed(3)}%)</span>
+                </div>
+              ))}
+            </div>
+          </details>
+          <details>
+            <summary>Inspect directional-evidence candle window ({analysis.candles.selected.length} pairs)</summary>
             <div>
               {analysis.candles.selected.map((pair) => (
                 <div key={pair.timestamp}>
