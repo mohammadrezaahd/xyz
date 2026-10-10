@@ -206,6 +206,8 @@ async function fetchCandleHistory() {
       wallexReceived: wallexData.length,
       bitpin: bitpinFreshness,
       wallex: wallexFreshness,
+      bitpinChunkFailures: bitpinChunkFailures.length,
+      wallexChunkFailures: wallexChunkFailures.length,
     },
     fetchedAt,
     refreshMs: Number(env("CANDLE_REFRESH_MS", "15000")),
