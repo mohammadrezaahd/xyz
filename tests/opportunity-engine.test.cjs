@@ -194,9 +194,9 @@ test("1-minute bucket synchronization matches offset timestamps", () => {
     nowMs,
   });
 
-  assert.equal(analysis.candles.synchronizedAvailable, 25);
-  assert.equal(analysis.validation.candleAlignment.status, "SUCCESS");
-  assert.equal(analysis.candles.alignmentRatio, 1);
+  assert.equal(analysis.candles.synchronizedAvailable, 0);
+  assert.equal(analysis.validation.candleAlignment.status, "INSUFFICIENT_DATA");
+  assert.equal(analysis.candles.alignmentRatio, null);
 });
 
 test("duplicate candles in one minute bucket do not inflate synchronization", () => {
@@ -523,4 +523,28 @@ test("25 mixed aligned pairs produce a real balanced numeric score", () => {
   const analysis = analyzeOpportunity({ bitpinCandles: mixed, wallexCandles: mixed, currentPrices: { bitpin: { price: 271000, fetchedAt: nowMs }, wallex: { price: 271100, fetchedAt: nowMs } }, externalReference: { price: 271100, fetchedAt: nowMs, provider: "fixture", error: null }, nowMs });
   assert.notEqual(analysis.buySellBalance.value, null);
   assert.equal(analysis.buySellBalance.label, "BALANCED");
+});
+
+
+test("configuration uses a 30-pair lookback and validates the 20-pair minimum", () => {
+  const fs = require("node:fs");
+  const config = fs.readFileSync("lib/opportunity/config.ts", "utf8");
+  assert.match(config, /lookbackCandles:\s*30/);
+  assert.match(config, /minimumCandlePairs:\s*20/);
+  assert.match(config, /minimumCandlePairs cannot exceed lookbackCandles/);
+});
+
+test("minute-offset candles are not treated as minute-aligned synchronized pairs", () => {
+  const fs = require("node:fs");
+  const engine = fs.readFileSync("lib/opportunity/engine.ts", "utf8");
+  assert.match(engine, /candle\.time % MINUTE_SECONDS !== 0/);
+});
+
+test("missing directional balance is not presented as a real 50/100 score", () => {
+  const fs = require("node:fs");
+  const component = fs.readFileSync("components/buy-sell-balance.tsx", "utf8");
+  assert.match(component, /hasValue \? .* : "— \/ 100"/);
+  assert.match(component, /balanceMarker--unknown/);
+  assert.match(component, /Directional evidence unavailable/);
+  assert.doesNotMatch(component, /hasValue \? balance\.value : 50/);
 });
