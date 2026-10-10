@@ -181,11 +181,11 @@ export function buildLiveForecast(
       historical.push({ score: features.score, actualReturnPct, direction: actualDirection });
     }
     const direction = classify(currentFeatures.score, 20);
-    const similar = historical.filter((row) => direction !== "FLAT" && Math.sign(row.score) === (direction === "UP" ? 1 : -1) && Math.abs(row.score) >= 20);
+    const similar = historical.filter((row) => direction === "FLAT" ? Math.abs(row.score) < 20 : Math.sign(row.score) === (direction === "UP" ? 1 : -1) && Math.abs(row.score) >= 20);
     const historicalHitRate = similar.length >= 30
       ? similar.filter((row) => row.direction === direction).length / similar.length
       : null;
-    const expectedReturnPct = similar.length >= 30 ? median(similar.map((row) => row.actualReturnPct * (direction === "UP" ? 1 : -1))) : null;
+    const expectedReturnPct = similar.length >= 30 ? median(similar.map((row) => direction === "FLAT" ? row.actualReturnPct : row.actualReturnPct * (direction === "UP" ? 1 : -1))) : null;
     const dataStatus = latestAgeSeconds !== null && latestAgeSeconds > 180 ? "STALE_OR_GAPPED" : gapAtTail ? "STALE_OR_GAPPED" : "READY";
     return {
       horizonMinutes,
@@ -203,8 +203,10 @@ export function buildLiveForecast(
       volumePressure5Pct: currentFeatures.volumePressure5Pct,
       dataStatus,
       explanation: historicalHitRate === null
-        ? "Directional score only; historical calibration needs at least 30 comparable past outcomes."
-        : "Historical conditional hit rate from prior comparable signals; not a guarantee.",
+        ? "Historical comparison needs at least 30 comparable past outcomes for this direction or flat regime."
+        : direction === "FLAT"
+          ? "Historical flat-regime match rate: the share of comparable prior outcomes that stayed within the flat-return threshold."
+          : "Historical same-direction hit rate from prior comparable signals; not a guarantee.",
     };
   });
   return {
