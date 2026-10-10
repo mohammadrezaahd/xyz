@@ -7,6 +7,7 @@ import { OpportunityPanel } from "@/components/opportunity-panel";
 import { Phase3Panel } from "@/components/phase3-panel";
 import { SnapshotPage } from "@/components/snapshot-page";
 import { MarketForecastPanel } from "@/components/market-forecast-panel";
+import { TrendRegimePanel } from "@/components/trend-regime-panel";
 import { TestPositionPanel } from "@/components/test-position-panel";
 import { TradingCalculator } from "@/components/trading-calculator";
 import { analyzeOpportunity } from "@/lib/opportunity/engine";
@@ -154,7 +155,7 @@ export default function Home() {
       {view === "position" && <section className="workspacePage"><div className="pageIntro"><div className="sectionEyebrow">PHASE 4 WORKSPACE</div><h2>Paper Position</h2><p>Run and monitor a research-only paper position. No real funds or exchange orders are used.</p></div><TestPositionPanel currentPrice={prices?.bitpin ?? null} /></section>}
       {view === "history" && <section className="workspacePage"><div className="pageIntro"><div className="sectionEyebrow">PHASE 3 RESULTS</div><h2>History</h2><p>Review opportunity cron results, validation scores, and simulated outcomes.</p></div><Phase3Panel /></section>}
       {view === "snapshots" && <SnapshotPage />}
-      {view === "forecast" && <section className="workspacePage"><MarketForecastPanel /></section>}
+      {view === "forecast" && <section className="workspacePage"><TrendRegimePanel /><MarketForecastPanel /></section>}
       {view === "calculator" && <TradingCalculator />}
       {error && view !== "snapshots" && view !== "forecast" && <div className="errorBanner" role="alert"><strong>Provider warning</strong><span>{error}</span></div>}
       <footer className="consoleFooter"><span>XYZ Research Console</span><span>{copy.footer}</span></footer>
