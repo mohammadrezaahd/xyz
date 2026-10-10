@@ -28,9 +28,6 @@ export function buildObservationKey(input: ResearchObservationInput): string {
     RESEARCH_CONFIGURATION_VERSION,
     "usdt-toman",
     bucket,
-    analysis.prices.bitpin ?? "null",
-    analysis.prices.wallex ?? "null",
-    analysis.opportunity,
   ].join(":");
   return `research:${createHash("sha256").update(stable).digest("hex")}`;
 }
