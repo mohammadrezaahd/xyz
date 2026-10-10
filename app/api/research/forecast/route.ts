@@ -15,7 +15,7 @@ type CandlePayload = {
   diagnostics?: Record<string, unknown>;
 };
 
-export async function GET(request: Request) {
+export async function GET() {
   try {
     const payload = await loadCandleHistory() as CandlePayload;
     const forecast = buildLiveForecast(dedupeSort(payload.bitpin ?? []), dedupeSort(payload.wallex ?? []));
