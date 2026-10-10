@@ -64,13 +64,13 @@ const pct = (value: number | null | undefined) => value == null || !Number.isFin
 const rate = (value: number | null | undefined) => value == null || !Number.isFinite(value) ? "Not calibrated" : `${(value * 100).toFixed(1)}%`;
 const number = (value: number | null | undefined, digits = 2) => value == null || !Number.isFinite(value) ? "—" : value.toFixed(digits);
 const directionLabel: Record<ForecastRow["direction"], string> = {
-  UP: "Bullish",
-  DOWN: "Bearish",
-  FLAT: "No clear direction",
-  INSUFFICIENT_DATA: "Insufficient data",
+  UP: "BULLISH BIAS",
+  DOWN: "BEARISH BIAS",
+  FLAT: "NEUTRAL / WAIT",
+  INSUFFICIENT_DATA: "NO SIGNAL",
 };
 
-export function MarketForecastPanel({ mode = "summary" }: { mode?: "summary" | "details" }) {
+export function MarketForecastPanel({ mode = "summary" }: { mode?: "summary" | "details" | "compact" }) {
   const [forecast, setForecast] = useState<ForecastPayload | null>(null);
   const [backtest, setBacktest] = useState<BacktestPayload | null>(null);
   const [regimes, setRegimes] = useState<RegimePayload | null>(null);
@@ -114,7 +114,7 @@ export function MarketForecastPanel({ mode = "summary" }: { mode?: "summary" | "
   const usableRows = forecastRows.filter((item) => item.dataStatus === "READY" && item.direction !== "INSUFFICIENT_DATA");
   const upCount = usableRows.filter((item) => item.direction === "UP").length;
   const downCount = usableRows.filter((item) => item.direction === "DOWN").length;
-  const direction = upCount >= 2 ? "UP" : downCount >= 2 ? "DOWN" : "MIXED";
+  const direction = upCount >= 2 && upCount > downCount ? "UP" : downCount >= 2 && downCount > upCount ? "DOWN" : "MIXED";
   const directionalRows = usableRows.filter((item) => item.direction === direction);
   const freshAndAligned = forecast?.candleAgeSeconds != null && forecast.candleAgeSeconds <= 180 && usableRows.length >= 2 && direction !== "MIXED";
   const enoughComparableOutcomes = directionalRows.length >= 2 && directionalRows.every((item) => item.calibrationSamples >= 30 && item.historicalHitRate !== null);
@@ -123,18 +123,37 @@ export function MarketForecastPanel({ mode = "summary" }: { mode?: "summary" | "
   const evaluatedBacktests = (backtest?.metrics ?? []).filter((item) => item.testSampleStatus === "EVALUATED" && item.testSamples >= 100);
   const validatedEdge = evaluatedBacktests.filter((item) => item.testNetStrategyReturnPct != null && item.testNetStrategyReturnPct > 0 && item.testDirectionalAccuracy != null && item.testBaselineAccuracy != null && item.testDirectionalAccuracy > item.testBaselineAccuracy).length >= 2;
   const forecastCanSupportTrade = Boolean(freshAndAligned && enoughComparableOutcomes && historicalSupport && signedReturnSupport && validatedEdge);
-  const forecastDirectionLabel = direction === "UP" ? "صعودی" : direction === "DOWN" ? "نزولی" : "نامشخص";
+  const forecastDirectionLabel = direction === "UP" ? "BULLISH CONSENSUS" : direction === "DOWN" ? "BEARISH CONSENSUS" : "MIXED / NO CONSENSUS";
   const summaryReason = !freshAndAligned
-    ? "دادهٔ تازه یا توافق کافی بین افق‌ها وجود ندارد."
+    ? "Fresh data and a clear majority across time horizons are required."
     : !enoughComparableOutcomes
-      ? "نمونه‌های تاریخی قابل‌مقایسه برای تأیید جهت کافی نیستند."
+      ? "There are not enough comparable historical outcomes to confirm this direction."
       : !historicalSupport
-        ? "نرخ تطابق تاریخی در افق‌های هم‌جهت به ۵۰٪ نمی‌رسد."
+        ? "Historical direction-match rates do not support the current bias."
         : !signedReturnSupport
-          ? "بازده مورد انتظارِ علامت‌دار با جهت مدل هم‌راستا نیست."
+          ? "The signed expected-return estimate does not agree with the forecast direction."
           : !validatedEdge
-            ? "آزمون خارج از نمونه هنوز برتری مثبت پس از هزینه‌ها نسبت به خط مبنا نشان نداده است."
-            : "هم‌جهتی، بازده تاریخی و آزمون پس از هزینه‌ها از بررسی بیشتر این وضعیت پشتیبانی می‌کنند؛ تضمین معامله نیست.";
+            ? "Out-of-sample testing has not established a positive net edge over the baseline."
+            : "Historical alignment and after-cost out-of-sample results support further review, not a guaranteed trade.";
+
+  if (mode === "compact") {
+    return <section className="signalStrip" aria-label="Short-term market signals">
+      <div className="signalStripHeader"><h2>Short-term signals</h2><span>{refreshing ? "Updating…" : loading ? "Loading…" : forecast?.generatedAt ? `Updated ${new Date(forecast.generatedAt).toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" })}` : "Waiting for data"}</span></div>
+      <div className="signalStripGrid">
+        {[5, 15, 30, 60].map((horizon) => {
+          const item = forecastRows.find((row) => row.horizonMinutes === horizon);
+          const label = horizon === 60 ? "1 HOUR" : `${horizon} MIN`;
+          const directionClass = !item || item.direction === "INSUFFICIENT_DATA" ? "unknown" : item.direction === "UP" ? "bullish" : item.direction === "DOWN" ? "bearish" : "neutral";
+          return <article className={`signalStripCard signalStripCard--${directionClass}`} key={horizon}>
+            <span className="signalStripHorizon">{label}</span>
+            <strong>{item ? directionLabel[item.direction] : loading ? "ANALYZING…" : "NO SIGNAL"}</strong>
+            <small>{item?.score == null ? "Score —" : `Score ${item.score > 0 ? "+" : ""}${item.score.toFixed(0)}`}</small>
+          </article>;
+        })}
+      </div>
+      <button type="button" className="textLinkButton signalStripLink" onClick={() => window.dispatchEvent(new CustomEvent("xyz-open-forecast"))}>All signals &amp; validation ↗</button>
+    </section>;
+  }
 
   return <div className="forecastWorkspace">
     <section className="forecastHero">
@@ -150,7 +169,7 @@ export function MarketForecastPanel({ mode = "summary" }: { mode?: "summary" | "
 
     {mode === "summary" && <section className="forecastDecision forecastTakeaway" aria-live="polite">
       <div className="sectionEyebrow">FORECAST TAKEAWAY</div>
-      <div className="forecastDecisionTop"><h2>{forecastDirectionLabel} · {forecastCanSupportTrade ? "بررسی موقعیت" : "فعلاً معامله نکن"}</h2><span className={`forecastVerdict ${forecastCanSupportTrade ? "forecastVerdict--wait" : "forecastVerdict--down"}`}>{forecastCanSupportTrade ? "VALIDATION PASSED" : "NO TRADE"}</span></div>
+      <div className="forecastDecisionTop"><h2>{forecastDirectionLabel}</h2><span className={`forecastVerdict ${forecastCanSupportTrade ? "forecastVerdict--up" : "forecastVerdict--down"}`}>{forecastCanSupportTrade ? "TRADE GATE PASSED" : "NOT TRADE-VALIDATED"}</span></div>
       <p>{summaryReason}</p>
       <small>جهت مدل پیش‌بینی است، نه احتمال موفقیت. تا وقتی برتری خارج از نمونه پس از هزینه‌ها تأیید نشده، نتیجه «عدم معامله» است.</small>
     </section>}
@@ -164,9 +183,11 @@ export function MarketForecastPanel({ mode = "summary" }: { mode?: "summary" | "
 
     <section className={`forecastCards forecastCards--${mode}`} aria-label="Forecast by horizon">
       {(forecast?.forecasts ?? []).map((item) => <article className="forecastCard" key={item.horizonMinutes}>
-        <div className="forecastCardTop"><span>{item.horizonMinutes}-minute horizon</span>{mode === "details" && <><span className={`forecastState forecastState--${item.dataStatus.toLowerCase()}`}>{item.dataStatus.replace(/_/g, " ")}</span><span className={`forecastState ${item.historicalHitRate === null ? "forecastState--insufficient_data" : item.direction !== "FLAT" && item.historicalHitRate < 0.5 ? "forecastState--weak" : "forecastState--evaluated"}`}>{item.historicalHitRate === null ? "NOT CALIBRATED" : item.direction === "FLAT" ? "FLAT REGIME MATCH" : item.historicalHitRate < 0.5 ? "WEAK HISTORICAL SUPPORT" : "HISTORICAL SUPPORT"}</span></>}</div>
+        <div className="forecastCardTop"><span>{item.horizonMinutes === 60 ? "1-hour forecast" : `${item.horizonMinutes}-minute forecast`}</span>{mode === "details" && <><span className={`forecastState forecastState--${item.dataStatus.toLowerCase()}`}>{item.dataStatus.replace(/_/g, " ")}</span><span className={`forecastState ${item.historicalHitRate === null ? "forecastState--insufficient_data" : item.direction !== "FLAT" && item.historicalHitRate < 0.5 ? "forecastState--weak" : "forecastState--evaluated"}`}>{item.historicalHitRate === null ? "NOT CALIBRATED" : item.direction === "FLAT" ? "FLAT REGIME MATCH" : item.historicalHitRate < 0.5 ? "WEAK HISTORICAL SUPPORT" : "HISTORICAL SUPPORT"}</span></>}</div>
         <h3>{directionLabel[item.direction]}</h3>
         <div className="forecastScore"><strong>{number(item.score, 1)}</strong><span>/ 100 directional score</span></div>
+         {mode === "summary" && <div className={`signalCardGate ${item.dataStatus !== "READY" || item.direction === "INSUFFICIENT_DATA" || item.calibrationSamples < 30 || item.historicalHitRate === null ? "signalCardGate--wait" : item.historicalHitRate >= 0.5 ? "signalCardGate--review" : "signalCardGate--weak"}`}>{item.dataStatus !== "READY" || item.direction === "INSUFFICIENT_DATA" ? "NO SIGNAL · DATA ISSUE" : item.calibrationSamples < 30 || item.historicalHitRate === null ? "BIAS ONLY · NOT CALIBRATED" : item.historicalHitRate >= 0.5 ? "HISTORICAL SUPPORT · REVIEW" : "WEAK HISTORICAL SUPPORT"}</div>}
+         {mode === "summary" && <div className="forecastSummaryStats"><div><span>Historical match</span><strong>{rate(item.historicalHitRate)}</strong></div><div><span>Expected move</span><strong>{pct(item.expectedReturnPct)}</strong></div><div><span>Comparable signals</span><strong>{item.calibrationSamples}</strong></div></div>}
         <div className="forecastMeter" role="img" aria-label={item.score == null ? "No directional score" : `Directional score ${item.score}`}><span style={{ left: `${((item.score ?? 0) + 100) / 2}%` }} /></div>
         {mode === "details" ? <div className="forecastMetricRows">
           <div><span>Historical outcome match rate</span><strong>{rate(item.historicalHitRate)}</strong></div>
@@ -175,7 +196,7 @@ export function MarketForecastPanel({ mode = "summary" }: { mode?: "summary" | "
           <div><span>15m realized volatility</span><strong>{pct(item.realizedVolatility15Pct)}</strong></div>
           <div><span>5m volume-weighted pressure</span><strong>{pct(item.volumePressure5Pct)}</strong></div>
           <div><span>Momentum acceleration</span><strong>{pct(item.momentumAccelerationPct)}</strong></div>
-        </div> : <div className="forecastSummaryStats"><div><span>Historical match</span><strong>{rate(item.historicalHitRate)}</strong></div><div><span>Expected price return</span><strong>{pct(item.expectedReturnPct)}</strong></div><div><span>Comparable samples</span><strong>{item.calibrationSamples}</strong></div></div>}
+        </div> : <div className="forecastSummaryStats"><div><span>Historical match</span><strong>{rate(item.historicalHitRate)}</strong></div><div><span>Expected move</span><strong>{pct(item.expectedReturnPct)}</strong></div><div><span>Comparable signals</span><strong>{item.calibrationSamples}</strong></div></div>}
         {mode === "details" && <p className="forecastExplanation">{item.explanation}</p>}
       </article>)}
       {!loading && !forecast?.forecasts?.length && <div className="emptyState">No forecast output is available yet.</div>}
