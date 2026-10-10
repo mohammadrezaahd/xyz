@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { dedupeSort, type Candle } from "@/lib/candles";
-import { listResearchObservations } from "@/lib/research/repository";
+import { countResearchObservations, listResearchObservations } from "@/lib/research/repository";
 import { loadCandleHistory } from "@/lib/candle-history";
 
 export const dynamic = "force-dynamic";
@@ -19,9 +19,10 @@ type CandlePayload = { bitpin?: Candle[]; errors?: string[]; providers?: Record<
 
 export async function GET() {
   try {
-    const [candlePayload, observations] = await Promise.all([
+    const [candlePayload, observations, totalObservationCount] = await Promise.all([
       loadCandleHistory() as Promise<CandlePayload>,
       listResearchObservations({ limit: 5000 }),
+      countResearchObservations(),
     ]);
     const candles = dedupeSort(candlePayload.bitpin ?? []);
     const byTime = new Map(candles.map((candle) => [candle.time, candle]));
@@ -78,6 +79,7 @@ export async function GET() {
       ok: true,
       generatedAt: new Date().toISOString(),
       observationCount: observations.length,
+      totalObservationCount,
       usableObservationCount: usableObservations.length,
       matchedObservationCount: Math.max(0, ...horizons.map((item) => item.matchedObservations)),
       providerStatus: candlePayload.providers ?? {},
