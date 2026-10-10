@@ -68,7 +68,8 @@ export const DEFAULT_OPPORTUNITY_CONFIG: OpportunityConfig = {
   minBullishRatio: 0.8,
   minAlignmentRatio: 0.8,
   minimumDirectionalParticipationRatio: 0.5,
-  minCandleMovePct: 0.05,
+  // One-minute FX candles commonly move less than 0.05%; use a realistic threshold for directional classification.
+  minCandleMovePct: 0.001,
   momentumReferencePct: 0.2,
   safetyMarginPct: 0.35,
   targetHorizonMinutes: 30,
