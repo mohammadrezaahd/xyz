@@ -21,7 +21,7 @@ export async function GET() {
   try {
     const [candlePayload, observations] = await Promise.all([
       loadCandleHistory() as Promise<CandlePayload>,
-      listResearchObservations({ limit: 100 }),
+      listResearchObservations({ limit: 5000 }),
     ]);
     const candles = dedupeSort(candlePayload.bitpin ?? []);
     const byTime = new Map(candles.map((candle) => [candle.time, candle]));
