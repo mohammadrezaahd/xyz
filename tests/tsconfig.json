@@ -18,6 +18,7 @@
     "../lib/opportunities/repository.ts",
     "../lib/research/**/*.ts",
     "../lib/test-position/**/*.ts",
-    "../lib/bitpin.ts"
+    "../lib/bitpin.ts",
+    "../check-balance.ts"
   ]
 }
