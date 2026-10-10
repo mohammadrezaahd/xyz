@@ -431,11 +431,11 @@ test("alignment classification is 8 SUCCESS, 7/5 ACCEPTABLE, 4 FAILED", () => {
 });
 
 test("sub-0.05% movement is neutral and not bullish", () => {
-  const bitpin = candles(Array(10).fill("up"));
+  const bitpin = candles(Array(30).fill("up"));
   bitpin[0] = candle(60, 270000, 270050);
   const analysis = analyzeOpportunity({
     bitpinCandles: bitpin,
-    wallexCandles: candles(Array(10).fill("up")),
+    wallexCandles: candles(Array(30).fill("up")),
     currentPrices: { bitpin: 271000, wallex: 280000 },
     externalPrice: 280000,
     nowMs,
@@ -451,8 +451,8 @@ test("momentum uses fixed 0.20% reference and clamps at 5", () => {
     [0.5, 5],
   ]) {
     const analysis = analyzeOpportunity({
-      bitpinCandles: candles(Array(10).fill("up"), averageMove),
-      wallexCandles: candles(Array(10).fill("up"), averageMove),
+      bitpinCandles: candles(Array(30).fill("up"), averageMove),
+      wallexCandles: candles(Array(30).fill("up"), averageMove),
       currentPrices: { bitpin: 271000, wallex: 280000 },
       externalPrice: 280000,
       nowMs,
