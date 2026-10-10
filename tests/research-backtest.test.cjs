@@ -13,6 +13,7 @@ test("backtest evaluates 5, 15, and 30 minute horizons with chronological splits
   const candles = series(180);
   const result = runResearchBacktest(candles, candles, { costPerRoundTripPct: 0.2 });
   assert.deepEqual(result.metrics.map((metric) => metric.horizonMinutes), [5, 15, 30]);
+  assert.equal(result.method, "multi-feature-regime-v1");
   for (const metric of result.metrics) {
     assert.ok(metric.samples > 0);
     assert.equal(metric.trainSamples + metric.tuneSamples + metric.testSamples, metric.samples);
@@ -39,7 +40,7 @@ test("backtest excludes windows crossing missing minute candles", () => {
   const wallex = complete.filter((candle) => candle.time !== gapTime);
   const result = runResearchBacktest(bitpin, wallex);
   for (const sample of result.samples) {
-    for (let offset = 1; offset <= 5; offset += 1) {
+    for (let offset = 1; offset <= 30; offset += 1) {
       assert.ok(bitpin.some((candle) => candle.time === sample.timestamp - offset * 60));
     }
     for (let offset = 1; offset <= sample.horizonMinutes; offset += 1) {
