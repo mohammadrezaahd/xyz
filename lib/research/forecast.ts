@@ -1,6 +1,6 @@
 import type { Candle } from "../candles";
 
-export const FORECAST_HORIZONS = [5, 15, 30] as const;
+export const FORECAST_HORIZONS = [5, 15, 30, 60] as const;
 export type ForecastHorizon = (typeof FORECAST_HORIZONS)[number];
 export type ForecastDirection = "UP" | "DOWN" | "FLAT" | "INSUFFICIENT_DATA";
 
@@ -8,6 +8,7 @@ type Pair = { time: number; bitpin: Candle; wallex: Candle };
 type FeatureRow = {
   time: number;
   score: number;
+  scoresByHorizon: Record<ForecastHorizon, number>;
   momentum5Pct: number;
   momentum15Pct: number;
   momentum30Pct: number;
@@ -113,19 +114,47 @@ function featureAt(pairs: Pair[], index: number): FeatureRow | null {
     }
   }
   const volumePressure5Pct = volumeWeightTotal > 0 ? volumeWeightedReturn / volumeWeightTotal : null;
-  // Transparent multi-signal score. The same feature score is used by the live
-  // forecast and chronological holdout backtest; it is not itself a probability.
-  const components = [
-    { value: Math.tanh(m5 / 0.04), weight: 0.20 },
-    { value: Math.tanh(m15 / 0.08), weight: 0.25 },
-    { value: Math.tanh(m30 / 0.15), weight: 0.20 },
-    { value: Math.tanh(momentumAccelerationPct / 0.02), weight: 0.10 },
-    { value: venueAgreement, weight: 0.15 },
-    ...(volumePressure5Pct === null ? [] : [{ value: Math.tanh(volumePressure5Pct / 0.02), weight: 0.10 }]),
-  ];
-  const totalWeight = components.reduce((sum, item) => sum + item.weight, 0);
-  const score = Math.max(-100, Math.min(100, components.reduce((sum, item) => sum + item.value * item.weight, 0) / totalWeight * 100));
-  return { time: current.time, score, momentum5Pct: m5, momentum15Pct: m15, momentum30Pct: m30, volatility15Pct, venueAgreement, momentumAccelerationPct, volumePressure5Pct };
+  // Each horizon gets its own feature weighting. These are directional scores,
+  // not probabilities; keep the live forecast and its calibration horizon-aligned.
+  const scoreFor = (horizon: ForecastHorizon) => {
+    const components = horizon === 5
+      ? [
+          { value: Math.tanh(m5 / 0.04), weight: 0.36 },
+          { value: Math.tanh(momentumAccelerationPct / 0.02), weight: 0.20 },
+          { value: volumePressure5Pct === null ? 0 : Math.tanh(volumePressure5Pct / 0.02), weight: volumePressure5Pct === null ? 0 : 0.18 },
+          { value: venueAgreement, weight: 0.18 },
+          { value: Math.tanh(m15 / 0.08), weight: 0.08 },
+        ]
+      : horizon === 15
+        ? [
+            { value: Math.tanh(m5 / 0.04), weight: 0.20 },
+            { value: Math.tanh(m15 / 0.08), weight: 0.28 },
+            { value: Math.tanh(m30 / 0.15), weight: 0.12 },
+            { value: Math.tanh(momentumAccelerationPct / 0.02), weight: 0.12 },
+            { value: venueAgreement, weight: 0.16 },
+            { value: volumePressure5Pct === null ? 0 : Math.tanh(volumePressure5Pct / 0.02), weight: volumePressure5Pct === null ? 0 : 0.12 },
+          ]
+        : horizon === 30
+        ? [
+            { value: Math.tanh(m5 / 0.04), weight: 0.08 },
+            { value: Math.tanh(m15 / 0.08), weight: 0.25 },
+            { value: Math.tanh(m30 / 0.15), weight: 0.35 },
+            { value: Math.tanh(momentumAccelerationPct / 0.02), weight: 0.05 },
+            { value: venueAgreement, weight: 0.17 },
+            { value: volumePressure5Pct === null ? 0 : Math.tanh(volumePressure5Pct / 0.02), weight: volumePressure5Pct === null ? 0 : 0.10 },
+          ]
+        : [
+            { value: Math.tanh(m15 / 0.08), weight: 0.30 },
+            { value: Math.tanh(m30 / 0.15), weight: 0.42 },
+            { value: venueAgreement, weight: 0.18 },
+            { value: Math.tanh(momentumAccelerationPct / 0.02), weight: 0.05 },
+            { value: volumePressure5Pct === null ? 0 : Math.tanh(volumePressure5Pct / 0.02), weight: volumePressure5Pct === null ? 0 : 0.05 },
+          ];
+    const totalWeight = components.reduce((sum, item) => sum + item.weight, 0);
+    return Math.max(-100, Math.min(100, components.reduce((sum, item) => sum + item.value * item.weight, 0) / totalWeight * 100));
+  };
+  const scoresByHorizon: Record<ForecastHorizon, number> = { 5: scoreFor(5), 15: scoreFor(15), 30: scoreFor(30), 60: scoreFor(60) };
+  return { time: current.time, score: scoresByHorizon[15], scoresByHorizon, momentum5Pct: m5, momentum15Pct: m15, momentum30Pct: m30, volatility15Pct, venueAgreement, momentumAccelerationPct, volumePressure5Pct };
 }
 
 function classify(score: number, threshold: number): ForecastDirection {
@@ -178,19 +207,22 @@ export function buildLiveForecast(
       const start = pairs[index].bitpin.close;
       const actualReturnPct = (future.bitpin.close / start - 1) * 100;
       const actualDirection = actualReturnPct > 0.02 ? "UP" : actualReturnPct < -0.02 ? "DOWN" : "FLAT";
-      historical.push({ score: features.score, actualReturnPct, direction: actualDirection });
+      historical.push({ score: features.scoresByHorizon[horizonMinutes], actualReturnPct, direction: actualDirection });
     }
-    const direction = classify(currentFeatures.score, 20);
+    const horizonScore = currentFeatures.scoresByHorizon[horizonMinutes];
+    const direction = classify(horizonScore, 20);
     const similar = historical.filter((row) => direction === "FLAT" ? Math.abs(row.score) < 20 : Math.sign(row.score) === (direction === "UP" ? 1 : -1) && Math.abs(row.score) >= 20);
     const historicalHitRate = similar.length >= 30
       ? similar.filter((row) => row.direction === direction).length / similar.length
       : null;
-    const expectedReturnPct = similar.length >= 30 ? median(similar.map((row) => direction === "FLAT" ? row.actualReturnPct : row.actualReturnPct * (direction === "UP" ? 1 : -1))) : null;
+    // Report the signed market return, not a direction-adjusted profit proxy.
+    // A bearish forecast should show a negative expected price return when history supports it.
+    const expectedReturnPct = similar.length >= 30 ? median(similar.map((row) => row.actualReturnPct)) : null;
     const dataStatus = latestAgeSeconds !== null && latestAgeSeconds > 180 ? "STALE_OR_GAPPED" : gapAtTail ? "STALE_OR_GAPPED" : "READY";
     return {
       horizonMinutes,
       direction: dataStatus === "READY" ? direction : "INSUFFICIENT_DATA",
-      score: currentFeatures.score,
+      score: horizonScore,
       historicalHitRate,
       calibrationSamples: similar.length,
       expectedReturnPct,

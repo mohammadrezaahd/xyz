@@ -32,37 +32,26 @@ function findBitpinPrice(payload: unknown, symbol: string): number | null {
 
   if (!row || typeof row !== "object") return null;
 
-  return parsePositivePrice(
-    (row as Record<string, unknown>).price,
-  );
+  return parsePositivePrice((row as Record<string, unknown>).price);
 }
 
 async function fetchBitpinPrice(): Promise<number> {
   const baseUrl = requireEnv("BITPIN_API_BASE_URL").replace(/\/$/, "");
   const url = new URL(`${baseUrl}/api/v1/mkt/tickers/`);
-
   const symbol = requireEnv("BITPIN_SYMBOL");
   url.searchParams.set("symbol", symbol);
 
-  const response = await fetch(url, {
-    cache: "no-store",
-  });
-
+  const response = await fetch(url, { cache: "no-store" });
   const payload = await response.json().catch(() => null);
 
   if (!response.ok) {
-    throw new Error(
-      `Bitpin ticker HTTP ${response.status}: ${JSON.stringify(payload)}`,
-    );
+    throw new Error(`Bitpin ticker HTTP ${response.status}: ${JSON.stringify(payload)}`);
   }
 
   const price = findBitpinPrice(payload, symbol);
   if (price === null) {
-    throw new Error(
-      "Bitpin ticker response did not contain a valid USDT_IRT price",
-    );
+    throw new Error("Bitpin ticker response did not contain a valid USDT_IRT price");
   }
-
   return price;
 }
 
@@ -91,22 +80,19 @@ export async function GET() {
   ]);
 
   const errors: string[] = [];
-
   const bitpinPrice =
     bitpin.status === "fulfilled"
       ? bitpin.value.price
       : (errors.push(`Bitpin ticker: ${String(bitpin.reason)}`), null);
-
   const wallexPrice =
     wallex.status === "fulfilled"
       ? wallex.value.price
       : (errors.push(`Wallex ticker: ${String(wallex.reason)}`), null);
 
-  const fetchedAt = Date.now();
   return NextResponse.json({
     bitpin: bitpinPrice,
     wallex: wallexPrice,
-    fetchedAt,
+    fetchedAt: Date.now(),
     providers: {
       bitpin: { status: bitpin.status === "fulfilled" ? "SUCCESS" : "FAILED", fetchedAt: bitpin.status === "fulfilled" ? bitpin.value.fetchedAt : null, durationMs: bitpin.status === "fulfilled" ? bitpin.value.durationMs : null },
       wallex: { status: wallex.status === "fulfilled" ? "SUCCESS" : "FAILED", fetchedAt: wallex.status === "fulfilled" ? wallex.value.fetchedAt : null, durationMs: wallex.status === "fulfilled" ? wallex.value.durationMs : null },
