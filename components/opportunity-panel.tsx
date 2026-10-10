@@ -359,7 +359,7 @@ export function OpportunityPanel({
               explanation={getTestExplanation(
                 test.id,
                 test.result,
-                analysis.candles.lookback,
+                analysis.candles.stabilityLookback,
               )}
               formatActual={
                 test.id === "external" ||
