@@ -106,7 +106,7 @@ export async function listResearchObservations(filters: ResearchObservationFilte
   return (await getCollection())
     .find(query)
     .sort({ detectedAt: -1 })
-    .limit(Math.max(1, Math.min(filters.limit ?? 50, 100)))
+    .limit(Math.max(1, Math.min(filters.limit ?? 50, 5000)))
     .toArray();
 }
 
