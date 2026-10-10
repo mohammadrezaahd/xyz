@@ -10,6 +10,7 @@ export function BuySellBalance({ balance, candles, dataCompleteness, dataQuality
   const pairs = synchronizedCandlePairs ?? null;
   const requiredPairs = minimumRequiredCandlePairs ?? null;
   const negativeEdge = decision === "NO_TRADE_NEGATIVE_EDGE" || (typeof netEdgePct === "number" && netEdgePct < 0);
+  const providerLimited = !hasValue && !!candles && (candles.bitpinReceived <= 10 || candles.wallexReceived <= 10);
   return <section className={`buySellBalance${compact ? " buySellBalance--compact" : ""}`} role="img" aria-label={aria}>
     <div className="balanceHeader"><div><span className="eyebrow">DIRECTIONAL EVIDENCE</span><h3>Buy / Sell Balance</h3></div><strong>{valueText}</strong></div>
     <div className="balanceTrack" aria-hidden="true"><span className="balanceSellZone" /><span className="balanceNeutralZone" /><span className="balanceBuyZone" /><span className={`balanceMarker${hasValue ? "" : " balanceMarker--unknown"}`} style={{ left: `${markerValue}%`, opacity: hasValue ? 1 : 0.42 }} /></div>
@@ -23,9 +24,9 @@ export function BuySellBalance({ balance, candles, dataCompleteness, dataQuality
       <div>Synchronized closed pairs: <b>{candles?.synchronizedAvailable ?? pairs ?? "—"}</b></div>
       <div>Pairs used for analysis: <b>{candles?.synchronizedUsed ?? "—"}</b></div>
       <div>Minimum required: <b>{requiredPairs ?? candles?.minimumRequired ?? 20}</b></div>
-      <div className={hasValue ? "balanceReadiness isReady" : "balanceReadiness isWaiting"}>Directional evidence: <b>{hasValue ? "READY" : "WAITING FOR DATA"}</b></div>
-      {!hasValue && <div>{pairs ?? candles?.synchronizedAvailable ?? 0} of {requiredPairs ?? 20} required pairs available. Waiting for more valid pairs: {Math.max(0, (requiredPairs ?? 20) - (pairs ?? candles?.synchronizedAvailable ?? 0))}.</div>}
-      {!hasValue && candles && (candles.bitpinReceived <= 10 || candles.wallexReceived <= 10) && <div className="providerLimitedWarning">Historical candle provider is returning only 10 or fewer candles; this is a provider/history limitation, not normal accumulation.</div>}
+      <div className={hasValue ? "balanceReadiness isReady" : "balanceReadiness isWaiting"}>Directional evidence: <b>{hasValue ? "READY" : providerLimited ? "PROVIDER LIMITATION" : "WAITING FOR DATA"}</b></div>
+      {!hasValue && !providerLimited && <div>{pairs ?? candles?.synchronizedAvailable ?? 0} of {requiredPairs ?? 20} required pairs available. Waiting for more valid pairs: {Math.max(0, (requiredPairs ?? 20) - (pairs ?? candles?.synchronizedAvailable ?? 0))}.</div>}
+      {!hasValue && candles && (candles.bitpinReceived <= 10 || candles.wallexReceived <= 10) && <div className="providerLimitedWarning">Historical candle provider is returning only 10 or fewer candles. This is a provider/history limitation, not normal accumulation.</div>}
     </div>
     {!hasValue && <div className="balanceUnavailable"><strong>INSUFFICIENT DATA</strong><span>— · Directional evidence unavailable. Placeholder only; no balanced score is being reported.</span>{reasons.length > 0 && <div><b>Data gates:</b><ul>{reasons.map((reason) => <li key={reason}>{reason}</li>)}</ul></div>}</div>}
     {negativeEdge && <div className="balanceEconomicGate"><strong>Economic gate: NO_TRADE_NEGATIVE_EDGE</strong><span>Net edge: {netEdgePct == null ? "—" : `${netEdgePct.toFixed(2)}%`}</span></div>}
