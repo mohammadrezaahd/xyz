@@ -3,7 +3,7 @@ import type { Candle } from "../candles";
 export const LONG_HORIZONS_HOURS = [24, 168] as const;
 export type LongHorizonHours = (typeof LONG_HORIZONS_HOURS)[number];
 export type LongDirection = "UP" | "DOWN" | "FLAT" | "INSUFFICIENT_DATA";
-type Pair = { time: number; bitpin: Candle; wallex: Candle };
+type Pair = { time: number; bitpin: Candle; wallex: Candle; closedAt: number; sourceTimestampOffsetSeconds: number };
 type Feature = {
   time: number;
   scores: Record<LongHorizonHours, number>;
@@ -76,17 +76,33 @@ function actualDirection(returnPct: number): Exclude<LongDirection, "INSUFFICIEN
   return returnPct > 0.15 ? "UP" : returnPct < -0.15 ? "DOWN" : "FLAT";
 }
 function makePairs(bitpinCandles: Candle[], wallexCandles: Candle[]): Pair[] {
+  // Bitpin's hourly candles are stamped at :30 while Wallex's are stamped at :00.
+  // Requiring exact UTC-hour timestamps silently discarded every Bitpin candle.
+  // Match each candle to its nearest UTC-hour bucket, and retain the actual source
+  // timestamps so the 30-minute inter-venue offset can be measured and disclosed.
   const toMap = (candles: Candle[]) => {
     const map = new Map<number, Candle>();
     for (const candle of candles) {
-      if (Number.isFinite(candle.time) && finitePositive(candle.close) && candle.time % HOUR === 0) map.set(candle.time, candle);
+      if (!Number.isFinite(candle.time) || !finitePositive(candle.close)) continue;
+      const bucket = Math.round(candle.time / HOUR) * HOUR;
+      map.set(bucket, candle);
     }
     return map;
   };
   const bitpin = toMap(bitpinCandles);
   const wallex = toMap(wallexCandles);
   return [...bitpin.keys()].filter((time) => wallex.has(time)).sort((a, b) => a - b)
-    .map((time) => ({ time, bitpin: bitpin.get(time)!, wallex: wallex.get(time)! }));
+    .map((time) => {
+      const bitpinCandle = bitpin.get(time)!;
+      const wallexCandle = wallex.get(time)!;
+      return {
+        time,
+        bitpin: bitpinCandle,
+        wallex: wallexCandle,
+        closedAt: Math.max(bitpinCandle.time, wallexCandle.time) + HOUR,
+        sourceTimestampOffsetSeconds: Math.abs(bitpinCandle.time - wallexCandle.time),
+      };
+    });
 }
 function featureAt(pairs: Pair[], index: number): Feature | null {
   if (index < LOOKBACK_HOURS) return null;
