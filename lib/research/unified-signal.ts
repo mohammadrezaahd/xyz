@@ -167,8 +167,7 @@ export function buildUnifiedSignal(input: {
   const next7d = longForecastFresh ? longForecast.forecasts.find((row) => row.horizonHours === 168) : undefined;
   const long24Direction = next24?.direction === "UP" ? "BULLISH" : next24?.direction === "DOWN" ? "BEARISH" : next24?.direction === "FLAT" ? "NEUTRAL" : "INSUFFICIENT_DATA";
   const long7dDirection = next7d?.direction === "UP" ? "BULLISH" : next7d?.direction === "DOWN" ? "BEARISH" : next7d?.direction === "FLAT" ? "NEUTRAL" : "INSUFFICIENT_DATA";
-  const longConflict = long24Direction === "CONFLICT" || long7dDirection === "CONFLICT" ||
-    ((long24Direction === "BULLISH" || long24Direction === "BEARISH") && (long7dDirection === "BULLISH" || long7dDirection === "BEARISH") && long24Direction !== long7dDirection) ||
+  const longConflict = ((long24Direction === "BULLISH" || long24Direction === "BEARISH") && (long7dDirection === "BULLISH" || long7dDirection === "BEARISH") && long24Direction !== long7dDirection) ||
     (directional.length > 0 && ((long24Direction === "BULLISH" && bearish > 0) || (long24Direction === "BEARISH" && bullish > 0) || (long7dDirection === "BULLISH" && bearish > 0) || (long7dDirection === "BEARISH" && bullish > 0)));
   const higherTimeframeDirection: UnifiedDirection = !longForecastFresh ? "INSUFFICIENT_DATA"
     : longConflict ? "CONFLICT"
