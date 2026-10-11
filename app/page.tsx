@@ -7,6 +7,7 @@ import { OpportunityPanel } from "@/components/opportunity-panel";
 import { Phase3Panel } from "@/components/phase3-panel";
 import { SnapshotPage } from "@/components/snapshot-page";
 import { MarketForecastPanel } from "@/components/market-forecast-panel";
+import { WeeklyAnalysisPanel } from "@/components/weekly-analysis-panel";
 import { TrendRegimePanel } from "@/components/trend-regime-panel";
 import { TestPositionPanel } from "@/components/test-position-panel";
 import { TradingCalculator } from "@/components/trading-calculator";
@@ -16,6 +17,7 @@ import type { CurrentPricesResponse } from "@/lib/prices";
 import type { MarketSnapshotTrend } from "@/lib/market-snapshots/types";
 
 type CandleResponse = { bitpin: Candle[]; wallex: Candle[]; errors: string[]; fetchedAt: number; refreshMs: number };
+type ChartHistoryResponse = { bitpin: Candle[]; wallex: Candle[]; errors: string[]; fetchedAt: number; resolution: string; rangeDays: number };
 type View = "overview" | "charts" | "opportunity" | "balance" | "position" | "history" | "snapshots" | "forecast" | "details" | "calculator";
 
 const snapshotTrends: Array<{ value: MarketSnapshotTrend; label: string }> = [
@@ -66,6 +68,7 @@ const navigation: Array<[View, string, string, string]> = [
 
 export default function Home() {
   const [data, setData] = useState<CandleResponse | null>(null);
+  const [chartHistory, setChartHistory] = useState<ChartHistoryResponse | null>(null);
   const [prices, setPrices] = useState<CurrentPricesResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -94,6 +97,22 @@ export default function Home() {
   }, []);
 
   useEffect(() => { void load(); const timer = window.setInterval(load, Number(process.env.NEXT_PUBLIC_CANDLE_REFRESH_MS ?? 15000)); return () => window.clearInterval(timer); }, [load, refreshTick]);
+
+  useEffect(() => {
+    let active = true;
+    const loadHistory = async () => {
+      try {
+        const response = await fetch("/api/chart-history", { cache: "no-store" });
+        const result = (await response.json()) as ChartHistoryResponse;
+        if (active) setChartHistory(result);
+      } catch {
+        // Keep live one-minute charts available if long-range history is unavailable.
+      }
+    };
+    void loadHistory();
+    const timer = window.setInterval(loadHistory, 5 * 60 * 1000);
+    return () => { active = false; window.clearInterval(timer); };
+  }, []);
 
   useEffect(() => {
     const openForecast = () => setView("forecast");
@@ -158,14 +177,15 @@ export default function Home() {
       {view === "overview" && <section className="dashboardOverview">
         <TrendRegimePanel mode="compact" />
         <MarketForecastPanel mode="compact" />
+        <WeeklyAnalysisPanel bitpin={chartHistory?.bitpin ?? data?.bitpin ?? []} wallex={chartHistory?.wallex ?? data?.wallex ?? []} />
         <section className="dashboardPrices" aria-label="Current market prices">
           <div className="dashboardPrice"><span>BITPIN</span><strong>{price(prices?.bitpin)}</strong><small>TOMAN</small></div>
           <div className="dashboardSpread"><span>SPREAD</span><strong>{percent(analysis.spread.percent)}</strong></div>
           <div className="dashboardPrice"><span>WALLEX</span><strong>{price(prices?.wallex)}</strong><small>TOMAN</small></div>
         </section>
         <section className="dashboardChartGrid" aria-label="Market charts">
-          <article className="chartPane"><div className="chartPaneHeader"><div><strong>Bitpin</strong><span>{price(prices?.bitpin)} Toman</span></div><span>{data?.bitpin.length ?? 0} candles</span></div><CandleChart candles={data?.bitpin ?? []} /></article>
-          <article className="chartPane"><div className="chartPaneHeader"><div><strong>Wallex</strong><span>{price(prices?.wallex)} Toman</span></div><span>{data?.wallex.length ?? 0} candles</span></div><CandleChart candles={data?.wallex ?? []} /></article>
+          <article className="chartPane"><div className="chartPaneHeader"><div><strong>Bitpin</strong><span>{price(prices?.bitpin)} Toman</span></div><span>{data?.bitpin.length ?? 0} candles</span></div><CandleChart candles={data?.bitpin ?? []} historicalCandles={chartHistory?.bitpin ?? []} /></article>
+          <article className="chartPane"><div className="chartPaneHeader"><div><strong>Wallex</strong><span>{price(prices?.wallex)} Toman</span></div><span>{data?.wallex.length ?? 0} candles</span></div><CandleChart candles={data?.wallex ?? []} historicalCandles={chartHistory?.wallex ?? []} /></article>
         </section>
         <section className="dashboardOpportunity" aria-label="Current opportunity">
           <div className="dashboardWidgetHeader"><h2>Opportunity</h2><button type="button" className="textLinkButton" onClick={() => nav("opportunity")}>Open ↗</button></div>
@@ -177,15 +197,15 @@ export default function Home() {
           <BuySellBalance candles={analysis.candles} balance={analysis.buySellBalance} dataCompleteness={analysis.dataCompleteness} dataQuality={analysis.dataQuality} synchronizedCandlePairs={analysis.candles.synchronizedAvailable} minimumRequiredCandlePairs={analysis.minimumRequiredCandlePairs} netEdgePct={analysis.edge.executionNetPct} decision={analysis.decision} decisionReason={analysis.decisionReason} compact />
         </section>
       </section>}
-      {view === "charts" && <section className="workspacePage chartsWorkspace"><section className="chartSection" aria-label="Synchronized candle history"><div className="sectionHeader"><div><div className="sectionEyebrow">LIVE MARKET</div><h2>Synchronized candle history</h2></div><span className="sectionNote">1 minute · {data?.bitpin.length ?? 0} Bitpin / {data?.wallex.length ?? 0} Wallex candles</span></div><div className="chartPair"><div className="chartPane"><div className="chartPaneHeader"><div><strong>Bitpin</strong><span>{price(prices?.bitpin)} Toman</span></div><span>{data?.bitpin.length ?? 0} candles</span></div><CandleChart candles={data?.bitpin ?? []} /></div><div className="chartPane"><div className="chartPaneHeader"><div><strong>Wallex</strong><span>{price(prices?.wallex)} Toman</span></div><span>{data?.wallex.length ?? 0} candles</span></div><CandleChart candles={data?.wallex ?? []} /></div></div></section></section>}
+      {view === "charts" && <section className="workspacePage chartsWorkspace"><section className="chartSection" aria-label="Synchronized candle history"><div className="sectionHeader"><div><div className="sectionEyebrow">LIVE MARKET</div><h2>Synchronized candle history</h2></div><span className="sectionNote">Intraday · Daily · Weekly · 90-day hourly history</span></div><div className="chartPair"><div className="chartPane"><div className="chartPaneHeader"><div><strong>Bitpin</strong><span>{price(prices?.bitpin)} Toman</span></div><span>{data?.bitpin.length ?? 0} candles</span></div><CandleChart candles={data?.bitpin ?? []} historicalCandles={chartHistory?.bitpin ?? []} /></div><div className="chartPane"><div className="chartPaneHeader"><div><strong>Wallex</strong><span>{price(prices?.wallex)} Toman</span></div><span>{data?.wallex.length ?? 0} candles</span></div><CandleChart candles={data?.wallex ?? []} historicalCandles={chartHistory?.wallex ?? []} /></div></div></section></section>}
       {view === "opportunity" && <section className="workspacePage"><div className="pageIntro"><div className="sectionEyebrow">OPPORTUNITY</div><h2>Current opportunity</h2></div><section className="commandCenter" aria-label="Opportunity decision"><div className="commandMain"><div className="sectionEyebrow">DECISION</div><div className="commandHeading"><div><h2>{analysis.decision?.startsWith("NO_TRADE") ? "NO TRADE" : analysis.decision ?? "WAITING FOR DATA"}</h2></div><StatusBadge kind={analysis.decision?.startsWith("NO_TRADE") ? "partial" : "neutral"}>{analysis.opportunity} opportunity</StatusBadge></div><div className="commandStats"><div><span>Opportunity %</span><strong>{percent(analysis.spread.percent)}</strong></div><div><span>Net edge</span><strong>{percent(analysis.edge.executionNetPct)}</strong></div><div><span>Entry · Bitpin</span><strong>{price(analysis.target.entryPrice)}</strong></div><div><span>Fee-adjusted target</span><strong>{price(analysis.target.safeTarget)}</strong></div></div><div className="commandFooter"><label className="inputField"><span>External Tether Price</span><input inputMode="decimal" type="text" value={externalPrice} onChange={(event) => { setExternalPriceCustomized(true); setExternalPrice(event.target.value); }} placeholder="Wallex ticker" /></label><div className="commandFooterActions"><button type="button" className="primaryButton" onClick={() => nav("details")}>Open diagnostics</button></div></div></div><div className="verdictRail"><span>ECONOMIC GATE</span><strong>{analysis.edge.executionNetPct != null && analysis.edge.executionNetPct > 0 ? "CHECK OTHER GATES" : "NO TRADE"}</strong><p>{analysis.edge.executionNetPct == null ? "Net edge unavailable" : `Net edge ${percent(analysis.edge.executionNetPct)}`}</p></div></section></section>}
       {view === "balance" && <section className="workspacePage"><BuySellBalance candles={analysis.candles} balance={analysis.buySellBalance} dataCompleteness={analysis.dataCompleteness} dataQuality={analysis.dataQuality} synchronizedCandlePairs={analysis.candles.synchronizedAvailable} minimumRequiredCandlePairs={analysis.minimumRequiredCandlePairs} netEdgePct={analysis.edge.executionNetPct} decision={analysis.decision} decisionReason={analysis.decisionReason} /></section>}
       {view === "position" && <section className="workspacePage"><div className="pageIntro"><div className="sectionEyebrow">PHASE 4 WORKSPACE</div><h2>Paper Position</h2><p>Run and monitor a research-only paper position. No real funds or exchange orders are used.</p></div><TestPositionPanel currentPrice={prices?.bitpin ?? null} /></section>}
       {view === "history" && <section className="workspacePage"><div className="pageIntro"><div className="sectionEyebrow">PHASE 3 RESULTS</div><h2>History</h2><p>Review opportunity cron results, validation scores, and simulated outcomes.</p></div><Phase3Panel /></section>}
       {view === "snapshots" && <SnapshotPage />}
-      {view === "forecast" && <section className="workspacePage"><MarketForecastPanel mode="summary" /></section>}
+      {view === "forecast" && <section className="workspacePage"><MarketForecastPanel mode="summary" /><WeeklyAnalysisPanel bitpin={chartHistory?.bitpin ?? data?.bitpin ?? []} wallex={chartHistory?.wallex ?? data?.wallex ?? []} /></section>}
       {view === "calculator" && <TradingCalculator />}
-      {view === "details" && <section className="workspacePage"><div className="pageIntro"><div className="sectionEyebrow">DETAILS &amp; LOGS</div><h2>Technical details and logs</h2></div><details className="diagnosticAccordion"><summary>Opportunity &amp; Stability diagnostics</summary><OpportunityPanel analysis={analysis} externalPrice={externalPrice} onExternalPriceChange={(value) => { setExternalPriceCustomized(true); setExternalPrice(value); }} /></details><details className="diagnosticAccordion"><summary>Trend regime and exit-timing backtest</summary><TrendRegimePanel mode="details" /></details><details className="diagnosticAccordion"><summary>Short-term forecast, validation and stability research</summary><MarketForecastPanel mode="details" /></details><details className="diagnosticAccordion"><summary>Synchronized raw candle charts</summary><section className="chartSection" aria-labelledby="chart-title"><div className="sectionHeader"><div><div className="sectionEyebrow">PRICE RELATIONSHIP</div><h2 id="chart-title">Synchronized candle history</h2></div><span className="sectionNote">1 minute · {data?.bitpin.length ?? 0} Bitpin / {data?.wallex.length ?? 0} Wallex candles</span></div><div className="chartPair"><div className="chartPane"><div className="chartPaneHeader"><div><strong>Bitpin</strong><span>{price(prices?.bitpin)} Toman</span></div><span>{data?.bitpin.length ?? 0} candles</span></div><CandleChart candles={data?.bitpin ?? []} /></div><div className="chartPane"><div className="chartPaneHeader"><div><strong>Wallex</strong><span>{price(prices?.wallex)} Toman</span></div><span>{data?.wallex.length ?? 0} candles</span></div><CandleChart candles={data?.wallex ?? []} /></div></div></section></details></section>}
+      {view === "details" && <section className="workspacePage"><div className="pageIntro"><div className="sectionEyebrow">DETAILS &amp; LOGS</div><h2>Technical details and logs</h2></div><details className="diagnosticAccordion"><summary>Opportunity &amp; Stability diagnostics</summary><OpportunityPanel analysis={analysis} externalPrice={externalPrice} onExternalPriceChange={(value) => { setExternalPriceCustomized(true); setExternalPrice(value); }} /></details><details className="diagnosticAccordion"><summary>Trend regime and exit-timing backtest</summary><TrendRegimePanel mode="details" /></details><details className="diagnosticAccordion"><summary>Short-term forecast, validation and stability research</summary><MarketForecastPanel mode="details" /></details><details className="diagnosticAccordion"><summary>Synchronized raw candle charts</summary><section className="chartSection" aria-labelledby="chart-title"><div className="sectionHeader"><div><div className="sectionEyebrow">PRICE RELATIONSHIP</div><h2 id="chart-title">Synchronized candle history</h2></div><span className="sectionNote">1 minute · {data?.bitpin.length ?? 0} Bitpin / {data?.wallex.length ?? 0} Wallex candles</span></div><div className="chartPair"><div className="chartPane"><div className="chartPaneHeader"><div><strong>Bitpin</strong><span>{price(prices?.bitpin)} Toman</span></div><span>{data?.bitpin.length ?? 0} candles</span></div><CandleChart candles={data?.bitpin ?? []} historicalCandles={chartHistory?.bitpin ?? []} /></div><div className="chartPane"><div className="chartPaneHeader"><div><strong>Wallex</strong><span>{price(prices?.wallex)} Toman</span></div><span>{data?.wallex.length ?? 0} candles</span></div><CandleChart candles={data?.wallex ?? []} historicalCandles={chartHistory?.wallex ?? []} /></div></div></section></details></section>}
       {error && view !== "snapshots" && view !== "forecast" && <div className="errorBanner" role="alert"><strong>Provider warning</strong><span>{error}</span></div>}
       <footer className="consoleFooter"><span>XYZ Research Console</span><span>{copy.footer}</span></footer>
     </main>
