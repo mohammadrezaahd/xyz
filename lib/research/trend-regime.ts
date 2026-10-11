@@ -34,6 +34,14 @@ export type TrendRegimeResult = {
   latestCandleTime: number | null;
   candleAgeSeconds: number | null;
   price: number | null;
+  priceLevels: {
+    support: number | null;
+    resistance: number | null;
+    supportDistancePct: number | null;
+    resistanceDistancePct: number | null;
+    breakout: "BREAKOUT_UP_CONFIRMED" | "BREAKDOWN_CONFIRMED" | "NEAR_RESISTANCE" | "NEAR_SUPPORT" | "INSIDE_RANGE" | "INSUFFICIENT_DATA";
+    lookbackCandles: number;
+  };
   direction: TrendDirection;
   rawDirection: "BULLISH" | "BEARISH" | "RANGE";
   score: number | null;
@@ -225,6 +233,27 @@ export function buildTrendRegime(
   const dataStatus = !feature || pairs.length < 181 ? "INSUFFICIENT_DATA" : stale || tailGap ? "STALE_OR_GAPPED" : "READY";
   const direction: TrendDirection = dataStatus === "READY" ? trend.direction : "INSUFFICIENT_DATA";
   const entry = entryAssessment(direction, feature, pairs);
+  // Use only the preceding 60 closed candles as reference levels. The latest
+  // closed candle is evaluated against those levels, avoiding self-confirming
+  // support/resistance calculations that include the candle being tested.
+  const levelReference = pairs.slice(-61, -1).map((pair) => pair.bitpin);
+  const lastClosedPrice = latest?.bitpin.close ?? null;
+  const support = levelReference.length >= 30 ? Math.min(...levelReference.map((candle) => candle.low)) : null;
+  const resistance = levelReference.length >= 30 ? Math.max(...levelReference.map((candle) => candle.high)) : null;
+  const supportDistancePct = support != null && lastClosedPrice != null && support > 0 ? (lastClosedPrice / support - 1) * 100 : null;
+  const resistanceDistancePct = resistance != null && lastClosedPrice != null && resistance > 0 ? (resistance / lastClosedPrice - 1) * 100 : null;
+  const breakout = support == null || resistance == null || lastClosedPrice == null
+    ? "INSUFFICIENT_DATA" as const
+    : lastClosedPrice > resistance * 1.0005
+      ? "BREAKOUT_UP_CONFIRMED" as const
+      : lastClosedPrice < support * 0.9995
+        ? "BREAKDOWN_CONFIRMED" as const
+        : resistanceDistancePct != null && resistanceDistancePct >= 0 && resistanceDistancePct <= 0.15
+          ? "NEAR_RESISTANCE" as const
+          : supportDistancePct != null && supportDistancePct >= 0 && supportDistancePct <= 0.15
+            ? "NEAR_SUPPORT" as const
+            : "INSIDE_RANGE" as const;
+  const priceLevels = { support, resistance, supportDistancePct, resistanceDistancePct, breakout, lookbackCandles: levelReference.length };
   const structure = feature?.structureScore === 1 ? "HIGHER_HIGHS_HIGHER_LOWS" : feature?.structureScore === -1 ? "LOWER_HIGHS_LOWER_LOWS" : "MIXED_OR_UNCONFIRMED";
   const regimeReason = dataStatus !== "READY"
     ? "دادهٔ هم‌زمان یا پیوستهٔ تازه کافی نیست؛ وضعیت روند را فعلاً قابل اتکا نمی‌دانیم."
@@ -244,6 +273,7 @@ export function buildTrendRegime(
     latestCandleTime: latest?.time ?? null,
     candleAgeSeconds,
     price: latest?.bitpin.close ?? null,
+    priceLevels,
     direction,
     rawDirection: trend.rawDirection,
     score: feature?.score ?? null,
