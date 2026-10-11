@@ -46,6 +46,8 @@ export type LongHorizonForecastResult = {
   generatedAt: string;
   model: "hourly-multi-factor-walk-forward-v1";
   synchronizedHourlyCandles: number;
+  alignmentMethod: "NEAREST_UTC_HOUR_BUCKET";
+  maxSourceTimestampOffsetSeconds: number;
   candleAgeSeconds: number | null;
   dataStatus: "READY" | "INSUFFICIENT_DATA" | "STALE_OR_GAPPED";
   forecasts: LongHorizonForecastRow[];
@@ -263,10 +265,11 @@ export function buildLongHorizonForecast(
   const nowMs = options.nowMs ?? Date.now();
   const costPerRoundTripPct = options.costPerRoundTripPct ?? 0.2;
   if (!Number.isFinite(costPerRoundTripPct) || costPerRoundTripPct < 0) throw new Error("Backtest cost must be finite and non-negative");
-  const currentHourStart = Math.floor(nowMs / (HOUR * 1000)) * HOUR;
-  const pairs = makePairs(bitpinCandles, wallexCandles).filter((pair) => pair.time < currentHourStart);
+  const nowSeconds = Math.floor(nowMs / 1000);
+  const pairs = makePairs(bitpinCandles, wallexCandles).filter((pair) => pair.closedAt <= nowSeconds);
   const latest = pairs[pairs.length - 1] ?? null;
-  const candleAgeSeconds = latest ? Math.max(0, Math.floor(nowMs / 1000) - (latest.time + HOUR)) : null;
+  const candleAgeSeconds = latest ? Math.max(0, nowSeconds - latest.closedAt) : null;
+  const maxSourceTimestampOffsetSeconds = pairs.reduce((max, pair) => Math.max(max, pair.sourceTimestampOffsetSeconds), 0);
   const features: Array<Feature | null> = pairs.map((_, index) => featureAt(pairs, index));
   const latestIndex = pairs.length - 1;
   const current = features[latestIndex] ?? null;
@@ -309,6 +312,8 @@ export function buildLongHorizonForecast(
     generatedAt: new Date(nowMs).toISOString(),
     model: "hourly-multi-factor-walk-forward-v1",
     synchronizedHourlyCandles: pairs.length,
+    alignmentMethod: "NEAREST_UTC_HOUR_BUCKET",
+    maxSourceTimestampOffsetSeconds,
     candleAgeSeconds,
     dataStatus,
     forecasts,
