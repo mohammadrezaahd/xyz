@@ -175,6 +175,7 @@ export function buildUnifiedSignal(input: {
     : long24Direction === "BULLISH" && long7dDirection === "BULLISH" ? "BULLISH"
     : long24Direction === "BEARISH" && long7dDirection === "BEARISH" ? "BEARISH"
     : "NEUTRAL";
+  const finalDirection: UnifiedDirection = longConflict ? "CONFLICT" : direction;
   const blockers: string[] = [];
   if (!usableForecast) blockers.push("Forecast data is missing or stale.");
   if (!usableTrend) blockers.push("Trend regime is missing or stale; directional evidence is incomplete.");
@@ -185,13 +186,13 @@ export function buildUnifiedSignal(input: {
   if (opportunityResponse === null) blockers.push("Wallex-to-Bitpin lead/response evidence has fewer than five valid directional pairs.");
   if (!usableTrend?.priceLevels || usableTrend.priceLevels.breakout === "INSUFFICIENT_DATA") blockers.push("Support/resistance levels are unavailable; structure confirmation is incomplete.");
   if (!opportunity.eligibleForSignal || opportunity.decision !== "BUY_CHEAP_SELL_EXPENSIVE") blockers.push(`Opportunity gate: ${opportunity.decisionReason}`);
-  if (direction === "CONFLICT") blockers.push("The 5m/15m evidence conflicts; wait for alignment.");
-  if (direction === "BEARISH") blockers.push("Bearish directional evidence conflicts with the currently supported long spread route.");
-  if (direction === "NEUTRAL") blockers.push("No sufficiently clear short-term direction.");
+  if (finalDirection === "CONFLICT") blockers.push("The short-term or higher-timeframe evidence conflicts; wait for alignment.");
+  if (finalDirection === "BEARISH") blockers.push("Bearish directional evidence conflicts with the currently supported long spread route.");
+  if (finalDirection === "NEUTRAL") blockers.push("No sufficiently clear short-term direction.");
   const opportunityEligible = opportunity.eligibleForSignal && opportunity.decision === "BUY_CHEAP_SELL_EXPENSIVE" && opportunity.dataQuality.status === "READY";
-  const canTrade = opportunityEligible && opportunityResponse !== null && longForecastFresh && higherTimeframeDirection === "BULLISH" && !!usableTrend?.priceLevels && usableTrend.priceLevels.breakout !== "INSUFFICIENT_DATA" && usableTrend?.direction !== "REVERSAL_WATCH" && direction === "BULLISH" && nearTerm.every((row) => row.direction === "BULLISH" && row.evidenceStrength !== "CONFLICT" && !row.conflictReasons.includes("The trend engine reports reversal risk."));
+  const canTrade = opportunityEligible && opportunityResponse !== null && longForecastFresh && higherTimeframeDirection === "BULLISH" && !!usableTrend?.priceLevels && usableTrend.priceLevels.breakout !== "INSUFFICIENT_DATA" && usableTrend?.direction !== "REVERSAL_WATCH" && finalDirection === "BULLISH" && nearTerm.every((row) => row.direction === "BULLISH" && row.evidenceStrength !== "CONFLICT" && !row.conflictReasons.includes("The trend engine reports reversal risk."));
   const action: UnifiedAction = !usableForecast || !usableTrend || !longForecastFresh ? "INSUFFICIENT_DATA" : canTrade ? "BUY_CHEAP_SELL_EXPENSIVE" : opportunityEligible ? "WAIT_FOR_CONFIRMATION" : "NO_TRADE";
-  const evidenceStrength = hasConflict || direction === "CONFLICT" ? "CONFLICT" : !usableForecast ? "UNAVAILABLE" : Math.abs(score ?? 0) >= 45 ? "STRONG" : Math.abs(score ?? 0) >= 25 ? "MODERATE" : "WEAK";
+  const evidenceStrength = hasConflict || finalDirection === "CONFLICT" ? "CONFLICT" : !usableForecast ? "UNAVAILABLE" : Math.abs(score ?? 0) >= 45 ? "STRONG" : Math.abs(score ?? 0) >= 25 ? "MODERATE" : "WEAK";
   const summary = action === "BUY_CHEAP_SELL_EXPENSIVE"
     ? "Directional evidence and the economic opportunity gate align. Research signal only; verify live execution conditions."
     : action === "WAIT_FOR_CONFIRMATION"
@@ -201,7 +202,7 @@ export function buildUnifiedSignal(input: {
         : "No trade: the opportunity fails one or more data, direction, target, stability, or after-cost gates.";
   return {
     generatedAt: new Date(nowMs).toISOString(),
-    direction,
+    direction: finalDirection,
     action,
     score,
     evidenceStrength,
