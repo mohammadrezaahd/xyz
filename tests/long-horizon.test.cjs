@@ -4,11 +4,11 @@ const { buildLongHorizonForecast } = require("../.test-dist/lib/research/long-ho
 
 const HOUR = 3600;
 const START = 1_700_006_400;
-function candles(count, priceAt, venueOffset = 0) {
+function candles(count, priceAt, venueOffset = 0, timeOffsetSeconds = 0) {
   return Array.from({ length: count }, (_, index) => {
     const close = priceAt(index) + venueOffset;
     return {
-      time: START + index * HOUR,
+      time: START + index * HOUR + timeOffsetSeconds,
       open: close - 2,
       high: close + 5,
       low: close - 5,
