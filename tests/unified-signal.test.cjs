@@ -136,6 +136,7 @@ test("forecast versus Buy/Sell disagreement is marked as conflict and blocks tra
     forecast: forecast(),
     trend: trend(),
     longForecast: longForecast(),
+    backtest: backtest(),
     nowMs: 1_000_000,
   });
   assert.equal(result.horizons.find((row) => row.horizonMinutes === 15).direction, "CONFLICT");
@@ -148,6 +149,7 @@ test("Opportunity failure blocks an otherwise bullish forecast", () => {
     forecast: forecast(),
     trend: trend(),
     longForecast: longForecast(),
+    backtest: backtest(),
     nowMs: 1_000_000,
   });
   assert.equal(result.direction, "BULLISH");
@@ -160,6 +162,7 @@ test("stale forecast or trend is not allowed to produce a tradable signal", () =
     forecast: forecast({ 5: 55, 15: 50, 30: 35, 60: 25 }, 600),
     trend: trend(),
     longForecast: longForecast(),
+    backtest: backtest(),
     nowMs: 1_000_000,
   });
   assert.equal(result.action, "INSUFFICIENT_DATA");
@@ -172,6 +175,7 @@ test("a reversal-watch regime is excluded from trend weighting", () => {
     forecast: forecast(),
     trend: trend(55, "REVERSAL_WATCH"),
     longForecast: longForecast(),
+    backtest: backtest(),
     nowMs: 1_000_000,
   });
   assert.equal(result.horizons.find((row) => row.horizonMinutes === 15).trendScore, null);
@@ -186,6 +190,7 @@ test("confirmed opposite breakout creates a structural conflict instead of being
     forecast: forecast({ 5: 55, 15: 50, 30: 35, 60: 25 }),
     trend: bullishTrend,
     longForecast: longForecast(),
+    backtest: backtest(),
     nowMs: 1_000_000,
   });
   assert.equal(result.horizons.find((row) => row.horizonMinutes === 15).direction, "CONFLICT");
