@@ -8,6 +8,14 @@ function opportunity({ eligible = true, decision = "BUY_CHEAP_SELL_EXPENSIVE", b
     decision,
     decisionReason: decision === "BUY_CHEAP_SELL_EXPENSIVE" ? "Economic gate passed." : "No valid opportunity.",
     dataQuality: { status: quality, reasons: quality === "READY" ? [] : ["Reference price unavailable"] },
+    stabilityScore: 90,
+    candles: {
+      stabilitySelected: Array.from({ length: 10 }, (_, index) => ({
+        timestamp: 1_000_000 + index * 60,
+        bitpin: { timestamp: 1_000_000 + index * 60, open: 100, close: 101, movementPct: 1, direction: "BULLISH" },
+        wallex: { timestamp: 1_000_000 + index * 60, open: 100, close: 101, movementPct: 1, direction: "BULLISH" },
+      })),
+    },
     buySellBalance: { value: balance },
   };
 }
@@ -54,6 +62,7 @@ function trend(score = 45, direction = "BULLISH", age = 20) {
     persistenceVotes: { bullish: 4, bearish: 0, range: 0, window: 4 },
     momentum: { return15Pct: 0.1, return60Pct: 0.2, return180Pct: 0.3, return360Pct: 0.4, volatility60Pct: 0.01 },
     structure: "HIGHER_HIGHS_HIGHER_LOWS",
+    priceLevels: { support: 98, resistance: 102, supportDistancePct: 2.04, resistanceDistancePct: 1.96, breakout: "INSIDE_RANGE", lookbackCandles: 60 },
     entryTiming: "CONTINUATION_WATCH",
     entryReason: "Test",
     exitTiming: "HOLD_TREND",
@@ -123,4 +132,17 @@ test("a reversal-watch regime is excluded from trend weighting", () => {
   });
   assert.equal(result.horizons.find((row) => row.horizonMinutes === 15).trendScore, null);
   assert.notEqual(result.action, "BUY_CHEAP_SELL_EXPENSIVE");
+});
+
+test("confirmed opposite breakout creates a structural conflict instead of being ignored", () => {
+  const bullishTrend = trend(45, "BULLISH");
+  bullishTrend.priceLevels = { support: 98, resistance: 102, supportDistancePct: 2, resistanceDistancePct: 2, breakout: "BREAKDOWN_CONFIRMED", lookbackCandles: 60 };
+  const result = buildUnifiedSignal({
+    opportunity: opportunity(),
+    forecast: forecast({ 5: 55, 15: 50, 30: 35, 60: 25 }),
+    trend: bullishTrend,
+    nowMs: 1_000_000,
+  });
+  assert.equal(result.horizons.find((row) => row.horizonMinutes === 15).direction, "CONFLICT");
+  assert.ok(result.horizons.find((row) => row.horizonMinutes === 15).conflictReasons.some((reason) => reason.includes("breakout")));
 });
