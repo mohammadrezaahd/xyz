@@ -92,7 +92,7 @@ export function UnifiedSignalPanel({ analysis }: Props) {
             <span>{item.horizonMinutes === 60 ? "1 HOUR" : `${item.horizonMinutes} MIN`}</span>
             <strong>{directionLabel[item.direction]}</strong>
             <small>{item.score == null ? "Score —" : `Score ${item.score > 0 ? "+" : ""}${item.score}`}</small>
-            <small>Forecast {item.forecastScore == null ? "—" : Math.round(item.forecastScore)} · Balance {item.balanceScore == null ? "—" : Math.round(item.balanceScore)} · Trend {item.trendScore == null ? "—" : Math.round(item.trendScore)} · Levels {item.structureScore == null ? "—" : Math.round(item.structureScore)}</small>
+            <small>Forecast {item.forecastScore == null ? "—" : Math.round(item.forecastScore)} · Balance {item.balanceScore == null ? "—" : Math.round(item.balanceScore)} · Trend {item.trendScore == null ? "—" : Math.round(item.trendScore)} · Levels {item.structureScore == null ? "—" : Math.round(item.structureScore)} · Wallex→Bitpin {item.opportunityResponseScore == null ? "—" : Math.round(item.opportunityResponseScore)}</small>
           </article>
         ))}
       </div>
@@ -104,6 +104,7 @@ export function UnifiedSignalPanel({ analysis }: Props) {
       <div className="unifiedSignalFooter">
         <div><span>Opportunity gate</span><strong>{signal.opportunityEligible ? "ECONOMICS PASSED" : "NOT ELIGIBLE"}</strong></div>
         <div><span>Evidence strength</span><strong>{signal.evidenceStrength}</strong></div>
+        <div><span>Wallex → Bitpin response</span><strong>{signal.horizons.find((item) => item.horizonMinutes === 15)?.opportunityResponseScore == null ? "INSUFFICIENT PAIRS" : `${signal.horizons.find((item) => item.horizonMinutes === 15)?.opportunityResponseScore}/100`}</strong></div>
         <div><span>Update</span><strong>{signal.generatedAt ? new Date(signal.generatedAt).toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit", second: "2-digit" }) : "—"}</strong></div>
       </div>
       {error && <p className="unifiedSignalWarning">One or more engines failed to refresh: {error}. The final signal is not cleared for trading.</p>}
