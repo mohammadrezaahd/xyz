@@ -74,7 +74,7 @@ export function UnifiedSignalPanel({ analysis }: Props) {
         <div>
           <span className="sectionEyebrow">MARKET INTELLIGENCE · UNIFIED ENGINE</span>
           <h2>Final Signal</h2>
-          <p>Forecast + Buy/Sell Balance + Trend Regime + Opportunity economics</p>
+          <p>Opportunity / Stability + Buy/Sell Pressure + Trend + Support, Resistance &amp; Breakouts</p>
         </div>
         <span className={`unifiedSignalStatus ${actionClass}`}>{loading ? "SYNCING" : actionLabel[signal.action]}</span>
       </div>
@@ -92,10 +92,15 @@ export function UnifiedSignalPanel({ analysis }: Props) {
             <span>{item.horizonMinutes === 60 ? "1 HOUR" : `${item.horizonMinutes} MIN`}</span>
             <strong>{directionLabel[item.direction]}</strong>
             <small>{item.score == null ? "Score —" : `Score ${item.score > 0 ? "+" : ""}${item.score}`}</small>
-            <small>Forecast {item.forecastScore == null ? "—" : Math.round(item.forecastScore)} · Balance {item.balanceScore == null ? "—" : Math.round(item.balanceScore)} · Trend {item.trendScore == null ? "—" : Math.round(item.trendScore)}</small>
+            <small>Forecast {item.forecastScore == null ? "—" : Math.round(item.forecastScore)} · Balance {item.balanceScore == null ? "—" : Math.round(item.balanceScore)} · Trend {item.trendScore == null ? "—" : Math.round(item.trendScore)} · Levels {item.structureScore == null ? "—" : Math.round(item.structureScore)}</small>
           </article>
         ))}
       </div>
+      {trend?.priceLevels && <div className="unifiedSignalFooter" aria-label="Support resistance levels">
+        <div><span>Nearest support · prior 60 closed candles</span><strong>{trend.priceLevels.support == null ? "—" : trend.priceLevels.support.toLocaleString("en-US", { maximumFractionDigits: 2 })}</strong></div>
+        <div><span>Nearest resistance · prior 60 closed candles</span><strong>{trend.priceLevels.resistance == null ? "—" : trend.priceLevels.resistance.toLocaleString("en-US", { maximumFractionDigits: 2 })}</strong></div>
+        <div><span>Structure state</span><strong>{trend.priceLevels.breakout.replaceAll("_", " ")}</strong></div>
+      </div>}
       <div className="unifiedSignalFooter">
         <div><span>Opportunity gate</span><strong>{signal.opportunityEligible ? "ECONOMICS PASSED" : "NOT ELIGIBLE"}</strong></div>
         <div><span>Evidence strength</span><strong>{signal.evidenceStrength}</strong></div>
