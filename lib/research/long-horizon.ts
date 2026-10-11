@@ -262,7 +262,11 @@ export function buildLongHorizonForecast(
     if (!current || dataStatus !== "READY") return {
       horizonHours, direction: "INSUFFICIENT_DATA", score: null, expectedReturnPct: null,
       historicalHitRate: null, calibrationSamples: 0, support: current?.support ?? null,
-      resistance: current?.resistance ?? null, breakout: current?.breakout ?? "INSUFFICIENT_DATA",
+      resistance: current?.resistance ?? null,
+      wallexLeadBitpinResponse168: current?.wallexLeadBitpinResponse168 ?? null,
+      volumePressure24Pct: current?.volumePressure24 ?? null,
+      venueAgreement: current ? (horizonHours === 24 ? current.venueAgreement24 : current.venueAgreement168) : null,
+      breakout: current?.breakout ?? "INSUFFICIENT_DATA",
       dataStatus: dataStatus === "READY" ? "INSUFFICIENT_DATA" : dataStatus,
     };
     const direction = classify(current.scores[horizonHours]);
