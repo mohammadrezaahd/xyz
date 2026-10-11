@@ -1,6 +1,7 @@
 import type { OpportunityAnalysis } from "../opportunity/types";
 import type { ForecastResult, LiveForecast, ForecastHorizon } from "./forecast";
 import type { TrendRegimeResult } from "./trend-regime";
+import type { LongHorizonForecastResult } from "./long-horizon";
 
 export type UnifiedDirection = "BULLISH" | "BEARISH" | "NEUTRAL" | "CONFLICT" | "INSUFFICIENT_DATA";
 export type UnifiedAction = "BUY_CHEAP_SELL_EXPENSIVE" | "WAIT_FOR_CONFIRMATION" | "NO_TRADE" | "INSUFFICIENT_DATA";
@@ -25,6 +26,8 @@ export type UnifiedSignal = {
   evidenceStrength: HorizonSignal["evidenceStrength"];
   horizons: HorizonSignal[];
   opportunityEligible: boolean;
+  higherTimeframeDirection: UnifiedDirection;
+  higherTimeframeScores: { next24Hours: number | null; next7Days: number | null };
   blockers: string[];
   summary: string;
   model: "unified-evidence-v1";
@@ -111,9 +114,11 @@ export function buildUnifiedSignal(input: {
   opportunity: OpportunityAnalysis;
   forecast: ForecastResult | null;
   trend: TrendRegimeResult | null;
+  longForecast?: LongHorizonForecastResult | null;
   nowMs?: number;
 }): UnifiedSignal {
   const { opportunity, forecast, trend } = input;
+  const longForecast = input.longForecast ?? null;
   const nowMs = input.nowMs ?? Date.now();
   const forecastFresh = !!forecast && forecast.candleAgeSeconds !== null && forecast.candleAgeSeconds <= 180;
   const trendFresh = !!trend && trend.candleAgeSeconds !== null && trend.candleAgeSeconds <= 300;
@@ -156,9 +161,26 @@ export function buildUnifiedSignal(input: {
     : "NEUTRAL";
   const representative = horizons.find((row) => row.horizonMinutes === 15);
   const score = representative?.score ?? null;
+  const longForecastFresh = !!longForecast && longForecast.dataStatus === "READY" &&
+    longForecast.candleAgeSeconds !== null && longForecast.candleAgeSeconds <= 3 * 60 * 60;
+  const next24 = longForecastFresh ? longForecast.forecasts.find((row) => row.horizonHours === 24) : undefined;
+  const next7d = longForecastFresh ? longForecast.forecasts.find((row) => row.horizonHours === 168) : undefined;
+  const long24Direction = next24?.direction === "UP" ? "BULLISH" : next24?.direction === "DOWN" ? "BEARISH" : next24?.direction === "FLAT" ? "NEUTRAL" : "INSUFFICIENT_DATA";
+  const long7dDirection = next7d?.direction === "UP" ? "BULLISH" : next7d?.direction === "DOWN" ? "BEARISH" : next7d?.direction === "FLAT" ? "NEUTRAL" : "INSUFFICIENT_DATA";
+  const longConflict = long24Direction === "CONFLICT" || long7dDirection === "CONFLICT" ||
+    ((long24Direction === "BULLISH" || long24Direction === "BEARISH") && (long7dDirection === "BULLISH" || long7dDirection === "BEARISH") && long24Direction !== long7dDirection) ||
+    (directional.length > 0 && ((long24Direction === "BULLISH" && bearish > 0) || (long24Direction === "BEARISH" && bullish > 0) || (long7dDirection === "BULLISH" && bearish > 0) || (long7dDirection === "BEARISH" && bullish > 0)));
+  const higherTimeframeDirection: UnifiedDirection = !longForecastFresh ? "INSUFFICIENT_DATA"
+    : longConflict ? "CONFLICT"
+    : long24Direction === "BULLISH" && long7dDirection === "BULLISH" ? "BULLISH"
+    : long24Direction === "BEARISH" && long7dDirection === "BEARISH" ? "BEARISH"
+    : "NEUTRAL";
   const blockers: string[] = [];
   if (!usableForecast) blockers.push("Forecast data is missing or stale.");
   if (!usableTrend) blockers.push("Trend regime is missing or stale; directional evidence is incomplete.");
+  if (!longForecastFresh) blockers.push("The 24-hour / 7-day forecast is missing, stale, or lacks synchronized hourly history.");
+  if (longConflict) blockers.push("Short-term and higher-timeframe forecasts conflict; wait for alignment.");
+  if (longForecastFresh && (long24Direction !== "BULLISH" || long7dDirection !== "BULLISH")) blockers.push("The 24-hour and 7-day forecasts do not both confirm an upward market bias.");
   if (opportunity.dataQuality.status !== "READY") blockers.push(...opportunity.dataQuality.reasons.map((reason) => `Opportunity data: ${reason}.`));
   if (opportunityResponse === null) blockers.push("Wallex-to-Bitpin lead/response evidence has fewer than five valid directional pairs.");
   if (!usableTrend?.priceLevels || usableTrend.priceLevels.breakout === "INSUFFICIENT_DATA") blockers.push("Support/resistance levels are unavailable; structure confirmation is incomplete.");
@@ -167,8 +189,8 @@ export function buildUnifiedSignal(input: {
   if (direction === "BEARISH") blockers.push("Bearish directional evidence conflicts with the currently supported long spread route.");
   if (direction === "NEUTRAL") blockers.push("No sufficiently clear short-term direction.");
   const opportunityEligible = opportunity.eligibleForSignal && opportunity.decision === "BUY_CHEAP_SELL_EXPENSIVE" && opportunity.dataQuality.status === "READY";
-  const canTrade = opportunityEligible && opportunityResponse !== null && !!usableTrend?.priceLevels && usableTrend.priceLevels.breakout !== "INSUFFICIENT_DATA" && usableTrend?.direction !== "REVERSAL_WATCH" && direction === "BULLISH" && nearTerm.every((row) => row.direction === "BULLISH" && row.evidenceStrength !== "CONFLICT" && !row.conflictReasons.includes("The trend engine reports reversal risk."));
-  const action: UnifiedAction = !usableForecast || !usableTrend ? "INSUFFICIENT_DATA" : canTrade ? "BUY_CHEAP_SELL_EXPENSIVE" : opportunityEligible ? "WAIT_FOR_CONFIRMATION" : "NO_TRADE";
+  const canTrade = opportunityEligible && opportunityResponse !== null && longForecastFresh && higherTimeframeDirection === "BULLISH" && !!usableTrend?.priceLevels && usableTrend.priceLevels.breakout !== "INSUFFICIENT_DATA" && usableTrend?.direction !== "REVERSAL_WATCH" && direction === "BULLISH" && nearTerm.every((row) => row.direction === "BULLISH" && row.evidenceStrength !== "CONFLICT" && !row.conflictReasons.includes("The trend engine reports reversal risk."));
+  const action: UnifiedAction = !usableForecast || !usableTrend || !longForecastFresh ? "INSUFFICIENT_DATA" : canTrade ? "BUY_CHEAP_SELL_EXPENSIVE" : opportunityEligible ? "WAIT_FOR_CONFIRMATION" : "NO_TRADE";
   const evidenceStrength = hasConflict || direction === "CONFLICT" ? "CONFLICT" : !usableForecast ? "UNAVAILABLE" : Math.abs(score ?? 0) >= 45 ? "STRONG" : Math.abs(score ?? 0) >= 25 ? "MODERATE" : "WEAK";
   const summary = action === "BUY_CHEAP_SELL_EXPENSIVE"
     ? "Directional evidence and the economic opportunity gate align. Research signal only; verify live execution conditions."
@@ -185,6 +207,8 @@ export function buildUnifiedSignal(input: {
     evidenceStrength,
     horizons,
     opportunityEligible,
+    higherTimeframeDirection,
+    higherTimeframeScores: { next24Hours: next24?.score ?? null, next7Days: next7d?.score ?? null },
     blockers: [...new Set(blockers)],
     summary,
     model: "unified-evidence-v1",
