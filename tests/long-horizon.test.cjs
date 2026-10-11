@@ -34,7 +34,7 @@ test("long-horizon engine forecasts 24 hours and 7 days using synchronized close
 test("long-horizon live prediction is invariant to candles after the prediction timestamp", () => {
   const base = candles(1600, (index) => 250_000 + index * 20);
   const wallex = candles(1600, (index) => 250_000 + index * 18);
-  const cutoff = base[1500].time + HOUR;
+  const cutoff = base[1500].time;
   const first = buildLongHorizonForecast(base.slice(0, 1500), wallex.slice(0, 1500), { nowMs: cutoff * 1000 });
   const extended = buildLongHorizonForecast(base, wallex, { nowMs: cutoff * 1000 });
   assert.deepEqual(extended.forecasts.map((row) => ({ direction: row.direction, score: row.score })), first.forecasts.map((row) => ({ direction: row.direction, score: row.score })));
