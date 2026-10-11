@@ -44,6 +44,8 @@ export function WeeklyAnalysisPanel({ bitpin, wallex }: { bitpin: Candle[]; wall
               <div><div style={{ color: "#94a3b8", fontSize: 10 }}>Median comparable return</div><strong style={{ display: "block", marginTop: 4, fontSize: 13 }}>{formatPct(item.expectedReturnPct)}</strong></div>
               <div><div style={{ color: "#94a3b8", fontSize: 10 }}>Prior support</div><strong style={{ display: "block", marginTop: 4, fontSize: 12 }}>{formatPrice(item.support)}</strong></div>
               <div><div style={{ color: "#94a3b8", fontSize: 10 }}>Prior resistance</div><strong style={{ display: "block", marginTop: 4, fontSize: 12 }}>{formatPrice(item.resistance)}</strong></div>
+              <div><div style={{ color: "#94a3b8", fontSize: 10 }}>Wallex → Bitpin response</div><strong style={{ display: "block", marginTop: 4, fontSize: 12 }}>{item.wallexLeadBitpinResponse168 == null ? "—" : `${(item.wallexLeadBitpinResponse168 * 100).toFixed(1)}%`}</strong></div>
+              <div><div style={{ color: "#94a3b8", fontSize: 10 }}>24h volume pressure</div><strong style={{ display: "block", marginTop: 4, fontSize: 12 }}>{formatPct(item.volumePressure24Pct)}</strong></div>
             </div>
             <div style={{ marginTop: 12, paddingTop: 10, borderTop: "1px solid rgba(148,163,184,.14)", color: "#cbd5e1", fontSize: 11, lineHeight: 1.6 }}>
               Structure: <strong>{item.breakout.replaceAll("_", " ")}</strong><br />
