@@ -56,3 +56,12 @@ test("trend engine rejects stale synchronized candles", () => {
   assert.equal(result.dataStatus, "STALE_OR_GAPPED");
   assert.equal(result.direction, "INSUFFICIENT_DATA");
 });
+
+test("trend engine exposes explicit support resistance and confirms a close beyond prior levels", () => {
+  const flatThenBreakout = candles(700, (i) => i < 699 ? 250_000 + i * 0.1 : 251_000);
+  const result = run(flatThenBreakout);
+  assert.equal(result.dataStatus, "READY");
+  assert.ok(result.priceLevels.support != null && result.priceLevels.resistance != null);
+  assert.equal(result.priceLevels.breakout, "BREAKOUT_UP_CONFIRMED");
+  assert.equal(result.priceLevels.lookbackCandles, 60);
+});

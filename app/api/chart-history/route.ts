@@ -61,7 +61,8 @@ async function loadWallex(from: number, to: number): Promise<Candle[]> {
 
 export async function GET() {
   const to = Math.floor(Date.now() / 1000);
-  const from = to - 90 * DAY_SECONDS;
+  const HISTORY_DAYS = 365;
+  const from = to - HISTORY_DAYS * DAY_SECONDS;
   const [bitpinResult, wallexResult] = await Promise.allSettled([
     loadBitpin(from, to),
     loadWallex(from, to),
@@ -72,7 +73,7 @@ export async function GET() {
     ...(bitpinResult.status === "rejected" ? ["Bitpin: " + String(bitpinResult.reason)] : []),
     ...(wallexResult.status === "rejected" ? ["Wallex: " + String(wallexResult.reason)] : []),
   ];
-  return NextResponse.json({ bitpin, wallex, errors, fetchedAt: Date.now(), resolution: "60", rangeDays: 90 }, {
+  return NextResponse.json({ bitpin, wallex, errors, fetchedAt: Date.now(), resolution: "60", rangeDays: HISTORY_DAYS }, {
     status: bitpin.length || wallex.length ? 200 : 502,
     headers: { "Cache-Control": "no-store" },
   });
