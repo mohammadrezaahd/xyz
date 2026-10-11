@@ -77,6 +77,10 @@ export function CandleChart({ candles, historicalCandles = [] }: { candles: Cand
   const seriesRef = useRef<ISeriesApi<"Candlestick"> | null>(null);
   const priceLinesRef = useRef<Array<ReturnType<ISeriesApi<"Candlestick">["createPriceLine"]>>>([]);
   const [view, setView] = useState<View>("intraday");
+  const [showSupport, setShowSupport] = useState(false);
+  const [showResistance, setShowResistance] = useState(false);
+  const [showPriceGrid, setShowPriceGrid] = useState(true);
+  const [showBreakAssessment, setShowBreakAssessment] = useState(false);
   const sourceCandles = view === "intraday" || historicalCandles.length === 0 ? candles : historicalCandles;
   const visibleCandles = useMemo(() => aggregate(sourceCandles, view), [sourceCandles, view]);
   const levels = useMemo(() => findLevels(sourceCandles), [sourceCandles]);
@@ -162,11 +166,14 @@ export function CandleChart({ candles, historicalCandles = [] }: { candles: Cand
     if (visibleCandles.length) {
       const low = Math.min(...visibleCandles.map((c) => c.low));
       const high = Math.max(...visibleCandles.map((c) => c.high));
-      for (let price = Math.ceil(low / 1000) * 1000; price <= high; price += 1000) {
-        priceLinesRef.current.push(series.createPriceLine({ price, color: "rgba(148,163,184,.13)", lineWidth: 1, lineStyle: 3, axisLabelVisible: true, title: "" }));
+      if (showPriceGrid) {
+        for (let price = Math.ceil(low / 1000) * 1000; price <= high; price += 1000) {
+          priceLinesRef.current.push(series.createPriceLine({ price, color: "rgba(148,163,184,.13)", lineWidth: 1, lineStyle: 3, axisLabelVisible: true, title: "" }));
+        }
       }
     }
     for (const level of levels) {
+      if ((level.kind === "support" && !showSupport) || (level.kind === "resistance" && !showResistance)) continue;
       priceLinesRef.current.push(series.createPriceLine({
         price: level.price, color: level.kind === "support" ? "rgba(53,201,138,.9)" : "rgba(255,191,71,.9)",
         lineWidth: level.touches > 1 ? 2 : 1, lineStyle: 2, axisLabelVisible: true,
@@ -174,7 +181,7 @@ export function CandleChart({ candles, historicalCandles = [] }: { candles: Cand
       }));
     }
     chartRef.current?.timeScale().fitContent();
-  }, [visibleCandles, levels]);
+  }, [visibleCandles, levels, showSupport, showResistance, showPriceGrid]);
 
   return (
     <div className="chartFrame">
@@ -187,14 +194,28 @@ export function CandleChart({ candles, historicalCandles = [] }: { candles: Cand
         <span style={{ color: "#64748b", fontSize: 11 }}>1,000-Toman grid · {visibleCandles.length} candles</span>
       </div>
       <div ref={ref} className="chart" aria-label={"Candlestick market chart, " + view + " view"} role="img" />
-      <div style={{ display: "flex", gap: 12, padding: "0 12px 8px", color: "#94a3b8", fontSize: 11, flexWrap: "wrap" }}>
-        <span><span style={{ color: "#35c98a" }}>━</span> Support</span><span><span style={{ color: "#ffbf47" }}>━</span> Resistance</span>
-        <span>Local swing levels, not guaranteed barriers.</span>
+      <div style={{ display: "flex", gap: "8px 16px", padding: "0 12px 10px", color: "#cbd5e1", fontSize: 12, flexWrap: "wrap", alignItems: "center" }}>
+        {([
+          { label: "Support", checked: showSupport, change: setShowSupport, color: "#35c98a" },
+          { label: "Resistance", checked: showResistance, change: setShowResistance, color: "#ffbf47" },
+          { label: "1,000-Toman grid", checked: showPriceGrid, change: setShowPriceGrid, color: "#94a3b8" },
+          { label: "Break-risk panel", checked: showBreakAssessment, change: setShowBreakAssessment, color: "#ff858b" },
+        ] as const).map((item) => (
+          <label key={item.label} style={{ display: "inline-flex", alignItems: "center", gap: 7, cursor: "pointer", userSelect: "none" }}>
+            <input type="checkbox" role="switch" aria-label={"Show " + item.label} checked={item.checked} onChange={(event) => item.change(event.target.checked)} style={{ appearance: "none", width: 30, height: 17, borderRadius: 999, position: "relative", margin: 0, background: item.checked ? item.color : "#475569", cursor: "pointer", transition: "background .15s", flexShrink: 0, outlineOffset: 2 }} />
+            <span>{item.label}</span>
+          </label>
+        ))}
       </div>
-      <div style={{ margin: "0 10px 10px", padding: "9px 11px", borderRadius: 8, border: "1px solid " + (risk.tone === "warning" ? "rgba(255,95,103,.4)" : risk.tone === "watch" ? "rgba(255,191,71,.35)" : "rgba(148,163,184,.18)"), background: risk.tone === "warning" ? "rgba(255,95,103,.08)" : risk.tone === "watch" ? "rgba(255,191,71,.06)" : "rgba(148,163,184,.04)" }}>
+      <div style={{ display: "flex", gap: 12, padding: "0 12px 8px", color: "#94a3b8", fontSize: 11, flexWrap: "wrap" }}>
+        {showSupport && <span><span style={{ color: "#35c98a" }}>━</span> Support</span>}
+        {showResistance && <span><span style={{ color: "#ffbf47" }}>━</span> Resistance</span>}
+        {(showSupport || showResistance) && <span>Local swing levels, not guaranteed barriers.</span>}
+      </div>
+      {showBreakAssessment && <div style={{ margin: "0 10px 10px", padding: "9px 11px", borderRadius: 8, border: "1px solid " + (risk.tone === "warning" ? "rgba(255,95,103,.4)" : risk.tone === "watch" ? "rgba(255,191,71,.35)" : "rgba(148,163,184,.18)"), background: risk.tone === "warning" ? "rgba(255,95,103,.08)" : risk.tone === "watch" ? "rgba(255,191,71,.06)" : "rgba(148,163,184,.04)" }}>
         <strong style={{ display: "block", color: risk.tone === "warning" ? "#ff8d93" : risk.tone === "watch" ? "#ffcf70" : "#cbd5e1", fontSize: 12 }}>{risk.label}</strong>
         <span style={{ display: "block", color: "#94a3b8", fontSize: 11, lineHeight: 1.5, marginTop: 3 }}>{risk.detail}</span>
-      </div>
+      </div>}
       {!visibleCandles.length && <div className="chartEmpty" role="status"><strong>No candles available</strong><span>Long-range history may be temporarily unavailable.</span></div>}
     </div>
   );
