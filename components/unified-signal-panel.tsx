@@ -103,6 +103,8 @@ export function UnifiedSignalPanel({ analysis }: Props) {
       </div>}
       <div className="unifiedSignalFooter">
         <div><span>Opportunity gate</span><strong>{signal.opportunityEligible ? "ECONOMICS PASSED" : "NOT ELIGIBLE"}</strong></div>
+        <div><span>Stability</span><strong>{Number.isFinite(analysis.stabilityScore) ? `${Math.round(analysis.stabilityScore)}/100` : "—"}</strong></div>
+        <div><span>Same-candle alignment</span><strong>{analysis.candles.alignmentRatio == null ? "—" : `${(analysis.candles.alignmentRatio * 100).toFixed(1)}%`}</strong></div>
         <div><span>Evidence strength</span><strong>{signal.evidenceStrength}</strong></div>
         <div><span>Wallex → Bitpin response</span><strong>{signal.horizons.find((item) => item.horizonMinutes === 15)?.opportunityResponseScore == null ? "INSUFFICIENT PAIRS" : `${signal.horizons.find((item) => item.horizonMinutes === 15)?.opportunityResponseScore}/100`}</strong></div>
         <div><span>Update</span><strong>{signal.generatedAt ? new Date(signal.generatedAt).toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit", second: "2-digit" }) : "—"}</strong></div>
