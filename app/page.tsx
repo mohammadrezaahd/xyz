@@ -8,6 +8,7 @@ import { Phase3Panel } from "@/components/phase3-panel";
 import { SnapshotPage } from "@/components/snapshot-page";
 import { MarketForecastPanel } from "@/components/market-forecast-panel";
 import { UnifiedSignalPanel } from "@/components/unified-signal-panel";
+import { buildLongHorizonForecast } from "@/lib/research/long-horizon";
 import { WeeklyAnalysisPanel } from "@/components/weekly-analysis-panel";
 import { TrendRegimePanel } from "@/components/trend-regime-panel";
 import { TestPositionPanel } from "@/components/test-position-panel";
@@ -128,6 +129,7 @@ export default function Home() {
   }, [prices?.wallex, externalPriceCustomized]);
 
   const analysis = useMemo(() => analyzeOpportunity({ bitpinCandles: data?.bitpin ?? [], wallexCandles: data?.wallex ?? [], currentPrices: { bitpin: prices?.bitpin ?? null, wallex: prices?.wallex ?? null, fetchedAt: prices?.fetchedAt ?? null }, externalPrice: externalPrice.trim() ? Number(externalPrice) : null, nowMs: Date.now() }), [data, prices, externalPrice]);
+  const longForecast = useMemo(() => buildLongHorizonForecast(chartHistory?.bitpin ?? [], chartHistory?.wallex ?? []), [chartHistory]);
   const hasPrices = prices?.bitpin != null && prices?.wallex != null;
   const hasCandles = analysis.candles.synchronized > 0;
   const statusKind = loading ? "neutral" : error ? "error" : hasPrices && hasCandles ? "live" : hasPrices ? "partial" : "stale";
@@ -178,8 +180,8 @@ export default function Home() {
       {view === "overview" && <section className="dashboardOverview">
         <TrendRegimePanel mode="compact" />
         <MarketForecastPanel mode="compact" />
-        <UnifiedSignalPanel analysis={analysis} />
-        <WeeklyAnalysisPanel bitpin={chartHistory?.bitpin ?? data?.bitpin ?? []} wallex={chartHistory?.wallex ?? data?.wallex ?? []} />
+        <UnifiedSignalPanel analysis={analysis} longForecast={longForecast} />
+        <WeeklyAnalysisPanel bitpin={chartHistory?.bitpin ?? data?.bitpin ?? []} wallex={chartHistory?.wallex ?? data?.wallex ?? []} result={longForecast} />
         <section className="dashboardPrices" aria-label="Current market prices">
           <div className="dashboardPrice"><span>BITPIN</span><strong>{price(prices?.bitpin)}</strong><small>TOMAN</small></div>
           <div className="dashboardSpread"><span>SPREAD</span><strong>{percent(analysis.spread.percent)}</strong></div>
