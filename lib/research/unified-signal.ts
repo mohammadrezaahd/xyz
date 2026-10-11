@@ -12,6 +12,7 @@ export type HorizonSignal = {
   forecastScore: number | null;
   balanceScore: number | null;
   trendScore: number | null;
+  structureScore: number | null;
   conflictReasons: string[];
   explanation: string;
 };
@@ -29,11 +30,11 @@ export type UnifiedSignal = {
 };
 
 const HORIZONS: ForecastHorizon[] = [5, 15, 30, 60];
-const weights: Record<ForecastHorizon, { forecast: number; balance: number; trend: number }> = {
-  5: { forecast: 0.65, balance: 0.25, trend: 0.10 },
-  15: { forecast: 0.60, balance: 0.25, trend: 0.15 },
-  30: { forecast: 0.55, balance: 0.25, trend: 0.20 },
-  60: { forecast: 0.45, balance: 0.25, trend: 0.30 },
+const weights: Record<ForecastHorizon, { forecast: number; balance: number; trend: number; structure: number }> = {
+  5: { forecast: 0.58, balance: 0.22, trend: 0.10, structure: 0.10 },
+  15: { forecast: 0.54, balance: 0.22, trend: 0.14, structure: 0.10 },
+  30: { forecast: 0.49, balance: 0.22, trend: 0.19, structure: 0.10 },
+  60: { forecast: 0.40, balance: 0.22, trend: 0.28, structure: 0.10 },
 };
 const clamp = (value: number, min: number, max: number) => Math.max(min, Math.min(max, value));
 const sign = (value: number | null) => value == null || Math.abs(value) < 12 ? 0 : Math.sign(value);
@@ -55,27 +56,43 @@ function trendScore(trend: TrendRegimeResult | null): number | null {
   return clamp(trend.score, -100, 100);
 }
 
+function levelScore(trend: TrendRegimeResult | null): number | null {
+  if (!trend || trend.dataStatus !== "READY" || !trend.priceLevels) return null;
+  switch (trend.priceLevels.breakout) {
+    case "BREAKOUT_UP_CONFIRMED": return 70;
+    case "BREAKDOWN_CONFIRMED": return -70;
+    case "NEAR_RESISTANCE": return -25;
+    case "NEAR_SUPPORT": return 25;
+    case "INSIDE_RANGE": return trend.structure === "HIGHER_HIGHS_HIGHER_LOWS" ? 10
+      : trend.structure === "LOWER_HIGHS_LOWER_LOWS" ? -10 : 0;
+    default: return null;
+  }
+}
+
 function buildHorizon(horizonMinutes: ForecastHorizon, forecast: LiveForecast | undefined, balance: number | null, trend: TrendRegimeResult | null): HorizonSignal {
   const f = forecastScore(forecast);
   const b = balance;
   const t = trendScore(trend);
+  const s = levelScore(trend);
   const available = [
     { key: "forecast" as const, value: f, weight: weights[horizonMinutes].forecast },
     { key: "balance" as const, value: b, weight: weights[horizonMinutes].balance },
     { key: "trend" as const, value: t, weight: weights[horizonMinutes].trend },
-  ].filter((item): item is { key: "forecast" | "balance" | "trend"; value: number; weight: number } => item.value !== null);
+    { key: "structure" as const, value: s, weight: weights[horizonMinutes].structure },
+  ].filter((item): item is { key: "forecast" | "balance" | "trend" | "structure"; value: number; weight: number } => item.value !== null);
   if (!available.some((item) => item.key === "forecast")) {
-    return { horizonMinutes, direction: "INSUFFICIENT_DATA", score: null, evidenceStrength: "UNAVAILABLE", forecastScore: f, balanceScore: b, trendScore: t, conflictReasons: ["The horizon-specific forecast is unavailable or stale."], explanation: "No directional call: the forecast for this horizon is not ready." };
+    return { horizonMinutes, direction: "INSUFFICIENT_DATA", score: null, evidenceStrength: "UNAVAILABLE", forecastScore: f, balanceScore: b, trendScore: t, structureScore: s, conflictReasons: ["The horizon-specific forecast is unavailable or stale."], explanation: "No directional call: the forecast for this horizon is not ready." };
   }
   const weightTotal = available.reduce((sum, item) => sum + item.weight, 0);
   const score = clamp(available.reduce((sum, item) => sum + item.value * item.weight, 0) / weightTotal, -100, 100);
   const forecastSign = sign(f);
   const opposing = available.filter((item) => item.key !== "forecast" && sign(item.value) !== 0 && forecastSign !== 0 && sign(item.value) !== forecastSign);
-  const strongConflict = opposing.some((item) => Math.abs(item.value) >= 28) && Math.abs(f ?? 0) >= 18;
+  const strongConflict = (opposing.some((item) => Math.abs(item.value) >= 28) || (s !== null && Math.abs(s) >= 60 && f !== null && Math.sign(s) !== Math.sign(f))) && Math.abs(f ?? 0) >= 18;
   const conflictReasons: string[] = [];
   if (f !== null && b !== null && sign(f) !== 0 && sign(b) !== 0 && sign(f) !== sign(b)) conflictReasons.push("Forecast and Buy/Sell Balance disagree.");
   if (f !== null && t !== null && sign(f) !== 0 && sign(t) !== 0 && sign(f) !== sign(t)) conflictReasons.push("Short-horizon forecast and trend regime disagree.");
   if (trend?.direction === "REVERSAL_WATCH") conflictReasons.push("The trend engine reports reversal risk.");
+  if (s !== null && f !== null && Math.abs(f) >= 18 && Math.abs(s) >= 60 && Math.sign(f) !== Math.sign(s)) conflictReasons.push("Forecast direction conflicts with a confirmed support/resistance breakout.");
   const direction: UnifiedDirection = strongConflict ? "CONFLICT" : score >= 18 ? "BULLISH" : score <= -18 ? "BEARISH" : "NEUTRAL";
   const magnitude = Math.abs(score);
   const evidenceStrength = strongConflict ? "CONFLICT" : magnitude >= 45 ? "STRONG" : magnitude >= 25 ? "MODERATE" : "WEAK";
@@ -84,7 +101,7 @@ function buildHorizon(horizonMinutes: ForecastHorizon, forecast: LiveForecast | 
     : direction === "BULLISH" ? "Available evidence leans upward; this is directional evidence, not a calibrated probability."
     : direction === "BEARISH" ? "Available evidence leans downward; this is directional evidence, not a calibrated probability."
     : "Evidence is mixed or too weak for a directional call.";
-  return { horizonMinutes, direction, score: Math.round(score), evidenceStrength, forecastScore: f, balanceScore: b, trendScore: t, conflictReasons, explanation };
+  return { horizonMinutes, direction, score: Math.round(score), evidenceStrength, forecastScore: f, balanceScore: b, trendScore: t, structureScore: s, conflictReasons, explanation };
 }
 
 export function buildUnifiedSignal(input: {
