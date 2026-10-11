@@ -13,6 +13,7 @@ export type HorizonSignal = {
   balanceScore: number | null;
   trendScore: number | null;
   structureScore: number | null;
+  opportunityResponseScore: number | null;
   conflictReasons: string[];
   explanation: string;
 };
@@ -30,11 +31,11 @@ export type UnifiedSignal = {
 };
 
 const HORIZONS: ForecastHorizon[] = [5, 15, 30, 60];
-const weights: Record<ForecastHorizon, { forecast: number; balance: number; trend: number; structure: number }> = {
-  5: { forecast: 0.58, balance: 0.22, trend: 0.10, structure: 0.10 },
-  15: { forecast: 0.54, balance: 0.22, trend: 0.14, structure: 0.10 },
-  30: { forecast: 0.49, balance: 0.22, trend: 0.19, structure: 0.10 },
-  60: { forecast: 0.40, balance: 0.22, trend: 0.28, structure: 0.10 },
+const weights: Record<ForecastHorizon, { forecast: number; balance: number; trend: number; structure: number; opportunityResponse: number }> = {
+  5: { forecast: 0.50, balance: 0.20, trend: 0.10, structure: 0.10, opportunityResponse: 0.10 },
+  15: { forecast: 0.47, balance: 0.20, trend: 0.13, structure: 0.10, opportunityResponse: 0.10 },
+  30: { forecast: 0.42, balance: 0.20, trend: 0.18, structure: 0.10, opportunityResponse: 0.10 },
+  60: { forecast: 0.35, balance: 0.20, trend: 0.25, structure: 0.10, opportunityResponse: 0.10 },
 };
 const clamp = (value: number, min: number, max: number) => Math.max(min, Math.min(max, value));
 const sign = (value: number | null) => value == null || Math.abs(value) < 12 ? 0 : Math.sign(value);
@@ -69,7 +70,7 @@ function levelScore(trend: TrendRegimeResult | null): number | null {
   }
 }
 
-function buildHorizon(horizonMinutes: ForecastHorizon, forecast: LiveForecast | undefined, balance: number | null, trend: TrendRegimeResult | null): HorizonSignal {
+function buildHorizon(horizonMinutes: ForecastHorizon, forecast: LiveForecast | undefined, balance: number | null, trend: TrendRegimeResult | null, opportunityResponse: number | null): HorizonSignal {
   const f = forecastScore(forecast);
   const b = balance;
   const t = trendScore(trend);
@@ -79,9 +80,10 @@ function buildHorizon(horizonMinutes: ForecastHorizon, forecast: LiveForecast | 
     { key: "balance" as const, value: b, weight: weights[horizonMinutes].balance },
     { key: "trend" as const, value: t, weight: weights[horizonMinutes].trend },
     { key: "structure" as const, value: s, weight: weights[horizonMinutes].structure },
-  ].filter((item): item is { key: "forecast" | "balance" | "trend" | "structure"; value: number; weight: number } => item.value !== null);
+    { key: "opportunityResponse" as const, value: opportunityResponse, weight: weights[horizonMinutes].opportunityResponse },
+  ].filter((item): item is { key: "forecast" | "balance" | "trend" | "structure" | "opportunityResponse"; value: number; weight: number } => item.value !== null);
   if (!available.some((item) => item.key === "forecast")) {
-    return { horizonMinutes, direction: "INSUFFICIENT_DATA", score: null, evidenceStrength: "UNAVAILABLE", forecastScore: f, balanceScore: b, trendScore: t, structureScore: s, conflictReasons: ["The horizon-specific forecast is unavailable or stale."], explanation: "No directional call: the forecast for this horizon is not ready." };
+    return { horizonMinutes, direction: "INSUFFICIENT_DATA", score: null, evidenceStrength: "UNAVAILABLE", forecastScore: f, balanceScore: b, trendScore: t, structureScore: s, opportunityResponseScore: opportunityResponse, conflictReasons: ["The horizon-specific forecast is unavailable or stale."], explanation: "No directional call: the forecast for this horizon is not ready." };
   }
   const weightTotal = available.reduce((sum, item) => sum + item.weight, 0);
   const score = clamp(available.reduce((sum, item) => sum + item.value * item.weight, 0) / weightTotal, -100, 100);
@@ -101,7 +103,7 @@ function buildHorizon(horizonMinutes: ForecastHorizon, forecast: LiveForecast | 
     : direction === "BULLISH" ? "Available evidence leans upward; this is directional evidence, not a calibrated probability."
     : direction === "BEARISH" ? "Available evidence leans downward; this is directional evidence, not a calibrated probability."
     : "Evidence is mixed or too weak for a directional call.";
-  return { horizonMinutes, direction, score: Math.round(score), evidenceStrength, forecastScore: f, balanceScore: b, trendScore: t, structureScore: s, conflictReasons, explanation };
+  return { horizonMinutes, direction, score: Math.round(score), evidenceStrength, forecastScore: f, balanceScore: b, trendScore: t, structureScore: s, opportunityResponseScore: opportunityResponse, conflictReasons, explanation };
 }
 
 export function buildUnifiedSignal(input: {
@@ -117,11 +119,29 @@ export function buildUnifiedSignal(input: {
   const usableForecast = forecastFresh ? forecast : null;
   const usableTrend = trendFresh ? trend : null;
   const balance = balanceScore(opportunity);
+  // Treat Wallex as a potential leading venue and test its candle direction
+  // against Bitpin's next observed candle. This is directional only when at
+  // least five non-neutral, synchronized lead/response pairs are available.
+  const selectedPairs = [...opportunity.candles.stabilitySelected].sort((a, b) => a.timestamp - b.timestamp);
+  let leadMatches = 0;
+  let leadMismatches = 0;
+  for (let index = 0; index < selectedPairs.length - 1; index += 1) {
+    const leader = selectedPairs[index].wallex.direction;
+    const response = selectedPairs[index + 1].bitpin.direction;
+    if (leader === "NEUTRAL" || response === "NEUTRAL") continue;
+    if (leader === response) leadMatches += 1;
+    else leadMismatches += 1;
+  }
+  const leadObservations = leadMatches + leadMismatches;
+  const opportunityResponse = opportunity.dataQuality.status === "READY" && leadObservations >= 5
+    ? Math.round((leadMatches - leadMismatches) / leadObservations * 100)
+    : null;
   const horizons = HORIZONS.map((horizon) => buildHorizon(
     horizon,
     usableForecast?.forecasts.find((row) => row.horizonMinutes === horizon),
     balance,
     usableTrend,
+    opportunityResponse,
   ));
   const nearTerm = horizons.filter((row) => row.horizonMinutes === 5 || row.horizonMinutes === 15);
   const directional = nearTerm.filter((row) => row.direction === "BULLISH" || row.direction === "BEARISH");
@@ -139,6 +159,7 @@ export function buildUnifiedSignal(input: {
   if (!usableForecast) blockers.push("Forecast data is missing or stale.");
   if (!usableTrend) blockers.push("Trend regime is missing or stale; directional evidence is incomplete.");
   if (opportunity.dataQuality.status !== "READY") blockers.push(...opportunity.dataQuality.reasons.map((reason) => `Opportunity data: ${reason}.`));
+  if (opportunityResponse === null) blockers.push("Wallex-to-Bitpin lead/response evidence has fewer than five valid directional pairs.");
   if (!opportunity.eligibleForSignal || opportunity.decision !== "BUY_CHEAP_SELL_EXPENSIVE") blockers.push(`Opportunity gate: ${opportunity.decisionReason}`);
   if (direction === "CONFLICT") blockers.push("The 5m/15m evidence conflicts; wait for alignment.");
   if (direction === "BEARISH") blockers.push("Bearish directional evidence conflicts with the currently supported long spread route.");
