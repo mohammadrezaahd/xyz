@@ -93,6 +93,7 @@ function buildHorizon(horizonMinutes: ForecastHorizon, forecast: LiveForecast | 
   const conflictReasons: string[] = [];
   if (f !== null && b !== null && sign(f) !== 0 && sign(b) !== 0 && sign(f) !== sign(b)) conflictReasons.push("Forecast and Buy/Sell Balance disagree.");
   if (f !== null && t !== null && sign(f) !== 0 && sign(t) !== 0 && sign(f) !== sign(t)) conflictReasons.push("Short-horizon forecast and trend regime disagree.");
+  if (f !== null && opportunityResponse !== null && sign(f) !== 0 && sign(opportunityResponse) !== 0 && sign(f) !== sign(opportunityResponse)) conflictReasons.push("Forecast direction conflicts with the observed Wallex-to-Bitpin response pattern.");
   if (trend?.direction === "REVERSAL_WATCH") conflictReasons.push("The trend engine reports reversal risk.");
   if (s !== null && f !== null && Math.abs(f) >= 18 && Math.abs(s) >= 60 && Math.sign(f) !== Math.sign(s)) conflictReasons.push("Forecast direction conflicts with a confirmed support/resistance breakout.");
   const direction: UnifiedDirection = strongConflict ? "CONFLICT" : score >= 18 ? "BULLISH" : score <= -18 ? "BEARISH" : "NEUTRAL";
@@ -160,12 +161,13 @@ export function buildUnifiedSignal(input: {
   if (!usableTrend) blockers.push("Trend regime is missing or stale; directional evidence is incomplete.");
   if (opportunity.dataQuality.status !== "READY") blockers.push(...opportunity.dataQuality.reasons.map((reason) => `Opportunity data: ${reason}.`));
   if (opportunityResponse === null) blockers.push("Wallex-to-Bitpin lead/response evidence has fewer than five valid directional pairs.");
+  if (!usableTrend?.priceLevels || usableTrend.priceLevels.breakout === "INSUFFICIENT_DATA") blockers.push("Support/resistance levels are unavailable; structure confirmation is incomplete.");
   if (!opportunity.eligibleForSignal || opportunity.decision !== "BUY_CHEAP_SELL_EXPENSIVE") blockers.push(`Opportunity gate: ${opportunity.decisionReason}`);
   if (direction === "CONFLICT") blockers.push("The 5m/15m evidence conflicts; wait for alignment.");
   if (direction === "BEARISH") blockers.push("Bearish directional evidence conflicts with the currently supported long spread route.");
   if (direction === "NEUTRAL") blockers.push("No sufficiently clear short-term direction.");
   const opportunityEligible = opportunity.eligibleForSignal && opportunity.decision === "BUY_CHEAP_SELL_EXPENSIVE" && opportunity.dataQuality.status === "READY";
-  const canTrade = opportunityEligible && opportunityResponse !== null && usableTrend?.direction !== "REVERSAL_WATCH" && direction === "BULLISH" && nearTerm.every((row) => row.direction === "BULLISH" && row.evidenceStrength !== "CONFLICT" && !row.conflictReasons.includes("The trend engine reports reversal risk."));
+  const canTrade = opportunityEligible && opportunityResponse !== null && !!usableTrend?.priceLevels && usableTrend.priceLevels.breakout !== "INSUFFICIENT_DATA" && usableTrend?.direction !== "REVERSAL_WATCH" && direction === "BULLISH" && nearTerm.every((row) => row.direction === "BULLISH" && row.evidenceStrength !== "CONFLICT" && !row.conflictReasons.includes("The trend engine reports reversal risk."));
   const action: UnifiedAction = !usableForecast || !usableTrend ? "INSUFFICIENT_DATA" : canTrade ? "BUY_CHEAP_SELL_EXPENSIVE" : opportunityEligible ? "WAIT_FOR_CONFIRMATION" : "NO_TRADE";
   const evidenceStrength = hasConflict || direction === "CONFLICT" ? "CONFLICT" : !usableForecast ? "UNAVAILABLE" : Math.abs(score ?? 0) >= 45 ? "STRONG" : Math.abs(score ?? 0) >= 25 ? "MODERATE" : "WEAK";
   const summary = action === "BUY_CHEAP_SELL_EXPENSIVE"
