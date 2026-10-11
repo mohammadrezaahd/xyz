@@ -1,8 +1,7 @@
 "use client";
 
-import { useMemo } from "react";
 import type { Candle } from "@/lib/candles";
-import { buildLongHorizonForecast } from "@/lib/research/long-horizon";
+import type { LongHorizonForecastResult } from "@/lib/research/long-horizon";
 
 const formatPrice = (value: number | null) => value == null || !Number.isFinite(value) ? "—" : Math.round(value).toLocaleString("en-US");
 const formatPct = (value: number | null) => value == null || !Number.isFinite(value) ? "Not calibrated" : `${value >= 0 ? "+" : ""}${value.toFixed(3)}%`;
@@ -10,8 +9,7 @@ const formatRate = (value: number | null) => value == null || !Number.isFinite(v
 const directionText = (direction: string) => direction === "UP" ? "BULLISH" : direction === "DOWN" ? "BEARISH" : direction === "FLAT" ? "NEUTRAL" : "INSUFFICIENT DATA";
 const directionColor = (direction: string) => direction === "UP" ? "#35c98a" : direction === "DOWN" ? "#ff858b" : direction === "FLAT" ? "#fbbf24" : "#94a3b8";
 
-export function WeeklyAnalysisPanel({ bitpin, wallex }: { bitpin: Candle[]; wallex: Candle[] }) {
-  const result = useMemo(() => buildLongHorizonForecast(bitpin, wallex), [bitpin, wallex]);
+export function WeeklyAnalysisPanel({ result }: { bitpin: Candle[]; wallex: Candle[]; result: LongHorizonForecastResult }) {
   const label = result.dataStatus === "READY" ? "LIVE · HOURLY DATA" : result.dataStatus.replaceAll("_", " ");
 
   return (
