@@ -46,6 +46,21 @@ function forecast(scores = { 5: 55, 15: 50, 30: 35, 60: 25 }, age = 20) {
     })),
   };
 }
+function longForecast(direction24 = "UP", direction7d = "UP", age = 60) {
+  return {
+    generatedAt: new Date(1_000_000).toISOString(),
+    model: "hourly-multi-factor-walk-forward-v1",
+    synchronizedHourlyCandles: 9000,
+    candleAgeSeconds: age,
+    dataStatus: "READY",
+    forecasts: [
+      { horizonHours: 24, direction: direction24, score: direction24 === "UP" ? 45 : direction24 === "DOWN" ? -45 : 0, expectedReturnPct: 0.4, historicalHitRate: 0.6, calibrationSamples: 100, support: 98, resistance: 102, breakout: "INSIDE_RANGE", dataStatus: "READY" },
+      { horizonHours: 168, direction: direction7d, score: direction7d === "UP" ? 35 : direction7d === "DOWN" ? -35 : 0, expectedReturnPct: 1.2, historicalHitRate: 0.58, calibrationSamples: 80, support: 98, resistance: 102, breakout: "INSIDE_RANGE", dataStatus: "READY" },
+    ],
+    backtest: { method: "test", costPerRoundTripPct: 0.2, split: "CHRONOLOGICAL_FINAL_20_PERCENT", metrics: [] },
+  };
+}
+
 function trend(score = 45, direction = "BULLISH", age = 20) {
   return {
     generatedAt: new Date(1_000_000).toISOString(),
@@ -73,7 +88,7 @@ function trend(score = 45, direction = "BULLISH", age = 20) {
 }
 
 test("aligned bullish evidence plus valid Opportunity opens only the research route", () => {
-  const result = buildUnifiedSignal({ opportunity: opportunity(), forecast: forecast(), trend: trend(), nowMs: 1_000_000 });
+  const result = buildUnifiedSignal({ opportunity: opportunity(), forecast: forecast(), trend: trend(), longForecast: longForecast(), nowMs: 1_000_000 });
   assert.equal(result.direction, "BULLISH");
   assert.equal(result.action, "BUY_CHEAP_SELL_EXPENSIVE");
 });
@@ -83,6 +98,7 @@ test("bearish forecast cannot be overridden by a positive Opportunity spread", (
     opportunity: opportunity({ balance: 20 }),
     forecast: forecast({ 5: -55, 15: -50, 30: -35, 60: -25 }),
     trend: trend(-45, "BEARISH"),
+    longForecast: longForecast(),
     nowMs: 1_000_000,
   });
   assert.equal(result.direction, "CONFLICT");
@@ -95,6 +111,7 @@ test("forecast versus Buy/Sell disagreement is marked as conflict and blocks tra
     opportunity: opportunity({ balance: 20 }),
     forecast: forecast(),
     trend: trend(),
+    longForecast: longForecast(),
     nowMs: 1_000_000,
   });
   assert.equal(result.horizons.find((row) => row.horizonMinutes === 15).direction, "CONFLICT");
@@ -128,6 +145,7 @@ test("a reversal-watch regime is excluded from trend weighting", () => {
     opportunity: opportunity(),
     forecast: forecast(),
     trend: trend(55, "REVERSAL_WATCH"),
+    longForecast: longForecast(),
     nowMs: 1_000_000,
   });
   assert.equal(result.horizons.find((row) => row.horizonMinutes === 15).trendScore, null);
@@ -141,8 +159,22 @@ test("confirmed opposite breakout creates a structural conflict instead of being
     opportunity: opportunity(),
     forecast: forecast({ 5: 55, 15: 50, 30: 35, 60: 25 }),
     trend: bullishTrend,
+    longForecast: longForecast(),
     nowMs: 1_000_000,
   });
   assert.equal(result.horizons.find((row) => row.horizonMinutes === 15).direction, "CONFLICT");
   assert.ok(result.horizons.find((row) => row.horizonMinutes === 15).conflictReasons.some((reason) => reason.includes("breakout")));
+});
+
+test("opposing 24-hour and 7-day forecasts create a higher-timeframe conflict", () => {
+  const result = buildUnifiedSignal({
+    opportunity: opportunity(),
+    forecast: forecast(),
+    trend: trend(),
+    longForecast: longForecast("UP", "DOWN"),
+    nowMs: 1_000_000,
+  });
+  assert.equal(result.higherTimeframeDirection, "CONFLICT");
+  assert.equal(result.direction, "CONFLICT");
+  assert.equal(result.action, "WAIT_FOR_CONFIRMATION");
 });
