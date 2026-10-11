@@ -123,6 +123,7 @@ test("Opportunity failure blocks an otherwise bullish forecast", () => {
     opportunity: opportunity({ eligible: false, decision: "NO_TRADE_NEGATIVE_EDGE" }),
     forecast: forecast(),
     trend: trend(),
+    longForecast: longForecast(),
     nowMs: 1_000_000,
   });
   assert.equal(result.direction, "BULLISH");
@@ -134,6 +135,7 @@ test("stale forecast or trend is not allowed to produce a tradable signal", () =
     opportunity: opportunity(),
     forecast: forecast({ 5: 55, 15: 50, 30: 35, 60: 25 }, 600),
     trend: trend(),
+    longForecast: longForecast(),
     nowMs: 1_000_000,
   });
   assert.equal(result.action, "INSUFFICIENT_DATA");
