@@ -6,10 +6,12 @@ import type { OpportunityAnalysis } from "@/lib/opportunity/types";
 import type { ForecastResult } from "@/lib/research/forecast";
 import type { TrendRegimeResult } from "@/lib/research/trend-regime";
 import type { LongHorizonForecastResult } from "@/lib/research/long-horizon";
+import type { ResearchBacktestResult } from "@/lib/research/backtest";
 
 type Props = { analysis: OpportunityAnalysis; longForecast: LongHorizonForecastResult | null };
 type ForecastPayload = ForecastResult & { ok: boolean; error?: string };
 type TrendPayload = TrendRegimeResult & { ok: boolean; error?: string };
+type BacktestPayload = ResearchBacktestResult & { ok: boolean; error?: string };
 
 const directionLabel = {
   BULLISH: "BULLISH",
@@ -28,27 +30,37 @@ const actionLabel = {
 export function UnifiedSignalPanel({ analysis, longForecast }: Props) {
   const [forecast, setForecast] = useState<ForecastResult | null>(null);
   const [trend, setTrend] = useState<TrendRegimeResult | null>(null);
+  const [backtest, setBacktest] = useState<ResearchBacktestResult | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
   const load = useCallback(async () => {
     try {
-      const [forecastResponse, trendResponse] = await Promise.all([
+      const [forecastResponse, trendResponse, backtestResponse] = await Promise.all([
         fetch("/api/research/forecast", { cache: "no-store" }),
         fetch("/api/research/trend-regime", { cache: "no-store" }),
+        fetch("/api/research/backtest", { cache: "no-store" }),
       ]);
-      const [forecastPayload, trendPayload] = await Promise.all([
+      const [forecastPayload, trendPayload, backtestPayload] = await Promise.all([
         forecastResponse.json() as Promise<ForecastPayload>,
         trendResponse.json() as Promise<TrendPayload>,
+        backtestResponse.json() as Promise<BacktestPayload>,
       ]);
       if (!forecastResponse.ok || !forecastPayload.ok) throw new Error(forecastPayload.error ?? "Forecast unavailable");
       if (!trendResponse.ok || !trendPayload.ok) throw new Error(trendPayload.error ?? "Trend regime unavailable");
       setForecast(forecastPayload);
       setTrend(trendPayload);
-      setError("");
+      if (backtestResponse.ok && backtestPayload.ok) {
+        setBacktest(backtestPayload);
+        setError("");
+      } else {
+        setBacktest(null);
+        setError(backtestPayload.error ?? `Backtest API HTTP ${backtestResponse.status}`);
+      }
     } catch (value) {
       setForecast(null);
       setTrend(null);
+      setBacktest(null);
       setError(value instanceof Error ? value.message : "Unified signal engines are unavailable");
     } finally {
       setLoading(false);
@@ -62,8 +74,8 @@ export function UnifiedSignalPanel({ analysis, longForecast }: Props) {
   }, [load]);
 
   const signal = useMemo(
-    () => buildUnifiedSignal({ opportunity: analysis, forecast, trend, longForecast }),
-    [analysis, forecast, trend, longForecast],
+    () => buildUnifiedSignal({ opportunity: analysis, forecast, trend, longForecast, backtest }),
+    [analysis, forecast, trend, longForecast, backtest],
   );
   const actionClass = signal.action === "BUY_CHEAP_SELL_EXPENSIVE"
     ? "isAligned"
@@ -107,6 +119,7 @@ export function UnifiedSignalPanel({ analysis, longForecast }: Props) {
         <div><span>Stability</span><strong>{Number.isFinite(analysis.stabilityScore) ? `${Math.round(analysis.stabilityScore)}/100` : "—"}</strong></div>
         <div><span>Same-candle alignment</span><strong>{analysis.candles.alignmentRatio == null ? "—" : `${(analysis.candles.alignmentRatio * 100).toFixed(1)}%`}</strong></div>
         <div><span>24h / 7d context</span><strong>{signal.higherTimeframeDirection}</strong><small>24h {signal.higherTimeframeScores.next24Hours == null ? "—" : Math.round(signal.higherTimeframeScores.next24Hours)} · 7d {signal.higherTimeframeScores.next7Days == null ? "—" : Math.round(signal.higherTimeframeScores.next7Days)}</small></div>
+        <div><span>Out-of-sample backtest</span><strong>{signal.backtestValidated ? "PASSED" : "NOT PASSED"}</strong><small>{signal.backtestPassingHorizons} horizons passed all gates</small></div>
         <div><span>Evidence strength</span><strong>{signal.evidenceStrength}</strong></div>
         <div><span>Wallex → Bitpin response</span><strong>{signal.horizons.find((item) => item.horizonMinutes === 15)?.opportunityResponseScore == null ? "INSUFFICIENT PAIRS" : `${signal.horizons.find((item) => item.horizonMinutes === 15)?.opportunityResponseScore}/100`}</strong></div>
         <div><span>Update</span><strong>{signal.generatedAt ? new Date(signal.generatedAt).toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit", second: "2-digit" }) : "—"}</strong></div>
