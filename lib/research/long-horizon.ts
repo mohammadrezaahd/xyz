@@ -107,13 +107,28 @@ function makePairs(bitpinCandles: Candle[], wallexCandles: Candle[]): Pair[] {
     });
 }
 function featureAt(pairs: Pair[], index: number): Feature | null {
-  if (index < LOOKBACK_HOURS) return null;
-  const window = pairs.slice(index - LOOKBACK_HOURS, index + 1);
-  if (window.length !== LOOKBACK_HOURS + 1 || window.some((pair, offset) => offset > 0 && pair.time - window[offset - 1].time !== HOUR)) return null;
   const current = pairs[index];
+  if (!current || current.time - pairs[0].time < LOOKBACK_HOURS * HOUR) return null;
+  const historyStart = current.time - LOOKBACK_HOURS * HOUR;
+  const history = pairs.filter((pair) => pair.time >= historyStart && pair.time < current.time);
+  // Exchange feeds occasionally omit a candle. Keep the model usable when the
+  // full time window exists and gaps are small, but reject prolonged outages.
+  if (history.length < LOOKBACK_HOURS * 0.9) return null;
+  const timeWindow = [...history, current];
+  if (timeWindow.some((pair, offset) => offset > 0 && pair.time - timeWindow[offset - 1].time > 3 * HOUR)) return null;
+
+  const priorAt = (hours: 24 | 168 | 720, venue: "bitpin" | "wallex" = "bitpin") => {
+    const target = current.time - hours * HOUR;
+    let prior: Pair | undefined;
+    for (let cursor = index - 1; cursor >= 0; cursor -= 1) {
+      if (pairs[cursor].time <= target) { prior = pairs[cursor]; break; }
+    }
+    if (!prior || target - prior.time > 3 * HOUR) return null;
+    return prior[venue].close;
+  };
   const returnsFor = (hours: 24 | 168 | 720, venue: "bitpin" | "wallex" = "bitpin") => {
-    const prior = pairs[index - hours]?.[venue].close;
-    return finitePositive(prior) ? (current[venue].close / prior - 1) * 100 : null;
+    const prior = priorAt(hours, venue);
+    return finitePositive(prior ?? 0) ? (current[venue].close / prior! - 1) * 100 : null;
   };
   const bitpin24 = returnsFor(24);
   const bitpin168 = returnsFor(168);
@@ -122,13 +137,15 @@ function featureAt(pairs: Pair[], index: number): Feature | null {
   const wallex168 = returnsFor(168, "wallex");
   if ([bitpin24, bitpin168, bitpin720, wallex24, wallex168].some((value) => value === null)) return null;
 
-  const volumeBaseline = median(pairs.slice(index - 720, index).map((pair) => pair.bitpin.volume ?? 0).filter((value) => Number.isFinite(value) && value > 0));
+  const volumeBaseline = median(history.map((pair) => pair.bitpin.volume ?? 0).filter((value) => Number.isFinite(value) && value > 0));
   let pressureNumerator = 0;
   let pressureDenominator = 0;
   if (volumeBaseline !== null) {
-    for (let offset = index - 23; offset <= index; offset += 1) {
-      const previous = pairs[offset - 1].bitpin.close;
-      const candle = pairs[offset].bitpin;
+    const volumeWindow = pairs.filter((pair) => pair.time >= current.time - 24 * HOUR && pair.time <= current.time);
+    for (let offset = 1; offset < volumeWindow.length; offset += 1) {
+      const previous = volumeWindow[offset - 1].bitpin.close;
+      const candle = volumeWindow[offset].bitpin;
+      if (volumeWindow[offset].time - volumeWindow[offset - 1].time > 3 * HOUR) continue;
       const volume = candle.volume ?? 0;
       if (!finitePositive(previous) || !finitePositive(volume)) continue;
       const relativeVolume = clamp(volume / volumeBaseline, 0.25, 3);
@@ -139,27 +156,25 @@ function featureAt(pairs: Pair[], index: number): Feature | null {
   const volumePressure24 = pressureDenominator ? pressureNumerator / pressureDenominator : null;
   const venueAgreement24 = Math.sign(bitpin24!) === 0 || Math.sign(wallex24!) === 0 ? 0 : Math.sign(bitpin24!) === Math.sign(wallex24!) ? 1 : -1;
   const venueAgreement168 = Math.sign(bitpin168!) === 0 || Math.sign(wallex168!) === 0 ? 0 : Math.sign(bitpin168!) === Math.sign(wallex168!) ? 1 : -1;
-  // Lagged cross-venue response: compare each Wallex hourly direction with
-  // Bitpin's following hourly return, using only pairs that precede this row.
+
   let leadMatches = 0;
   let leadMismatches = 0;
-  for (let offset = index - 168; offset <= index - 2; offset += 1) {
-    const wallexPrior = pairs[offset].wallex.close;
-    const wallexNext = pairs[offset + 1].wallex.close;
-    const bitpinPrior = pairs[offset + 1].bitpin.close;
-    const bitpinNext = pairs[offset + 2].bitpin.close;
-    const leaderReturn = wallexNext / wallexPrior - 1;
-    const responseReturn = bitpinNext / bitpinPrior - 1;
+  const leadWindow = pairs.filter((pair) => pair.time >= current.time - 168 * HOUR && pair.time < current.time);
+  for (let offset = 0; offset < leadWindow.length - 1; offset += 1) {
+    const first = leadWindow[offset];
+    const second = leadWindow[offset + 1];
+    if (second.time - first.time !== HOUR) continue;
+    const leaderReturn = second.wallex.close / first.wallex.close - 1;
+    const responseReturn = second.bitpin.close / first.bitpin.close - 1;
     if (Math.abs(leaderReturn) < 0.0001 || Math.abs(responseReturn) < 0.0001) continue;
     if (Math.sign(leaderReturn) === Math.sign(responseReturn)) leadMatches += 1;
     else leadMismatches += 1;
   }
   const leadResponseCount = leadMatches + leadMismatches;
-  const wallexLeadBitpinResponse168 = leadResponseCount >= 30
-    ? (leadMatches - leadMismatches) / leadResponseCount
-    : 0;
-  // Levels are calculated from the 168 hours preceding the evaluated candle.
-  const levelWindow = pairs.slice(index - 168, index).map((pair) => pair.bitpin);
+  const wallexLeadBitpinResponse168 = leadResponseCount >= 30 ? (leadMatches - leadMismatches) / leadResponseCount : 0;
+
+  const levelWindow = pairs.filter((pair) => pair.time >= current.time - 168 * HOUR && pair.time < current.time).map((pair) => pair.bitpin);
+  if (levelWindow.length < 120) return null;
   const support = Math.min(...levelWindow.map((candle) => candle.low));
   const resistance = Math.max(...levelWindow.map((candle) => candle.high));
   const supportDistancePct = (current.bitpin.close / support - 1) * 100;
