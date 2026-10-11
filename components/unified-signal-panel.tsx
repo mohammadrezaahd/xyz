@@ -5,8 +5,9 @@ import { buildUnifiedSignal } from "@/lib/research/unified-signal";
 import type { OpportunityAnalysis } from "@/lib/opportunity/types";
 import type { ForecastResult } from "@/lib/research/forecast";
 import type { TrendRegimeResult } from "@/lib/research/trend-regime";
+import type { LongHorizonForecastResult } from "@/lib/research/long-horizon";
 
-type Props = { analysis: OpportunityAnalysis };
+type Props = { analysis: OpportunityAnalysis; longForecast: LongHorizonForecastResult | null };
 type ForecastPayload = ForecastResult & { ok: boolean; error?: string };
 type TrendPayload = TrendRegimeResult & { ok: boolean; error?: string };
 
@@ -24,7 +25,7 @@ const actionLabel = {
   INSUFFICIENT_DATA: "INSUFFICIENT DATA",
 } as const;
 
-export function UnifiedSignalPanel({ analysis }: Props) {
+export function UnifiedSignalPanel({ analysis, longForecast }: Props) {
   const [forecast, setForecast] = useState<ForecastResult | null>(null);
   const [trend, setTrend] = useState<TrendRegimeResult | null>(null);
   const [loading, setLoading] = useState(true);
@@ -61,8 +62,8 @@ export function UnifiedSignalPanel({ analysis }: Props) {
   }, [load]);
 
   const signal = useMemo(
-    () => buildUnifiedSignal({ opportunity: analysis, forecast, trend }),
-    [analysis, forecast, trend],
+    () => buildUnifiedSignal({ opportunity: analysis, forecast, trend, longForecast }),
+    [analysis, forecast, trend, longForecast],
   );
   const actionClass = signal.action === "BUY_CHEAP_SELL_EXPENSIVE"
     ? "isAligned"
@@ -105,6 +106,7 @@ export function UnifiedSignalPanel({ analysis }: Props) {
         <div><span>Opportunity gate</span><strong>{signal.opportunityEligible ? "ECONOMICS PASSED" : "NOT ELIGIBLE"}</strong></div>
         <div><span>Stability</span><strong>{Number.isFinite(analysis.stabilityScore) ? `${Math.round(analysis.stabilityScore)}/100` : "—"}</strong></div>
         <div><span>Same-candle alignment</span><strong>{analysis.candles.alignmentRatio == null ? "—" : `${(analysis.candles.alignmentRatio * 100).toFixed(1)}%`}</strong></div>
+        <div><span>24h / 7d context</span><strong>{signal.higherTimeframeDirection}</strong><small>24h {signal.higherTimeframeScores.next24Hours == null ? "—" : Math.round(signal.higherTimeframeScores.next24Hours)} · 7d {signal.higherTimeframeScores.next7Days == null ? "—" : Math.round(signal.higherTimeframeScores.next7Days)}</small></div>
         <div><span>Evidence strength</span><strong>{signal.evidenceStrength}</strong></div>
         <div><span>Wallex → Bitpin response</span><strong>{signal.horizons.find((item) => item.horizonMinutes === 15)?.opportunityResponseScore == null ? "INSUFFICIENT PAIRS" : `${signal.horizons.find((item) => item.horizonMinutes === 15)?.opportunityResponseScore}/100`}</strong></div>
         <div><span>Update</span><strong>{signal.generatedAt ? new Date(signal.generatedAt).toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit", second: "2-digit" }) : "—"}</strong></div>
