@@ -2,58 +2,80 @@
 
 import { useMemo } from "react";
 import type { Candle } from "@/lib/candles";
+import { buildLongHorizonForecast } from "@/lib/research/long-horizon";
 
-function formatPrice(value: number) {
-  return Math.round(value).toLocaleString("en-US");
-}
+const formatPrice = (value: number | null) => value == null || !Number.isFinite(value) ? "—" : Math.round(value).toLocaleString("en-US");
+const formatPct = (value: number | null) => value == null || !Number.isFinite(value) ? "Not calibrated" : `${value >= 0 ? "+" : ""}${value.toFixed(3)}%`;
+const formatRate = (value: number | null) => value == null || !Number.isFinite(value) ? "Insufficient samples" : `${(value * 100).toFixed(1)}%`;
+const directionText = (direction: string) => direction === "UP" ? "BULLISH" : direction === "DOWN" ? "BEARISH" : direction === "FLAT" ? "NEUTRAL" : "INSUFFICIENT DATA";
+const directionColor = (direction: string) => direction === "UP" ? "#35c98a" : direction === "DOWN" ? "#ff858b" : direction === "FLAT" ? "#fbbf24" : "#94a3b8";
 
 export function WeeklyAnalysisPanel({ bitpin, wallex }: { bitpin: Candle[]; wallex: Candle[] }) {
-  const analysis = useMemo(() => {
-    const calculate = (candles: Candle[]) => {
-      const sorted = [...candles].sort((a, b) => a.time - b.time);
-      if (sorted.length < 30) return null;
-      const latest = sorted[sorted.length - 1];
-      const cutoff = latest.time - 7 * 24 * 60 * 60;
-      const weekAgo = sorted.find((candle) => candle.time >= cutoff);
-      const base = weekAgo ?? sorted[0];
-      const returnPct = ((latest.close - base.close) / base.close) * 100;
-      const recentDay = sorted.filter((candle) => candle.time >= latest.time - 24 * 60 * 60);
-      const dayBase = recentDay[0] ?? base;
-      const dailyPct = ((latest.close - dayBase.close) / dayBase.close) * 100;
-      const recentWeek = sorted.filter((candle) => candle.time >= cutoff);
-      const high = Math.max(...recentWeek.map((candle) => candle.high));
-      const low = Math.min(...recentWeek.map((candle) => candle.low));
-      const direction = returnPct > 0.35 && dailyPct >= -0.2 ? "UP" : returnPct < -0.35 && dailyPct <= 0.2 ? "DOWN" : "FLAT";
-      const confidence = Math.min(70, Math.max(25, 35 + Math.abs(returnPct) * 5 + Math.abs(dailyPct) * 2));
-      return { latest: latest.close, returnPct, dailyPct, high, low, direction, confidence, start: base.time, end: latest.time };
-    };
-    return { bitpin: calculate(bitpin), wallex: calculate(wallex) };
-  }, [bitpin, wallex]);
+  const result = useMemo(() => buildLongHorizonForecast(bitpin, wallex), [bitpin, wallex]);
+  const label = result.dataStatus === "READY" ? "LIVE · HOURLY DATA" : result.dataStatus.replaceAll("_", " ");
 
   return (
-    <section style={{ border: "1px solid rgba(148,163,184,.18)", borderRadius: 12, padding: 16, background: "rgba(15,23,42,.5)", marginTop: 16 }}>
+    <section style={{ border: "1px solid rgba(148,163,184,.18)", borderRadius: 12, padding: 16, background: "rgba(15,23,42,.5)", marginTop: 16, color: "#e2e8f0" }}>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "start", gap: 12, flexWrap: "wrap" }}>
-        <div><div style={{ color: "#7dd3fc", fontSize: 11, letterSpacing: 1.2, fontWeight: 700 }}>WEEKLY FORECAST & ANALYSIS</div><h2 style={{ color: "#e2e8f0", fontSize: 18, margin: "5px 0" }}>Weekly forecast & analysis</h2></div>
-        <span style={{ color: "#94a3b8", fontSize: 11 }}>Heuristic trend estimate · not a calibrated probability</span>
+        <div>
+          <div style={{ color: "#7dd3fc", fontSize: 11, letterSpacing: 1.2, fontWeight: 700 }}>MULTI-FACTOR FORWARD FORECAST</div>
+          <h2 style={{ fontSize: 18, margin: "5px 0" }}>24-hour and 7-day market forecast</h2>
+          <p style={{ color: "#94a3b8", fontSize: 12, margin: 0 }}>Synchronized Bitpin/Wallex hourly candles · trend · venue agreement · volume pressure · support/resistance</p>
+        </div>
+        <span style={{ color: result.dataStatus === "READY" ? "#35c98a" : "#fbbf24", fontSize: 11 }}>{label}</span>
       </div>
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: 12, marginTop: 12 }}>
-        {(["bitpin", "wallex"] as const).map((venue) => {
-          const item = analysis[venue];
-          return <article key={venue} style={{ border: "1px solid rgba(148,163,184,.14)", borderRadius: 9, padding: 12 }}>
-            <div style={{ color: "#94a3b8", fontSize: 11, textTransform: "uppercase" }}>{venue}</div>
-            {!item ? <p style={{ color: "#94a3b8", fontSize: 13 }}>Not enough candles for a weekly assessment.</p> : <>
-              <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", gap: 8, marginTop: 6 }}>
-                <strong style={{ color: item.direction === "UP" ? "#35c98a" : item.direction === "DOWN" ? "#ff858b" : "#fbbf24", fontSize: 19 }}>{item.direction === "UP" ? "Bullish bias" : item.direction === "DOWN" ? "Bearish bias" : "Neutral / mixed"}</strong>
-                <span style={{ color: "#cbd5e1", fontSize: 13 }}>{item.returnPct >= 0 ? "+" : ""}{item.returnPct.toFixed(2)}%</span>
-              </div>
-              <div style={{ color: "#94a3b8", fontSize: 12, marginTop: 8, lineHeight: 1.7 }}>Latest: {formatPrice(item.latest)} Toman<br />Observed 7-day range: {formatPrice(item.low)} – {formatPrice(item.high)}<br />Latest 24h move: {item.dailyPct >= 0 ? "+" : ""}{item.dailyPct.toFixed(2)}%</div>
-              <div style={{ marginTop: 10, height: 5, borderRadius: 8, background: "rgba(148,163,184,.15)", overflow: "hidden" }}><div style={{ width: String(item.confidence) + "%", height: "100%", background: item.direction === "UP" ? "#35c98a" : item.direction === "DOWN" ? "#ff5f67" : "#fbbf24" }} /></div>
-              <p style={{ color: "#64748b", fontSize: 11, lineHeight: 1.5, marginBottom: 0 }}>Trend-strength indicator: {item.confidence}% (not win probability). Based on available hourly candles from {new Date(item.start * 1000).toLocaleDateString()} to {new Date(item.end * 1000).toLocaleDateString()}.</p>
-            </>}
-          </article>;
-        })}
+
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(250px, 1fr))", gap: 12, marginTop: 14 }}>
+        {result.forecasts.map((item) => (
+          <article key={item.horizonHours} style={{ border: "1px solid rgba(148,163,184,.18)", borderRadius: 10, padding: 14, background: "rgba(15,23,42,.35)", minWidth: 0 }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8 }}>
+              <span style={{ color: "#94a3b8", fontSize: 11 }}>{item.horizonHours === 24 ? "NEXT 24 HOURS" : "NEXT 7 DAYS"}</span>
+              <span style={{ color: item.dataStatus === "READY" ? "#35c98a" : "#fbbf24", fontSize: 10 }}>{item.dataStatus.replaceAll("_", " ")}</span>
+            </div>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", gap: 10, marginTop: 10 }}>
+              <strong style={{ color: directionColor(item.direction), fontSize: 20 }}>{directionText(item.direction)}</strong>
+              <span style={{ color: "#cbd5e1", fontSize: 12 }}>{item.score == null ? "Score —" : `Score ${item.score > 0 ? "+" : ""}${item.score.toFixed(1)}/100`}</span>
+            </div>
+            <div style={{ height: 5, borderRadius: 8, background: "rgba(148,163,184,.15)", overflow: "hidden", marginTop: 10 }}>
+              <div style={{ width: `${Math.abs(item.score ?? 0)}%`, marginLeft: item.score != null && item.score < 0 ? `${100 - Math.abs(item.score)}%` : "0", height: "100%", background: directionColor(item.direction) }} />
+            </div>
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginTop: 14 }}>
+              <div><div style={{ color: "#94a3b8", fontSize: 10 }}>Historical hit rate</div><strong style={{ display: "block", marginTop: 4, fontSize: 13 }}>{formatRate(item.historicalHitRate)}</strong></div>
+              <div><div style={{ color: "#94a3b8", fontSize: 10 }}>Median comparable return</div><strong style={{ display: "block", marginTop: 4, fontSize: 13 }}>{formatPct(item.expectedReturnPct)}</strong></div>
+              <div><div style={{ color: "#94a3b8", fontSize: 10 }}>Prior support</div><strong style={{ display: "block", marginTop: 4, fontSize: 12 }}>{formatPrice(item.support)}</strong></div>
+              <div><div style={{ color: "#94a3b8", fontSize: 10 }}>Prior resistance</div><strong style={{ display: "block", marginTop: 4, fontSize: 12 }}>{formatPrice(item.resistance)}</strong></div>
+            </div>
+            <div style={{ marginTop: 12, paddingTop: 10, borderTop: "1px solid rgba(148,163,184,.14)", color: "#cbd5e1", fontSize: 11, lineHeight: 1.6 }}>
+              Structure: <strong>{item.breakout.replaceAll("_", " ")}</strong><br />
+              Comparable historical outcomes: <strong>{item.calibrationSamples}</strong>
+            </div>
+          </article>
+        ))}
       </div>
-      <p style={{ color: "#94a3b8", fontSize: 12, lineHeight: 1.6, marginBottom: 0, marginTop: 12 }}>This is a directional outlook derived from observed returns and short-term momentum. It does not claim to predict the next week's return with validated accuracy; reliable out-of-sample backtesting is needed before treating it as a calibrated forecast.</p>
+
+      <section style={{ marginTop: 16, border: "1px solid rgba(148,163,184,.14)", borderRadius: 10, padding: 13 }}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", gap: 10, flexWrap: "wrap" }}>
+          <strong style={{ fontSize: 13 }}>Chronological holdout backtest</strong>
+          <span style={{ color: "#94a3b8", fontSize: 10 }}>Final 20% of history · ${result.backtest.costPerRoundTripPct.toFixed(3)}% round-trip cost</span>
+        </div>
+        <div style={{ overflowX: "auto", marginTop: 10 }}>
+          <table style={{ width: "100%", minWidth: 600, borderCollapse: "collapse", fontSize: 11, textAlign: "left" }}>
+            <thead><tr>{["Horizon", "Test samples", "Directional accuracy", "Momentum baseline", "Net return / signal", "Profitable signals", "Status"].map((label) => <th key={label} style={{ color: "#94a3b8", padding: "9px 7px", borderBottom: "1px solid rgba(148,163,184,.14)", fontWeight: 600 }}>{label}</th>)}</tr></thead>
+            <tbody>{result.backtest.metrics.map((metric) => <tr key={metric.horizonHours}>
+              <td style={{ padding: "9px 7px", borderBottom: "1px solid rgba(148,163,184,.08)" }}>{metric.horizonHours === 24 ? "24h" : "7d"}</td>
+              <td style={{ padding: "9px 7px", borderBottom: "1px solid rgba(148,163,184,.08)" }}>{metric.testSamples}</td>
+              <td style={{ padding: "9px 7px", borderBottom: "1px solid rgba(148,163,184,.08)" }}>{metric.testDirectionalAccuracy == null ? "—" : `${(metric.testDirectionalAccuracy * 100).toFixed(1)}%`}</td>
+              <td style={{ padding: "9px 7px", borderBottom: "1px solid rgba(148,163,184,.08)" }}>{metric.baselineDirectionalAccuracy == null ? "—" : `${(metric.baselineDirectionalAccuracy * 100).toFixed(1)}%`}</td>
+              <td style={{ padding: "9px 7px", borderBottom: "1px solid rgba(148,163,184,.08)", color: metric.meanNetReturnPerSignalPct != null && metric.meanNetReturnPerSignalPct > 0 ? "#35c98a" : "#ff858b" }}>{formatPct(metric.meanNetReturnPerSignalPct)}</td>
+              <td style={{ padding: "9px 7px", borderBottom: "1px solid rgba(148,163,184,.08)" }}>{metric.profitableSignalRatePct == null ? "—" : `${metric.profitableSignalRatePct.toFixed(1)}%`}</td>
+              <td style={{ padding: "9px 7px", borderBottom: "1px solid rgba(148,163,184,.08)", color: metric.status === "EVALUATED" ? "#35c98a" : "#fbbf24" }}>{metric.status.replaceAll("_", " ")}</td>
+            </tr>)}</tbody>
+          </table>
+        </div>
+      </section>
+      <p style={{ color: "#94a3b8", fontSize: 11, lineHeight: 1.65, marginBottom: 0, marginTop: 12 }}>
+        Forecasts are forward-looking rule-based estimates, not probabilities of profit. The backtest uses only past candles to form each historical prediction and reports a chronological holdout; its hourly outcomes overlap, so its rows are not independent trades. A positive backtest result is a necessary check, not a guarantee.
+      </p>
     </section>
   );
 }
