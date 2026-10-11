@@ -31,6 +31,15 @@ test("long-horizon engine forecasts 24 hours and 7 days using synchronized close
   assert.ok(result.forecasts.every((row) => row.score !== null && row.support !== null && row.resistance !== null));
 });
 
+test("accepts half-hour source timestamp offsets", () => {
+  const bitpin = candles(1800, (i) => 250_000 + i * 20);
+  const wallex = candles(1800, (i) => 250_000 + i * 18, 0, 1800);
+  const result = run(bitpin, wallex);
+  assert.ok(result.synchronizedHourlyCandles > 1700);
+  assert.equal(result.maxSourceTimestampOffsetSeconds, 1800);
+  assert.equal(result.dataStatus, "READY");
+});
+
 test("long-horizon live prediction is invariant to candles after the prediction timestamp", () => {
   const base = candles(1600, (index) => 250_000 + index * 20);
   const wallex = candles(1600, (index) => 250_000 + index * 18);
