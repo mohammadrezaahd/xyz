@@ -7,6 +7,7 @@ import { OpportunityPanel } from "@/components/opportunity-panel";
 import { Phase3Panel } from "@/components/phase3-panel";
 import { SnapshotPage } from "@/components/snapshot-page";
 import { MarketForecastPanel } from "@/components/market-forecast-panel";
+import { UnifiedSignalPanel } from "@/components/unified-signal-panel";
 import { WeeklyAnalysisPanel } from "@/components/weekly-analysis-panel";
 import { TrendRegimePanel } from "@/components/trend-regime-panel";
 import { TestPositionPanel } from "@/components/test-position-panel";
@@ -177,6 +178,7 @@ export default function Home() {
       {view === "overview" && <section className="dashboardOverview">
         <TrendRegimePanel mode="compact" />
         <MarketForecastPanel mode="compact" />
+        <UnifiedSignalPanel analysis={analysis} />
         <WeeklyAnalysisPanel bitpin={chartHistory?.bitpin ?? data?.bitpin ?? []} wallex={chartHistory?.wallex ?? data?.wallex ?? []} />
         <section className="dashboardPrices" aria-label="Current market prices">
           <div className="dashboardPrice"><span>BITPIN</span><strong>{price(prices?.bitpin)}</strong><small>TOMAN</small></div>
@@ -203,7 +205,7 @@ export default function Home() {
       {view === "position" && <section className="workspacePage"><div className="pageIntro"><div className="sectionEyebrow">PHASE 4 WORKSPACE</div><h2>Paper Position</h2><p>Run and monitor a research-only paper position. No real funds or exchange orders are used.</p></div><TestPositionPanel currentPrice={prices?.bitpin ?? null} /></section>}
       {view === "history" && <section className="workspacePage"><div className="pageIntro"><div className="sectionEyebrow">PHASE 3 RESULTS</div><h2>History</h2><p>Review opportunity cron results, validation scores, and simulated outcomes.</p></div><Phase3Panel /></section>}
       {view === "snapshots" && <SnapshotPage />}
-      {view === "forecast" && <section className="workspacePage"><MarketForecastPanel mode="summary" /><WeeklyAnalysisPanel bitpin={chartHistory?.bitpin ?? data?.bitpin ?? []} wallex={chartHistory?.wallex ?? data?.wallex ?? []} /></section>}
+      {view === "forecast" && <section className="workspacePage"><UnifiedSignalPanel analysis={analysis} /><MarketForecastPanel mode="summary" /><WeeklyAnalysisPanel bitpin={chartHistory?.bitpin ?? data?.bitpin ?? []} wallex={chartHistory?.wallex ?? data?.wallex ?? []} /></section>}
       {view === "calculator" && <TradingCalculator />}
       {view === "details" && <section className="workspacePage"><div className="pageIntro"><div className="sectionEyebrow">DETAILS &amp; LOGS</div><h2>Technical details and logs</h2></div><details className="diagnosticAccordion"><summary>Opportunity &amp; Stability diagnostics</summary><OpportunityPanel analysis={analysis} externalPrice={externalPrice} onExternalPriceChange={(value) => { setExternalPriceCustomized(true); setExternalPrice(value); }} /></details><details className="diagnosticAccordion"><summary>Trend regime and exit-timing backtest</summary><TrendRegimePanel mode="details" /></details><details className="diagnosticAccordion"><summary>Short-term forecast, validation and stability research</summary><MarketForecastPanel mode="details" /></details><details className="diagnosticAccordion"><summary>Synchronized raw candle charts</summary><section className="chartSection" aria-labelledby="chart-title"><div className="sectionHeader"><div><div className="sectionEyebrow">PRICE RELATIONSHIP</div><h2 id="chart-title">Synchronized candle history</h2></div><span className="sectionNote">1 minute · {data?.bitpin.length ?? 0} Bitpin / {data?.wallex.length ?? 0} Wallex candles</span></div><div className="chartPair"><div className="chartPane"><div className="chartPaneHeader"><div><strong>Bitpin</strong><span>{price(prices?.bitpin)} Toman</span></div><span>{data?.bitpin.length ?? 0} candles</span></div><CandleChart candles={data?.bitpin ?? []} historicalCandles={chartHistory?.bitpin ?? []} /></div><div className="chartPane"><div className="chartPaneHeader"><div><strong>Wallex</strong><span>{price(prices?.wallex)} Toman</span></div><span>{data?.wallex.length ?? 0} candles</span></div><CandleChart candles={data?.wallex ?? []} historicalCandles={chartHistory?.wallex ?? []} /></div></div></section></details></section>}
       {error && view !== "snapshots" && view !== "forecast" && <div className="errorBanner" role="alert"><strong>Provider warning</strong><span>{error}</span></div>}
