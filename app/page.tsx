@@ -179,7 +179,6 @@ export default function Home() {
 
       {view === "overview" && <section className="dashboardOverview">
         <TrendRegimePanel mode="compact" />
-        <MarketForecastPanel mode="compact" />
         <UnifiedSignalPanel analysis={analysis} longForecast={longForecast} />
         <WeeklyAnalysisPanel bitpin={chartHistory?.bitpin ?? data?.bitpin ?? []} wallex={chartHistory?.wallex ?? data?.wallex ?? []} result={longForecast} />
         <section className="dashboardPrices" aria-label="Current market prices">
