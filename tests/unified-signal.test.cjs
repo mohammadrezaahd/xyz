@@ -61,6 +61,29 @@ function longForecast(direction24 = "UP", direction7d = "UP", age = 60) {
   };
 }
 
+function backtest(valid = true) {
+  return {
+    generatedAt: new Date(1_000_000).toISOString(),
+    method: "multi-feature-regime-v1",
+    input: { bitpinCandles: 1000, wallexCandles: 1000, synchronizedCandles: 1000 },
+    split: { trainPct: 60, tunePct: 20, testPct: 20, chronological: true },
+    assumptions: { momentumLookbackMinutes: 30, minimumMomentumPct: 0.015, flatThresholdPct: 0.02, costPerRoundTripPct: 0.2, outcomePrice: "Bitpin close", futureDataUsedForPrediction: false },
+    metrics: [5, 15, 30, 60].map((horizonMinutes) => ({
+      horizonMinutes, samples: 1000, trainSamples: 600, tuneSamples: 200, testSamples: 200,
+      testSampleStatus: "EVALUATED",
+      testDirectionalAccuracy: valid ? 0.65 : 0.48,
+      testBaselineAccuracy: 0.50,
+      testMeanAbsoluteErrorPct: 0.1,
+      testBaselineMeanAbsoluteErrorPct: 0.2,
+      testGrossStrategyReturnPct: valid ? 0.5 : -0.1,
+      testNetStrategyReturnPct: valid ? 0.3 : -0.3,
+      testWinRate: valid ? 0.60 : 0.40,
+      costPerRoundTripPct: 0.2,
+    })),
+    samples: [],
+  };
+}
+
 function trend(score = 45, direction = "BULLISH", age = 20) {
   return {
     generatedAt: new Date(1_000_000).toISOString(),
@@ -88,7 +111,7 @@ function trend(score = 45, direction = "BULLISH", age = 20) {
 }
 
 test("aligned bullish evidence plus valid Opportunity opens only the research route", () => {
-  const result = buildUnifiedSignal({ opportunity: opportunity(), forecast: forecast(), trend: trend(), longForecast: longForecast(), nowMs: 1_000_000 });
+  const result = buildUnifiedSignal({ opportunity: opportunity(), forecast: forecast(), trend: trend(), longForecast: longForecast(), backtest: backtest(), nowMs: 1_000_000 });
   assert.equal(result.direction, "BULLISH");
   assert.equal(result.action, "BUY_CHEAP_SELL_EXPENSIVE");
 });
@@ -99,6 +122,7 @@ test("bearish forecast cannot be overridden by a positive Opportunity spread", (
     forecast: forecast({ 5: -55, 15: -50, 30: -35, 60: -25 }),
     trend: trend(-45, "BEARISH"),
     longForecast: longForecast(),
+    backtest: backtest(),
     nowMs: 1_000_000,
   });
   assert.equal(result.direction, "CONFLICT");
@@ -174,9 +198,24 @@ test("opposing 24-hour and 7-day forecasts create a higher-timeframe conflict", 
     forecast: forecast(),
     trend: trend(),
     longForecast: longForecast("UP", "DOWN"),
+    backtest: backtest(),
     nowMs: 1_000_000,
   });
   assert.equal(result.higherTimeframeDirection, "CONFLICT");
   assert.equal(result.direction, "CONFLICT");
   assert.equal(result.action, "WAIT_FOR_CONFIRMATION");
+});
+
+test("a backtest without a positive after-cost edge over baseline blocks signal clearance", () => {
+  const result = buildUnifiedSignal({
+    opportunity: opportunity(),
+    forecast: forecast(),
+    trend: trend(),
+    longForecast: longForecast(),
+    backtest: backtest(false),
+    nowMs: 1_000_000,
+  });
+  assert.equal(result.backtestValidated, false);
+  assert.equal(result.action, "WAIT_FOR_CONFIRMATION");
+  assert.ok(result.blockers.some((reason) => reason.includes("Out-of-sample edge")));
 });
