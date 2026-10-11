@@ -10,6 +10,7 @@ type Feature = {
   returns: Record<24 | 168 | 720, number>;
   venueAgreement24: number;
   venueAgreement168: number;
+  wallexLeadBitpinResponse168: number;
   volumePressure24: number | null;
   support: number;
   resistance: number;
@@ -117,6 +118,25 @@ function featureAt(pairs: Pair[], index: number): Feature | null {
   const volumePressure24 = pressureDenominator ? pressureNumerator / pressureDenominator : null;
   const venueAgreement24 = Math.sign(bitpin24!) === 0 || Math.sign(wallex24!) === 0 ? 0 : Math.sign(bitpin24!) === Math.sign(wallex24!) ? 1 : -1;
   const venueAgreement168 = Math.sign(bitpin168!) === 0 || Math.sign(wallex168!) === 0 ? 0 : Math.sign(bitpin168!) === Math.sign(wallex168!) ? 1 : -1;
+  // Lagged cross-venue response: compare each Wallex hourly direction with
+  // Bitpin's following hourly return, using only pairs that precede this row.
+  let leadMatches = 0;
+  let leadMismatches = 0;
+  for (let offset = index - 168; offset <= index - 2; offset += 1) {
+    const wallexPrior = pairs[offset].wallex.close;
+    const wallexNext = pairs[offset + 1].wallex.close;
+    const bitpinPrior = pairs[offset + 1].bitpin.close;
+    const bitpinNext = pairs[offset + 2].bitpin.close;
+    const leaderReturn = wallexNext / wallexPrior - 1;
+    const responseReturn = bitpinNext / bitpinPrior - 1;
+    if (Math.abs(leaderReturn) < 0.0001 || Math.abs(responseReturn) < 0.0001) continue;
+    if (Math.sign(leaderReturn) === Math.sign(responseReturn)) leadMatches += 1;
+    else leadMismatches += 1;
+  }
+  const leadResponseCount = leadMatches + leadMismatches;
+  const wallexLeadBitpinResponse168 = leadResponseCount >= 30
+    ? (leadMatches - leadMismatches) / leadResponseCount
+    : 0;
   // Levels are calculated from the 168 hours preceding the evaluated candle.
   const levelWindow = pairs.slice(index - 168, index).map((pair) => pair.bitpin);
   const support = Math.min(...levelWindow.map((candle) => candle.low));
@@ -139,18 +159,20 @@ function featureAt(pairs: Pair[], index: number): Feature | null {
     : 0;
   const pressureScore = volumePressure24 === null ? 0 : Math.tanh(volumePressure24 / 0.25);
   const score24 = clamp(
-    Math.tanh(bitpin24! / 0.6) * 35 +
-    Math.tanh(bitpin168! / 1.5) * 15 +
-    venueAgreement24 * 15 +
-    pressureScore * 15 +
+    Math.tanh(bitpin24! / 0.6) * 30 +
+    Math.tanh(bitpin168! / 1.5) * 12 +
+    venueAgreement24 * 12 +
+    pressureScore * 12 +
+    wallexLeadBitpinResponse168 * 10 +
     levelScore * 0.2,
     -100, 100,
   );
   const score168 = clamp(
-    Math.tanh(bitpin168! / 1.5) * 35 +
-    Math.tanh(bitpin720! / 4) * 25 +
-    venueAgreement168 * 20 +
+    Math.tanh(bitpin168! / 1.5) * 30 +
+    Math.tanh(bitpin720! / 4) * 22 +
+    venueAgreement168 * 17 +
     pressureScore * 5 +
+    wallexLeadBitpinResponse168 * 10 +
     levelScore * 0.15,
     -100, 100,
   );
@@ -160,6 +182,7 @@ function featureAt(pairs: Pair[], index: number): Feature | null {
     returns: { 24: bitpin24!, 168: bitpin168!, 720: bitpin720! },
     venueAgreement24,
     venueAgreement168,
+    wallexLeadBitpinResponse168,
     volumePressure24,
     support,
     resistance,
