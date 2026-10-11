@@ -26,6 +26,9 @@ export type LongHorizonForecastRow = {
   calibrationSamples: number;
   support: number | null;
   resistance: number | null;
+  wallexLeadBitpinResponse168: number | null;
+  volumePressure24Pct: number | null;
+  venueAgreement: number | null;
   breakout: Feature["breakout"] | "INSUFFICIENT_DATA";
   dataStatus: "READY" | "INSUFFICIENT_DATA" | "STALE_OR_GAPPED";
 };
@@ -275,6 +278,9 @@ export function buildLongHorizonForecast(
       calibrationSamples: comparable.length,
       support: current.support,
       resistance: current.resistance,
+      wallexLeadBitpinResponse168: current.wallexLeadBitpinResponse168,
+      volumePressure24Pct: current.volumePressure24,
+      venueAgreement: horizonHours === 24 ? current.venueAgreement24 : current.venueAgreement168,
       breakout: current.breakout,
       dataStatus: "READY",
     };
