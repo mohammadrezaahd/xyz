@@ -202,7 +202,7 @@ export function CandleChart({ candles, historicalCandles = [] }: { candles: Cand
           { label: "Break-risk panel", checked: showBreakAssessment, change: setShowBreakAssessment, color: "#ff858b" },
         ] as const).map((item) => (
           <label key={item.label} style={{ display: "inline-flex", alignItems: "center", gap: 7, cursor: "pointer", userSelect: "none" }}>
-            <input type="checkbox" role="switch" aria-label={"Show " + item.label} checked={item.checked} onChange={(event) => item.change(event.target.checked)} style={{ appearance: "none", width: 30, height: 17, borderRadius: 999, position: "relative", margin: 0, background: item.checked ? item.color : "#475569", cursor: "pointer", transition: "background .15s", flexShrink: 0, outlineOffset: 2 }} />
+            <input className="chartDisplaySwitch" type="checkbox" role="switch" aria-label={"Show " + item.label} checked={item.checked} onChange={(event) => item.change(event.target.checked)} style={{ appearance: "none", width: 30, height: 17, borderRadius: 999, position: "relative", margin: 0, background: item.checked ? item.color : "#475569", cursor: "pointer", transition: "background .15s", flexShrink: 0, outlineOffset: 2 }} />
             <span>{item.label}</span>
           </label>
         ))}
