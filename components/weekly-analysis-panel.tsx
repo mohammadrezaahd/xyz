@@ -10,7 +10,7 @@ const directionText = (direction: string) => direction === "UP" ? "BULLISH" : di
 const directionColor = (direction: string) => direction === "UP" ? "#35c98a" : direction === "DOWN" ? "#ff858b" : direction === "FLAT" ? "#fbbf24" : "#94a3b8";
 
 export function WeeklyAnalysisPanel({ result }: { bitpin: Candle[]; wallex: Candle[]; result: LongHorizonForecastResult }) {
-  const label = result.dataStatus === "READY" ? "LIVE · HOURLY DATA" : result.dataStatus.replaceAll("_", " ");
+  const label = result.dataStatus === "READY" ? (result.maxSourceTimestampOffsetSeconds > 0 ? "LIVE · 30M SOURCE OFFSET" : "LIVE · HOURLY DATA") : result.dataStatus.replaceAll("_", " ");
 
   return (
     <section style={{ border: "1px solid rgba(148,163,184,.18)", borderRadius: 12, padding: 16, background: "rgba(15,23,42,.5)", marginTop: 16, color: "#e2e8f0" }}>
@@ -18,7 +18,8 @@ export function WeeklyAnalysisPanel({ result }: { bitpin: Candle[]; wallex: Cand
         <div>
           <div style={{ color: "#7dd3fc", fontSize: 11, letterSpacing: 1.2, fontWeight: 700 }}>MULTI-FACTOR FORWARD FORECAST</div>
           <h2 style={{ fontSize: 18, margin: "5px 0" }}>24-hour and 7-day market forecast</h2>
-          <p style={{ color: "#94a3b8", fontSize: 12, margin: 0 }}>Synchronized Bitpin/Wallex hourly candles · trend · venue agreement · volume pressure · support/resistance</p>
+          <p style={{ color: "#94a3b8", fontSize: 12, margin: 0 }}>Bitpin/Wallex hourly candles · nearest-hour alignment · trend · venue agreement · volume pressure · support/resistance</p>
+          <p style={{ color: result.maxSourceTimestampOffsetSeconds > 0 ? "#fbbf24" : "#94a3b8", fontSize: 11, margin: "6px 0 0" }}>{result.synchronizedHourlyCandles.toLocaleString("en-US")} aligned hourly pairs · maximum source timestamp offset {(result.maxSourceTimestampOffsetSeconds / 60).toFixed(0)} minutes. Alignment is approximate because venue candle boundaries differ.</p>
         </div>
         <span style={{ color: result.dataStatus === "READY" ? "#35c98a" : "#fbbf24", fontSize: 11 }}>{label}</span>
       </div>
