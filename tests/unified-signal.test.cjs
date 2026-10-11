@@ -85,9 +85,9 @@ test("bearish forecast cannot be overridden by a positive Opportunity spread", (
     trend: trend(-45, "BEARISH"),
     nowMs: 1_000_000,
   });
-  assert.equal(result.direction, "BEARISH");
+  assert.equal(result.direction, "CONFLICT");
   assert.equal(result.action, "WAIT_FOR_CONFIRMATION");
-  assert.ok(result.blockers.some((reason) => reason.includes("Bearish")));
+  assert.ok(result.horizons.some((row) => row.conflictReasons.some((reason) => reason.includes("breakout") || reason.includes("Forecast and Buy/Sell Balance"))));
 });
 
 test("forecast versus Buy/Sell disagreement is marked as conflict and blocks trade", () => {
