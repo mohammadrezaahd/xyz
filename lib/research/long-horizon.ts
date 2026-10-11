@@ -289,7 +289,7 @@ export function buildLongHorizonForecast(
   const latestIndex = pairs.length - 1;
   const current = features[latestIndex] ?? null;
   const outcomes = allOutcomes(pairs, features);
-  const tailGap = pairs.length < LOOKBACK_HOURS + 1 || pairs.slice(-LOOKBACK_HOURS - 1).some((pair, offset, rows) => offset > 0 && pair.time - rows[offset - 1].time !== HOUR);
+  const tailWindow = pairs.filter((pair) => latest !== null && pair.time >= latest.time - LOOKBACK_HOURS * HOUR);\n  const tailGap = tailWindow.length < LOOKBACK_HOURS * 0.9 || tailWindow.some((pair, offset, rows) => offset > 0 && pair.time - rows[offset - 1].time > 3 * HOUR);
   const stale = candleAgeSeconds === null || candleAgeSeconds > 3 * HOUR;
   const dataStatus = !current ? "INSUFFICIENT_DATA" : stale || tailGap ? "STALE_OR_GAPPED" : "READY";
   const forecasts = LONG_HORIZONS_HOURS.map((horizonHours): LongHorizonForecastRow => {
