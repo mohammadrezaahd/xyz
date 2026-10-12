@@ -217,8 +217,8 @@ function assessExitManagement(pairs: Pair[], features: Array<Feature | null>, di
   // would delay the warning until much of the retracement had already happened.
   const bearishTurn = adverseForLong && scoreChange5m <= -10;
   const bullishTurn = adverseForShort && scoreChange5m >= 10;
-  const longReversal = direction === "BEARISH" || bearishTurn;
-  const shortReversal = direction === "BULLISH" || bullishTurn;
+  const longReversal = bearishTurn;
+  const shortReversal = bullishTurn;
   // Do not exit on score drift alone: require a counter-trend 15m move as well,
   // unless the market has already crossed the structure invalidation reference.
   const longWeakening = (adverseForLong && scoreChange5m <= -8) || longBroken;
