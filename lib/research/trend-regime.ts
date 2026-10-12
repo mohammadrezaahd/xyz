@@ -2,6 +2,9 @@ import type { Candle } from "../candles";
 
 export type TrendDirection = "BULLISH" | "BEARISH" | "RANGE" | "REVERSAL_WATCH" | "INSUFFICIENT_DATA";
 export type EntryTiming = "PULLBACK_WATCH" | "BREAKOUT_CONFIRMATION" | "CONTINUATION_WATCH" | "WAIT" | "INSUFFICIENT_DATA";
+export type ExitTiming = "TAKE_PROFIT_WATCH" | "STRUCTURE_WEAKENING" | "REVERSAL_RISK" | "HOLD_TREND" | "INSUFFICIENT_DATA";
+type ExitSideAssessment = { status: ExitTiming; structureInvalidationPrice: number | null; reason: string };
+type ExitManagement = { marketTurn: "BULLISH_REVERSAL_RISK" | "BEARISH_REVERSAL_RISK" | "MOMENTUM_WEAKENING" | "NO_REVERSAL_SIGNAL" | "INSUFFICIENT_DATA"; scoreChange5m: number | null; long: ExitSideAssessment; short: ExitSideAssessment };
 
 type Pair = { time: number; bitpin: Candle; wallex: Candle };
 type Feature = {
@@ -50,6 +53,9 @@ export type TrendRegimeResult = {
   structure: "HIGHER_HIGHS_HIGHER_LOWS" | "LOWER_HIGHS_LOWER_LOWS" | "MIXED_OR_UNCONFIRMED";
   entryTiming: EntryTiming;
   entryReason: string;
+  exitTiming: ExitTiming;
+  exitReason: string;
+  exitManagement: ExitManagement;
   regimeReason: string;
   backtest: { method: string; costPerRoundTripPct: number; futureDataUsedForPrediction: false; horizons: BacktestHorizon[] };
 };
@@ -174,6 +180,67 @@ function entryAssessment(direction: TrendDirection, feature: Feature | null, pai
   return { entryTiming: "CONTINUATION_WATCH", entryReason: "روند صعودی برقرار است، اما شکست تازه‌ای تأیید نشده؛ از تعقیب قیمت بدون تأیید پرهیز کن." };
 }
 
+
+function assessExitManagement(pairs: Pair[], features: Array<Feature | null>, direction: TrendDirection, feature: Feature | null): ExitManagement {
+  const unavailable: ExitSideAssessment = {
+    status: "INSUFFICIENT_DATA",
+    structureInvalidationPrice: null,
+    reason: "برای ارزیابی ریسک خروج، حداقل ۳۰ کندل بسته‌شده و دادهٔ پیوسته لازم است.",
+  };
+  if (!feature || pairs.length < 31 || features.length < 6) {
+    return { marketTurn: "INSUFFICIENT_DATA", scoreChange5m: null, long: unavailable, short: unavailable };
+  }
+
+  const fiveMinutesAgo = features[features.length - 6];
+  if (!fiveMinutesAgo) {
+    return { marketTurn: "INSUFFICIENT_DATA", scoreChange5m: null, long: unavailable, short: unavailable };
+  }
+  const scoreChange5m = feature.score - fiveMinutesAgo.score;
+  const price = pairs[pairs.length - 1].bitpin.close;
+  const previous = pairs.slice(-16, -1).map((pair) => pair.bitpin);
+  const recentLow = Math.min(...previous.map((candle) => candle.low));
+  const recentHigh = Math.max(...previous.map((candle) => candle.high));
+  // A volatility buffer reduces exits on tiny wicks. These are market-structure
+  // invalidation references, not position-specific trailing stops.
+  const bufferPct = Math.max(0.08, (feature.volatility60Pct * Math.sqrt(15) * 1.5));
+  const buffer = price * bufferPct / 100;
+  const longInvalidation = Math.max(0, recentLow - buffer);
+  const shortInvalidation = recentHigh + buffer;
+  const adverseForLong = feature.return15Pct <= -0.025;
+  const adverseForShort = feature.return15Pct >= 0.025;
+  const longBroken = price <= longInvalidation;
+  const shortBroken = price >= shortInvalidation;
+  const longReversal = (direction === "BEARISH" || (feature.score <= -18 && adverseForLong && scoreChange5m <= -10));
+  const shortReversal = (direction === "BULLISH" || (feature.score >= 18 && adverseForShort && scoreChange5m >= 10));
+  const longWeakening = adverseForLong || scoreChange5m <= -8 || longBroken;
+  const shortWeakening = adverseForShort || scoreChange5m >= 8 || shortBroken;
+
+  const long: ExitSideAssessment = longReversal
+    ? { status: "REVERSAL_RISK", structureInvalidationPrice: longInvalidation, reason: "فشار نزولی یا تغییر جهت با موقعیت لانگ تعارض دارد؛ سطح ساختاری زیر قیمت برای بررسی خروج/کاهش ریسک مشخص شده است." }
+    : longWeakening
+      ? { status: "STRUCTURE_WEAKENING", structureInvalidationPrice: longInvalidation, reason: "شتاب صعودی ضعیف شده یا حرکت کوتاه‌مدت علیه لانگ است؛ سطح ساختاری را زیر نظر بگیر و حد ضرر واقعی را جداگانه مدیریت کن." }
+      : direction === "BULLISH"
+        ? { status: "HOLD_TREND", structureInvalidationPrice: longInvalidation, reason: "فعلاً هشدار معنادار علیه لانگ دیده نمی‌شود؛ این سطح، مرجع ساختاری بازار است و حد ضرر شخصی تو نیست." }
+        : { status: "TAKE_PROFIT_WATCH", structureInvalidationPrice: longInvalidation, reason: "روند فعلی از لانگ حمایت نمی‌کند؛ اگر لانگ باز داری، سود/ریسک را بازبینی کن و فقط به برچسب روند تکیه نکن." };
+
+  const short: ExitSideAssessment = shortReversal
+    ? { status: "REVERSAL_RISK", structureInvalidationPrice: shortInvalidation, reason: "فشار صعودی یا تغییر جهت با موقعیت شورت تعارض دارد؛ سطح ساختاری بالای قیمت برای بررسی خروج/کاهش ریسک مشخص شده است." }
+    : shortWeakening
+      ? { status: "STRUCTURE_WEAKENING", structureInvalidationPrice: shortInvalidation, reason: "شتاب نزولی ضعیف شده یا حرکت کوتاه‌مدت علیه شورت است؛ سطح ساختاری را زیر نظر بگیر و حد ضرر واقعی را جداگانه مدیریت کن." }
+      : direction === "BEARISH"
+        ? { status: "HOLD_TREND", structureInvalidationPrice: shortInvalidation, reason: "فعلاً هشدار معنادار علیه شورت دیده نمی‌شود؛ این سطح، مرجع ساختاری بازار است و حد ضرر شخصی تو نیست." }
+        : { status: "TAKE_PROFIT_WATCH", structureInvalidationPrice: shortInvalidation, reason: "روند فعلی از شورت حمایت نمی‌کند؛ اگر شورت باز داری، سود/ریسک را بازبینی کن و فقط به برچسب روند تکیه نکن." };
+
+  const marketTurn = longReversal && !shortReversal
+    ? "BEARISH_REVERSAL_RISK" as const
+    : shortReversal && !longReversal
+      ? "BULLISH_REVERSAL_RISK" as const
+      : longWeakening || shortWeakening
+        ? "MOMENTUM_WEAKENING" as const
+        : "NO_REVERSAL_SIGNAL" as const;
+  return { marketTurn, scoreChange5m, long, short };
+}
+
 function evaluateBacktest(pairs: Pair[], features: Array<Feature | null>, costPct: number) {
   return HORIZONS.map((horizonMinutes) => {
     const testStart = Math.floor(pairs.length * 0.8);
@@ -233,6 +300,10 @@ export function buildTrendRegime(
   const dataStatus = !feature || pairs.length < 181 ? "INSUFFICIENT_DATA" : stale || tailGap ? "STALE_OR_GAPPED" : "READY";
   const direction: TrendDirection = dataStatus === "READY" ? trend.direction : "INSUFFICIENT_DATA";
   const entry = entryAssessment(direction, feature, pairs);
+  const exitManagement = dataStatus === "READY" ? assessExitManagement(pairs, features, direction, feature) : assessExitManagement([], [], "INSUFFICIENT_DATA", null);
+  const relevantExit = direction === "BULLISH" ? exitManagement.long : direction === "BEARISH" ? exitManagement.short : null;
+  const exitTiming: ExitTiming = dataStatus !== "READY" ? "INSUFFICIENT_DATA" : relevantExit?.status ?? (exitManagement.marketTurn === "BULLISH_REVERSAL_RISK" || exitManagement.marketTurn === "BEARISH_REVERSAL_RISK" ? "REVERSAL_RISK" : exitManagement.marketTurn === "MOMENTUM_WEAKENING" ? "STRUCTURE_WEAKENING" : "TAKE_PROFIT_WATCH");
+  const exitReason = dataStatus !== "READY" ? "دادهٔ تازه و پیوسته کافی نیست؛ سیگنال خروج تولید نمی‌شود." : relevantExit?.reason ?? "جهت روند خنثی یا نامطمئن است؛ وضعیت پوزیشن را بر اساس قیمت ورود و ریسک واقعی بررسی کن.";
   // Use only the preceding 60 closed candles as reference levels. The latest
   // closed candle is evaluated against those levels, avoiding self-confirming
   // support/resistance calculations that include the candle being tested.
@@ -288,6 +359,9 @@ export function buildTrendRegime(
     structure,
     entryTiming: entry.entryTiming,
     entryReason: entry.entryReason,
+    exitTiming,
+    exitReason,
+    exitManagement,
     regimeReason,
     backtest: {
       method: "Chronological final-20% holdout; each signal uses only candles available at its timestamp; overlapping outcomes are not compounded.",
