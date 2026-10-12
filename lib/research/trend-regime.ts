@@ -208,14 +208,16 @@ function assessExitManagement(pairs: Pair[], features: Array<Feature | null>, di
   const buffer = price * bufferPct / 100;
   const longInvalidation = Math.max(0, recentLow - buffer);
   const shortInvalidation = recentHigh + buffer;
-  const adverseForLong = feature.return15Pct <= -0.025;
-  const adverseForShort = feature.return15Pct >= 0.025;
+  const adverseForLong = feature.return15Pct <= -0.03;
+  const adverseForShort = feature.return15Pct >= 0.03;
   const longBroken = price <= longInvalidation;
   const shortBroken = price >= shortInvalidation;
   const longReversal = (direction === "BEARISH" || (feature.score <= -18 && adverseForLong && scoreChange5m <= -10));
   const shortReversal = (direction === "BULLISH" || (feature.score >= 18 && adverseForShort && scoreChange5m >= 10));
-  const longWeakening = adverseForLong || scoreChange5m <= -8 || longBroken;
-  const shortWeakening = adverseForShort || scoreChange5m >= 8 || shortBroken;
+  // Do not exit on score drift alone: require a counter-trend 15m move as well,
+  // unless the market has already crossed the structure invalidation reference.
+  const longWeakening = (adverseForLong && scoreChange5m <= -8) || longBroken;
+  const shortWeakening = (adverseForShort && scoreChange5m >= 8) || shortBroken;
 
   const long: ExitSideAssessment = longReversal
     ? { status: "REVERSAL_RISK", structureInvalidationPrice: longInvalidation, reason: "فشار نزولی یا تغییر جهت با موقعیت لانگ تعارض دارد؛ سطح ساختاری زیر قیمت برای بررسی خروج/کاهش ریسک مشخص شده است." }
