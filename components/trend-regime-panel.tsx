@@ -30,6 +30,12 @@ type TrendPayload = {
   entryReason?: string;
   exitTiming?: "TAKE_PROFIT_WATCH" | "STRUCTURE_WEAKENING" | "REVERSAL_RISK" | "HOLD_TREND" | "INSUFFICIENT_DATA";
   exitReason?: string;
+  exitManagement?: {
+    marketTurn: "BULLISH_REVERSAL_RISK" | "BEARISH_REVERSAL_RISK" | "MOMENTUM_WEAKENING" | "NO_REVERSAL_SIGNAL" | "INSUFFICIENT_DATA";
+    scoreChange5m: number | null;
+    long: { status: "TAKE_PROFIT_WATCH" | "STRUCTURE_WEAKENING" | "REVERSAL_RISK" | "HOLD_TREND" | "INSUFFICIENT_DATA"; structureInvalidationPrice: number | null; reason: string };
+    short: { status: "TAKE_PROFIT_WATCH" | "STRUCTURE_WEAKENING" | "REVERSAL_RISK" | "HOLD_TREND" | "INSUFFICIENT_DATA"; structureInvalidationPrice: number | null; reason: string };
+  };
   regimeReason?: string;
   warning?: string;
   backtest?: { costPerRoundTripPct: number; futureDataUsedForPrediction: false; horizons: HorizonResult[] };
@@ -170,13 +176,25 @@ export function TrendRegimePanel({ mode = "summary" }: { mode?: "summary" | "det
         <small>{voteText}. Current raw direction: {data?.rawDirection === "BULLISH" ? "Bullish" : data?.rawDirection === "BEARISH" ? "Bearish" : "Sideways"}.</small>
       </article>
       <article className="forecastDecision">
-        <div className="sectionEyebrow">EXIT / PROFIT MANAGEMENT</div>
+        <div className="sectionEyebrow">EXIT / REVERSAL RISK</div>
         <div className="forecastDecisionTop">
-          <h2>{data?.exitTiming ? exitLabels[data.exitTiming] : "Waiting for data"}</h2>
-          <span className={`forecastVerdict ${data?.exitTiming === "TAKE_PROFIT_WATCH" || data?.exitTiming === "REVERSAL_RISK" ? "forecastVerdict--down" : "forecastVerdict--wait"}`}>Open position</span>
+          <h2>{data?.exitManagement?.marketTurn === "BULLISH_REVERSAL_RISK" ? "Bullish reversal risk" : data?.exitManagement?.marketTurn === "BEARISH_REVERSAL_RISK" ? "Bearish reversal risk" : data?.exitManagement?.marketTurn === "MOMENTUM_WEAKENING" ? "Momentum weakening" : data?.exitManagement?.marketTurn === "NO_REVERSAL_SIGNAL" ? "No reversal warning" : "Insufficient data"}</h2>
+          <span className={`forecastVerdict ${data?.exitManagement?.marketTurn === "BULLISH_REVERSAL_RISK" || data?.exitManagement?.marketTurn === "BEARISH_REVERSAL_RISK" ? "forecastVerdict--down" : "forecastVerdict--wait"}`}>{data?.exitManagement?.scoreChange5m == null ? "5m score change —" : `5m score change ${data.exitManagement.scoreChange5m > 0 ? "+" : ""}${number(data.exitManagement.scoreChange5m, 1)}`}</span>
         </div>
-        <p>{data?.exitReason ?? "Open-position management cannot be evaluated yet."}</p>
-        <small>This is a review signal, not an exit order. It is rule-based, not a certainty.</small>
+        <div className="forecastMetaGrid" aria-label="Long and short exit risk">
+          <div className="forecastMeta">
+            <span>LONG position · {data?.exitManagement?.long.status ? exitLabels[data.exitManagement.long.status] : "Waiting for data"}</span>
+            <strong>{number(data?.exitManagement?.long.structureInvalidationPrice, 0)}</strong>
+            <small>{data?.exitManagement?.long.reason ?? "Long-side exit assessment unavailable."}</small>
+          </div>
+          <div className="forecastMeta">
+            <span>SHORT position · {data?.exitManagement?.short.status ? exitLabels[data.exitManagement.short.status] : "Waiting for data"}</span>
+            <strong>{number(data?.exitManagement?.short.structureInvalidationPrice, 0)}</strong>
+            <small>{data?.exitManagement?.short.reason ?? "Short-side exit assessment unavailable."}</small>
+          </div>
+        </div>
+        <p>{data?.exitReason ?? "Exit risk cannot be evaluated yet."}</p>
+        <small>Levels are volatility-buffered market-structure references, not entry-specific trailing stops or orders. Use your actual entry, fees, leverage and liquidation level to manage a live position.</small>
       </article>
     </section>
 
