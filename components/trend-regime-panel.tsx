@@ -36,6 +36,7 @@ type TrendPayload = {
     long: { status: "TAKE_PROFIT_WATCH" | "STRUCTURE_WEAKENING" | "REVERSAL_RISK" | "HOLD_TREND" | "INSUFFICIENT_DATA"; structureInvalidationPrice: number | null; reason: string };
     short: { status: "TAKE_PROFIT_WATCH" | "STRUCTURE_WEAKENING" | "REVERSAL_RISK" | "HOLD_TREND" | "INSUFFICIENT_DATA"; structureInvalidationPrice: number | null; reason: string };
   };
+  exitBacktest?: { method: string; horizonMinutes: number; testTrades: number; earlyExits: number; earlyExitRatePct: number | null; meanNetReturnWithExitPct: number | null; meanNetReturnFixedHoldPct: number | null; meanDifferenceVsFixedHoldPct: number | null; status: "EVALUATED" | "INSUFFICIENT_SAMPLE" };
   regimeReason?: string;
   warning?: string;
   backtest?: { costPerRoundTripPct: number; futureDataUsedForPrediction: false; horizons: HorizonResult[] };
@@ -197,6 +198,23 @@ export function TrendRegimePanel({ mode = "summary" }: { mode?: "summary" | "det
         <small>Levels are volatility-buffered market-structure references, not entry-specific trailing stops or orders. Use your actual entry, fees, leverage and liquidation level to manage a live position.</small>
       </article>
     </section>
+
+    {mode === "details" && <section className="forecastDecision" aria-label="Exit strategy backtest">
+      <div className="sectionEyebrow">EXIT LOGIC VALIDATION · CHRONOLOGICAL HOLDOUT</div>
+      <div className="forecastDecisionTop">
+        <h2>Early exit vs fixed 60-minute hold</h2>
+        <span className={`forecastVerdict ${data?.exitBacktest?.status === "EVALUATED" ? "forecastVerdict--wait" : "forecastVerdict--down"}`}>{data?.exitBacktest?.status === "EVALUATED" ? "Evaluated" : "Insufficient sample"}</span>
+      </div>
+      <div className="forecastMetaGrid">
+        <div className="forecastMeta"><span>Test trades</span><strong>{data?.exitBacktest?.testTrades ?? "—"}</strong></div>
+        <div className="forecastMeta"><span>Exited early</span><strong>{data?.exitBacktest?.earlyExits ?? "—"} ({rate(data?.exitBacktest?.earlyExitRatePct)})</strong></div>
+        <div className="forecastMeta"><span>Mean net · exit logic</span><strong>{pct(data?.exitBacktest?.meanNetReturnWithExitPct, 4)}</strong></div>
+        <div className="forecastMeta"><span>Mean net · fixed hold</span><strong>{pct(data?.exitBacktest?.meanNetReturnFixedHoldPct, 4)}</strong></div>
+        <div className="forecastMeta"><span>Difference vs fixed hold</span><strong>{pct(data?.exitBacktest?.meanDifferenceVsFixedHoldPct, 4)}</strong></div>
+      </div>
+      <p>{data?.exitBacktest?.method ?? "Exit strategy backtest unavailable."}</p>
+      <small>A positive difference means the tested early-exit rules outperformed the fixed-hold baseline on this sample; a negative difference means they underperformed. This is historical research, not proof of future performance.</small>
+    </section>}
 
     {mode === "details" && <section className="chartSection" aria-labelledby="trend-backtest-title">
       <div className="sectionHeader">
