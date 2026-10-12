@@ -114,7 +114,12 @@ export function TrendRegimePanel({ mode = "summary" }: { mode?: "summary" | "det
     return <section className="dashboardTrend" aria-label="Market direction summary">
       <div className="dashboardTrendTitle"><span>INTRADAY TREND · 15M–6H</span><small>{refreshing ? "Updating…" : ready ? "LIVE" : "DATA CHECK"}</small></div>
       <div className={`dashboardTrendVerdict ${direction === "BULLISH" ? "isBullish" : direction === "BEARISH" ? "isBearish" : "isNeutral"}`}>{loading && !data ? "ANALYZING…" : compactLabel}</div>
-      <div className="dashboardTrendFoot"><span>15m · 1h · 3h · 6h</span><button type="button" className="textLinkButton" onClick={() => window.dispatchEvent(new CustomEvent("xyz-open-forecast"))}>Forecast details ↗</button></div>
+      {ready && data?.exitManagement && data.exitManagement.marketTurn !== "NO_REVERSAL_SIGNAL" && data.exitManagement.marketTurn !== "INSUFFICIENT_DATA" && <div className={data.exitManagement.marketTurn === "BULLISH_REVERSAL_RISK" || data.exitManagement.marketTurn === "BEARISH_REVERSAL_RISK" ? "dashboardTrendAlert isReversal" : "dashboardTrendAlert isWeakening"} role="status">
+        <strong>{data.exitManagement.marketTurn === "BULLISH_REVERSAL_RISK" ? "BULLISH REVERSAL · SHORT RISK" : data.exitManagement.marketTurn === "BEARISH_REVERSAL_RISK" ? "BEARISH REVERSAL · LONG RISK" : "MOMENTUM WEAKENING"}</strong>
+        <span>15m {pct(data.momentum?.return15Pct)} · 5m score {data.exitManagement.scoreChange5m == null ? "—" : `${data.exitManagement.scoreChange5m > 0 ? "+" : ""}${number(data.exitManagement.scoreChange5m, 1)}`}</span>
+        <small>Overall trend: {compactLabel}. Early warning is separate from the main trend label.</small>
+      </div>}
+      <div className="dashboardTrendFoot"><span>15m · 1h · 3h · 6h</span><button type="button" className="textLinkButton" onClick={() => window.dispatchEvent(new CustomEvent("xyz-open-forecast"))}>Exit warning details ↗</button></div>
       {error && <span className="dashboardTrendError">Forecast unavailable</span>}
     </section>;
   }
