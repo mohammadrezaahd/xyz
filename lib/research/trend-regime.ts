@@ -5,6 +5,7 @@ export type EntryTiming = "PULLBACK_WATCH" | "BREAKOUT_CONFIRMATION" | "CONTINUA
 export type ExitTiming = "TAKE_PROFIT_WATCH" | "STRUCTURE_WEAKENING" | "REVERSAL_RISK" | "HOLD_TREND" | "INSUFFICIENT_DATA";
 type ExitSideAssessment = { status: ExitTiming; structureInvalidationPrice: number | null; reason: string };
 type ExitManagement = { marketTurn: "BULLISH_REVERSAL_RISK" | "BEARISH_REVERSAL_RISK" | "MOMENTUM_WEAKENING" | "NO_REVERSAL_SIGNAL" | "INSUFFICIENT_DATA"; scoreChange5m: number | null; long: ExitSideAssessment; short: ExitSideAssessment };
+type ExitBacktest = { method: string; horizonMinutes: number; testTrades: number; earlyExits: number; earlyExitRatePct: number | null; meanNetReturnWithExitPct: number | null; meanNetReturnFixedHoldPct: number | null; meanDifferenceVsFixedHoldPct: number | null; status: "EVALUATED" | "INSUFFICIENT_SAMPLE" };
 
 type Pair = { time: number; bitpin: Candle; wallex: Candle };
 type Feature = {
@@ -56,6 +57,7 @@ export type TrendRegimeResult = {
   exitTiming: ExitTiming;
   exitReason: string;
   exitManagement: ExitManagement;
+  exitBacktest: ExitBacktest;
   regimeReason: string;
   backtest: { method: string; costPerRoundTripPct: number; futureDataUsedForPrediction: false; horizons: BacktestHorizon[] };
 };
@@ -181,23 +183,23 @@ function entryAssessment(direction: TrendDirection, feature: Feature | null, pai
 }
 
 
-function assessExitManagement(pairs: Pair[], features: Array<Feature | null>, direction: TrendDirection, feature: Feature | null): ExitManagement {
+function assessExitManagement(pairs: Pair[], features: Array<Feature | null>, direction: TrendDirection, feature: Feature | null, index = pairs.length - 1): ExitManagement {
   const unavailable: ExitSideAssessment = {
     status: "INSUFFICIENT_DATA",
     structureInvalidationPrice: null,
     reason: "برای ارزیابی ریسک خروج، حداقل ۳۰ کندل بسته‌شده و دادهٔ پیوسته لازم است.",
   };
-  if (!feature || pairs.length < 31 || features.length < 6) {
+  if (!feature || index < 30 || index < 5 || !features[index - 5]) {
     return { marketTurn: "INSUFFICIENT_DATA", scoreChange5m: null, long: unavailable, short: unavailable };
   }
 
-  const fiveMinutesAgo = features[features.length - 6];
+  const fiveMinutesAgo = features[index - 5];
   if (!fiveMinutesAgo) {
     return { marketTurn: "INSUFFICIENT_DATA", scoreChange5m: null, long: unavailable, short: unavailable };
   }
   const scoreChange5m = feature.score - fiveMinutesAgo.score;
-  const price = pairs[pairs.length - 1].bitpin.close;
-  const previous = pairs.slice(-16, -1).map((pair) => pair.bitpin);
+  const price = pairs[index].bitpin.close;
+  const previous = pairs.slice(index - 15, index).map((pair) => pair.bitpin);
   const recentLow = Math.min(...previous.map((candle) => candle.low));
   const recentHigh = Math.max(...previous.map((candle) => candle.high));
   // A volatility buffer reduces exits on tiny wicks. These are market-structure
@@ -288,6 +290,68 @@ function evaluateBacktest(pairs: Pair[], features: Array<Feature | null>, costPc
   });
 }
 
+
+function evaluateExitBacktest(pairs: Pair[], features: Array<Feature | null>, costPct: number): ExitBacktest {
+  const horizonMinutes = 60;
+  const testStart = Math.floor(pairs.length * 0.8);
+  let testTrades = 0;
+  let earlyExits = 0;
+  let managedNetTotal = 0;
+  let fixedNetTotal = 0;
+
+  // Non-overlapping entries in the chronological final-20% holdout. Exit
+  // decisions use only the prefix available at that minute; outcomes are
+  // compared with a fixed 60-minute hold and include the same round-trip cost.
+  for (let index = Math.max(180, testStart); index + horizonMinutes < pairs.length; index += horizonMinutes) {
+    const entryDirection = trendAt(features, index).direction;
+    if (entryDirection !== "BULLISH" && entryDirection !== "BEARISH") continue;
+    const entryPrice = pairs[index].bitpin.close;
+    if (!positive(entryPrice)) continue;
+    let exitIndex = index + horizonMinutes;
+
+    for (let cursor = index + 1; cursor <= index + horizonMinutes; cursor += 1) {
+      const feature = features[cursor];
+      if (!feature) continue;
+      const currentDirection = trendAt(features, cursor).direction;
+      const assessment = assessExitManagement(pairs, features, currentDirection, feature, cursor);
+      const side = entryDirection === "BULLISH" ? assessment.long : assessment.short;
+      const price = pairs[cursor].bitpin.close;
+      const breached = side.structureInvalidationPrice != null &&
+        (entryDirection === "BULLISH" ? price <= side.structureInvalidationPrice : price >= side.structureInvalidationPrice);
+      if (side.status === "REVERSAL_RISK" || side.status === "STRUCTURE_WEAKENING" || breached) {
+        exitIndex = cursor;
+        earlyExits += 1;
+        break;
+      }
+    }
+
+    const exitPrice = pairs[exitIndex].bitpin.close;
+    const fixedPrice = pairs[index + horizonMinutes].bitpin.close;
+    if (!positive(exitPrice) || !positive(fixedPrice)) continue;
+    const sign = entryDirection === "BULLISH" ? 1 : -1;
+    managedNetTotal += sign * (exitPrice / entryPrice - 1) * 100 - costPct;
+    fixedNetTotal += sign * (fixedPrice / entryPrice - 1) * 100 - costPct;
+    testTrades += 1;
+  }
+
+  const meanNetReturnWithExitPct = testTrades ? managedNetTotal / testTrades : null;
+  const meanNetReturnFixedHoldPct = testTrades ? fixedNetTotal / testTrades : null;
+  const meanDifferenceVsFixedHoldPct = meanNetReturnWithExitPct != null && meanNetReturnFixedHoldPct != null
+    ? meanNetReturnWithExitPct - meanNetReturnFixedHoldPct
+    : null;
+  return {
+    method: "Chronological final-20% holdout; non-overlapping trend entries; exits evaluated with data available at each minute; compared with fixed 60-minute hold; overlapping positions excluded.",
+    horizonMinutes,
+    testTrades,
+    earlyExits,
+    earlyExitRatePct: testTrades ? earlyExits / testTrades * 100 : null,
+    meanNetReturnWithExitPct,
+    meanNetReturnFixedHoldPct,
+    meanDifferenceVsFixedHoldPct,
+    status: testTrades >= 20 ? "EVALUATED" : "INSUFFICIENT_SAMPLE",
+  };
+}
+
 export function buildTrendRegime(
   bitpinCandles: Candle[],
   wallexCandles: Candle[],
@@ -371,6 +435,7 @@ export function buildTrendRegime(
     exitTiming,
     exitReason,
     exitManagement,
+    exitBacktest: evaluateExitBacktest(pairs, features, costPct),
     regimeReason,
     backtest: {
       method: "Chronological final-20% holdout; each signal uses only candles available at its timestamp; overlapping outcomes are not compounded.",
