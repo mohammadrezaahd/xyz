@@ -2,6 +2,10 @@ import type { Candle } from "../candles";
 
 export type TrendDirection = "BULLISH" | "BEARISH" | "RANGE" | "REVERSAL_WATCH" | "INSUFFICIENT_DATA";
 export type EntryTiming = "PULLBACK_WATCH" | "BREAKOUT_CONFIRMATION" | "CONTINUATION_WATCH" | "WAIT" | "INSUFFICIENT_DATA";
+export type ExitTiming = "TAKE_PROFIT_WATCH" | "STRUCTURE_WEAKENING" | "REVERSAL_RISK" | "HOLD_TREND" | "INSUFFICIENT_DATA";
+type ExitSideAssessment = { status: ExitTiming; structureInvalidationPrice: number | null; reason: string };
+type ExitManagement = { marketTurn: "BULLISH_REVERSAL_RISK" | "BEARISH_REVERSAL_RISK" | "MOMENTUM_WEAKENING" | "NO_REVERSAL_SIGNAL" | "INSUFFICIENT_DATA"; scoreChange5m: number | null; long: ExitSideAssessment; short: ExitSideAssessment };
+type ExitBacktest = { method: string; horizonMinutes: number; testTrades: number; earlyExits: number; earlyExitRatePct: number | null; meanNetReturnWithExitPct: number | null; meanNetReturnFixedHoldPct: number | null; meanDifferenceVsFixedHoldPct: number | null; status: "EVALUATED" | "INSUFFICIENT_SAMPLE" };
 
 type Pair = { time: number; bitpin: Candle; wallex: Candle };
 type Feature = {
@@ -50,6 +54,10 @@ export type TrendRegimeResult = {
   structure: "HIGHER_HIGHS_HIGHER_LOWS" | "LOWER_HIGHS_LOWER_LOWS" | "MIXED_OR_UNCONFIRMED";
   entryTiming: EntryTiming;
   entryReason: string;
+  exitTiming: ExitTiming;
+  exitReason: string;
+  exitManagement: ExitManagement;
+  exitBacktest: ExitBacktest;
   regimeReason: string;
   backtest: { method: string; costPerRoundTripPct: number; futureDataUsedForPrediction: false; horizons: BacktestHorizon[] };
 };
@@ -174,6 +182,81 @@ function entryAssessment(direction: TrendDirection, feature: Feature | null, pai
   return { entryTiming: "CONTINUATION_WATCH", entryReason: "روند صعودی برقرار است، اما شکست تازه‌ای تأیید نشده؛ از تعقیب قیمت بدون تأیید پرهیز کن." };
 }
 
+
+function assessExitManagement(pairs: Pair[], features: Array<Feature | null>, direction: TrendDirection, feature: Feature | null, index = pairs.length - 1): ExitManagement {
+  const unavailable: ExitSideAssessment = {
+    status: "INSUFFICIENT_DATA",
+    structureInvalidationPrice: null,
+    reason: "برای ارزیابی ریسک خروج، حداقل ۳۰ کندل بسته‌شده و دادهٔ پیوسته لازم است.",
+  };
+  if (!feature || index < 30 || index < 5 || !features[index - 5]) {
+    return { marketTurn: "INSUFFICIENT_DATA", scoreChange5m: null, long: unavailable, short: unavailable };
+  }
+
+  const fiveMinutesAgo = features[index - 5];
+  if (!fiveMinutesAgo) {
+    return { marketTurn: "INSUFFICIENT_DATA", scoreChange5m: null, long: unavailable, short: unavailable };
+  }
+  const scoreChange5m = feature.score - fiveMinutesAgo.score;
+  const price = pairs[index].bitpin.close;
+  const previous = pairs.slice(index - 15, index).map((pair) => pair.bitpin);
+  const recentLow = Math.min(...previous.map((candle) => candle.low));
+  const recentHigh = Math.max(...previous.map((candle) => candle.high));
+  // A volatility buffer reduces exits on tiny wicks. These are market-structure
+  // invalidation references, not position-specific trailing stops.
+  const bufferPct = Math.max(0.08, (feature.volatility60Pct * Math.sqrt(15) * 1.5));
+  const buffer = price * bufferPct / 100;
+  const longInvalidation = Math.max(0, recentLow - buffer);
+  const shortInvalidation = recentHigh + buffer;
+  const adverseForLong = feature.return15Pct <= -0.03;
+  const adverseForShort = feature.return15Pct >= 0.03;
+  const longBroken = price <= longInvalidation;
+  const shortBroken = price >= shortInvalidation;
+  // Detect a fast counter-trend turn before the slow multi-timeframe score
+  // flips. Requiring feature.score to cross the opposite trend threshold here
+  // would delay the warning until much of the retracement had already happened.
+  const bearishTurn = adverseForLong && scoreChange5m <= -10;
+  const bullishTurn = adverseForShort && scoreChange5m >= 10;
+  const longReversal = bearishTurn;
+  const shortReversal = bullishTurn;
+  // Do not exit on score drift alone: require a counter-trend 15m move as well,
+  // unless the market has already crossed the structure invalidation reference.
+  const longWeakening = (adverseForLong && scoreChange5m <= -8) || longBroken;
+  const shortWeakening = (adverseForShort && scoreChange5m >= 8) || shortBroken;
+
+  const long: ExitSideAssessment = longReversal
+    ? { status: "REVERSAL_RISK", structureInvalidationPrice: longInvalidation, reason: "فشار نزولی یا تغییر جهت با موقعیت لانگ تعارض دارد؛ سطح ساختاری زیر قیمت برای بررسی خروج/کاهش ریسک مشخص شده است." }
+    : longWeakening
+      ? { status: "STRUCTURE_WEAKENING", structureInvalidationPrice: longInvalidation, reason: "شتاب صعودی ضعیف شده یا حرکت کوتاه‌مدت علیه لانگ است؛ سطح ساختاری را زیر نظر بگیر و حد ضرر واقعی را جداگانه مدیریت کن." }
+      : direction === "BULLISH"
+        ? { status: "HOLD_TREND", structureInvalidationPrice: longInvalidation, reason: "فعلاً هشدار معنادار علیه لانگ دیده نمی‌شود؛ این سطح، مرجع ساختاری بازار است و حد ضرر شخصی تو نیست." }
+        : { status: "TAKE_PROFIT_WATCH", structureInvalidationPrice: longInvalidation, reason: "روند فعلی از لانگ حمایت نمی‌کند؛ اگر لانگ باز داری، سود/ریسک را بازبینی کن و فقط به برچسب روند تکیه نکن." };
+
+  const short: ExitSideAssessment = shortReversal
+    ? { status: "REVERSAL_RISK", structureInvalidationPrice: shortInvalidation, reason: "فشار صعودی یا تغییر جهت با موقعیت شورت تعارض دارد؛ سطح ساختاری بالای قیمت برای بررسی خروج/کاهش ریسک مشخص شده است." }
+    : shortWeakening
+      ? { status: "STRUCTURE_WEAKENING", structureInvalidationPrice: shortInvalidation, reason: "شتاب نزولی ضعیف شده یا حرکت کوتاه‌مدت علیه شورت است؛ سطح ساختاری را زیر نظر بگیر و حد ضرر واقعی را جداگانه مدیریت کن." }
+      : direction === "BEARISH"
+        ? { status: "HOLD_TREND", structureInvalidationPrice: shortInvalidation, reason: "فعلاً هشدار معنادار علیه شورت دیده نمی‌شود؛ این سطح، مرجع ساختاری بازار است و حد ضرر شخصی تو نیست." }
+        : { status: "TAKE_PROFIT_WATCH", structureInvalidationPrice: shortInvalidation, reason: "روند فعلی از شورت حمایت نمی‌کند؛ اگر شورت باز داری، سود/ریسک را بازبینی کن و فقط به برچسب روند تکیه نکن." };
+
+  // Market-turn warnings require counter-trend momentum and score acceleration;
+  // merely having the opposite side at risk is not itself a reversal signal.
+  const momentumWeakening = direction === "BEARISH"
+    ? shortWeakening
+    : direction === "BULLISH"
+      ? longWeakening
+      : adverseForLong || adverseForShort || Math.abs(scoreChange5m) >= 8;
+  const marketTurn = bullishTurn
+    ? "BULLISH_REVERSAL_RISK" as const
+    : bearishTurn
+      ? "BEARISH_REVERSAL_RISK" as const
+      : momentumWeakening
+        ? "MOMENTUM_WEAKENING" as const
+        : "NO_REVERSAL_SIGNAL" as const;
+  return { marketTurn, scoreChange5m, long, short };
+}
+
 function evaluateBacktest(pairs: Pair[], features: Array<Feature | null>, costPct: number) {
   return HORIZONS.map((horizonMinutes) => {
     const testStart = Math.floor(pairs.length * 0.8);
@@ -212,6 +295,75 @@ function evaluateBacktest(pairs: Pair[], features: Array<Feature | null>, costPc
   });
 }
 
+
+function evaluateExitBacktest(pairs: Pair[], features: Array<Feature | null>, costPct: number): ExitBacktest {
+  const horizonMinutes = 60;
+  const testStart = Math.floor(pairs.length * 0.8);
+  let testTrades = 0;
+  let earlyExits = 0;
+  let managedNetTotal = 0;
+  let fixedNetTotal = 0;
+
+  // Non-overlapping entries in the chronological final-20% holdout. Exit
+  // decisions use only the prefix available at that minute; outcomes are
+  // compared with a fixed 60-minute hold and include the same round-trip cost.
+  for (let index = Math.max(180, testStart); index + horizonMinutes < pairs.length; index += horizonMinutes) {
+    const entryDirection = trendAt(features, index).direction;
+    if (entryDirection !== "BULLISH" && entryDirection !== "BEARISH") continue;
+    const entryPrice = pairs[index].bitpin.close;
+    if (!positive(entryPrice)) continue;
+    let exitIndex = index + horizonMinutes;
+    let reversalStreak = 0;
+
+    for (let cursor = index + 1; cursor <= index + horizonMinutes; cursor += 1) {
+      const feature = features[cursor];
+      if (!feature) {
+        reversalStreak = 0;
+        continue;
+      }
+      const currentDirection = trendAt(features, cursor).direction;
+      const assessment = assessExitManagement(pairs, features, currentDirection, feature, cursor);
+      const side = entryDirection === "BULLISH" ? assessment.long : assessment.short;
+      const price = pairs[cursor].bitpin.close;
+      const breached = side.structureInvalidationPrice != null &&
+        (entryDirection === "BULLISH" ? price <= side.structureInvalidationPrice : price >= side.structureInvalidationPrice);
+      reversalStreak = side.status === "REVERSAL_RISK" ? reversalStreak + 1 : 0;
+      // Weakening is a warning only. The backtest exits on a persistent
+      // reversal risk or a confirmed structure break, not on weakening alone.
+      if (breached || reversalStreak >= 3) {
+        exitIndex = cursor;
+        earlyExits += 1;
+        break;
+      }
+    }
+
+    const exitPrice = pairs[exitIndex].bitpin.close;
+    const fixedPrice = pairs[index + horizonMinutes].bitpin.close;
+    if (!positive(exitPrice) || !positive(fixedPrice)) continue;
+    const sign = entryDirection === "BULLISH" ? 1 : -1;
+    managedNetTotal += sign * (exitPrice / entryPrice - 1) * 100 - costPct;
+    fixedNetTotal += sign * (fixedPrice / entryPrice - 1) * 100 - costPct;
+    testTrades += 1;
+  }
+
+  const meanNetReturnWithExitPct = testTrades ? managedNetTotal / testTrades : null;
+  const meanNetReturnFixedHoldPct = testTrades ? fixedNetTotal / testTrades : null;
+  const meanDifferenceVsFixedHoldPct = meanNetReturnWithExitPct != null && meanNetReturnFixedHoldPct != null
+    ? meanNetReturnWithExitPct - meanNetReturnFixedHoldPct
+    : null;
+  return {
+    method: "Chronological final-20% holdout; non-overlapping trend entries; decisions use data available at each minute; weakening is advisory only; reversal risk must persist for three closed candles unless structure breaks; compared with fixed 60-minute hold; overlapping positions excluded.",
+    horizonMinutes,
+    testTrades,
+    earlyExits,
+    earlyExitRatePct: testTrades ? earlyExits / testTrades * 100 : null,
+    meanNetReturnWithExitPct,
+    meanNetReturnFixedHoldPct,
+    meanDifferenceVsFixedHoldPct,
+    status: testTrades >= 20 ? "EVALUATED" : "INSUFFICIENT_SAMPLE",
+  };
+}
+
 export function buildTrendRegime(
   bitpinCandles: Candle[],
   wallexCandles: Candle[],
@@ -233,6 +385,10 @@ export function buildTrendRegime(
   const dataStatus = !feature || pairs.length < 181 ? "INSUFFICIENT_DATA" : stale || tailGap ? "STALE_OR_GAPPED" : "READY";
   const direction: TrendDirection = dataStatus === "READY" ? trend.direction : "INSUFFICIENT_DATA";
   const entry = entryAssessment(direction, feature, pairs);
+  const exitManagement = dataStatus === "READY" ? assessExitManagement(pairs, features, direction, feature) : assessExitManagement([], [], "INSUFFICIENT_DATA", null);
+  const relevantExit = direction === "BULLISH" ? exitManagement.long : direction === "BEARISH" ? exitManagement.short : null;
+  const exitTiming: ExitTiming = dataStatus !== "READY" ? "INSUFFICIENT_DATA" : relevantExit?.status ?? (exitManagement.marketTurn === "BULLISH_REVERSAL_RISK" || exitManagement.marketTurn === "BEARISH_REVERSAL_RISK" ? "REVERSAL_RISK" : exitManagement.marketTurn === "MOMENTUM_WEAKENING" ? "STRUCTURE_WEAKENING" : "TAKE_PROFIT_WATCH");
+  const exitReason = dataStatus !== "READY" ? "دادهٔ تازه و پیوسته کافی نیست؛ سیگنال خروج تولید نمی‌شود." : relevantExit?.reason ?? "جهت روند خنثی یا نامطمئن است؛ وضعیت پوزیشن را بر اساس قیمت ورود و ریسک واقعی بررسی کن.";
   // Use only the preceding 60 closed candles as reference levels. The latest
   // closed candle is evaluated against those levels, avoiding self-confirming
   // support/resistance calculations that include the candle being tested.
@@ -288,6 +444,10 @@ export function buildTrendRegime(
     structure,
     entryTiming: entry.entryTiming,
     entryReason: entry.entryReason,
+    exitTiming,
+    exitReason,
+    exitManagement,
+    exitBacktest: evaluateExitBacktest(pairs, features, costPct),
     regimeReason,
     backtest: {
       method: "Chronological final-20% holdout; each signal uses only candles available at its timestamp; overlapping outcomes are not compounded.",

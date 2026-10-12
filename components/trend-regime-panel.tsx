@@ -30,6 +30,13 @@ type TrendPayload = {
   entryReason?: string;
   exitTiming?: "TAKE_PROFIT_WATCH" | "STRUCTURE_WEAKENING" | "REVERSAL_RISK" | "HOLD_TREND" | "INSUFFICIENT_DATA";
   exitReason?: string;
+  exitManagement?: {
+    marketTurn: "BULLISH_REVERSAL_RISK" | "BEARISH_REVERSAL_RISK" | "MOMENTUM_WEAKENING" | "NO_REVERSAL_SIGNAL" | "INSUFFICIENT_DATA";
+    scoreChange5m: number | null;
+    long: { status: "TAKE_PROFIT_WATCH" | "STRUCTURE_WEAKENING" | "REVERSAL_RISK" | "HOLD_TREND" | "INSUFFICIENT_DATA"; structureInvalidationPrice: number | null; reason: string };
+    short: { status: "TAKE_PROFIT_WATCH" | "STRUCTURE_WEAKENING" | "REVERSAL_RISK" | "HOLD_TREND" | "INSUFFICIENT_DATA"; structureInvalidationPrice: number | null; reason: string };
+  };
+  exitBacktest?: { method: string; horizonMinutes: number; testTrades: number; earlyExits: number; earlyExitRatePct: number | null; meanNetReturnWithExitPct: number | null; meanNetReturnFixedHoldPct: number | null; meanDifferenceVsFixedHoldPct: number | null; status: "EVALUATED" | "INSUFFICIENT_SAMPLE" };
   regimeReason?: string;
   warning?: string;
   backtest?: { costPerRoundTripPct: number; futureDataUsedForPrediction: false; horizons: HorizonResult[] };
@@ -107,7 +114,12 @@ export function TrendRegimePanel({ mode = "summary" }: { mode?: "summary" | "det
     return <section className="dashboardTrend" aria-label="Market direction summary">
       <div className="dashboardTrendTitle"><span>INTRADAY TREND · 15M–6H</span><small>{refreshing ? "Updating…" : ready ? "LIVE" : "DATA CHECK"}</small></div>
       <div className={`dashboardTrendVerdict ${direction === "BULLISH" ? "isBullish" : direction === "BEARISH" ? "isBearish" : "isNeutral"}`}>{loading && !data ? "ANALYZING…" : compactLabel}</div>
-      <div className="dashboardTrendFoot"><span>15m · 1h · 3h · 6h</span><button type="button" className="textLinkButton" onClick={() => window.dispatchEvent(new CustomEvent("xyz-open-forecast"))}>Forecast details ↗</button></div>
+      {ready && data?.exitManagement && data.exitManagement.marketTurn !== "NO_REVERSAL_SIGNAL" && data.exitManagement.marketTurn !== "INSUFFICIENT_DATA" && <div className={data.exitManagement.marketTurn === "BULLISH_REVERSAL_RISK" || data.exitManagement.marketTurn === "BEARISH_REVERSAL_RISK" ? "dashboardTrendAlert isReversal" : "dashboardTrendAlert isWeakening"} role="status">
+        <strong>{data.exitManagement.marketTurn === "BULLISH_REVERSAL_RISK" ? "BULLISH REVERSAL · SHORT RISK" : data.exitManagement.marketTurn === "BEARISH_REVERSAL_RISK" ? "BEARISH REVERSAL · LONG RISK" : "MOMENTUM WEAKENING"}</strong>
+        <span>15m {pct(data.momentum?.return15Pct)} · 5m score {data.exitManagement.scoreChange5m == null ? "—" : `${data.exitManagement.scoreChange5m > 0 ? "+" : ""}${number(data.exitManagement.scoreChange5m, 1)}`}</span>
+        <small>Overall trend: {compactLabel}. Early warning is separate from the main trend label.</small>
+      </div>}
+      <div className="dashboardTrendFoot"><span>15m · 1h · 3h · 6h</span><button type="button" className="textLinkButton" onClick={() => window.dispatchEvent(new CustomEvent("xyz-open-forecast"))}>Exit warning details ↗</button></div>
       {error && <span className="dashboardTrendError">Forecast unavailable</span>}
     </section>;
   }
@@ -170,15 +182,44 @@ export function TrendRegimePanel({ mode = "summary" }: { mode?: "summary" | "det
         <small>{voteText}. Current raw direction: {data?.rawDirection === "BULLISH" ? "Bullish" : data?.rawDirection === "BEARISH" ? "Bearish" : "Sideways"}.</small>
       </article>
       <article className="forecastDecision">
-        <div className="sectionEyebrow">EXIT / PROFIT MANAGEMENT</div>
+        <div className="sectionEyebrow">EXIT / REVERSAL RISK</div>
         <div className="forecastDecisionTop">
-          <h2>{data?.exitTiming ? exitLabels[data.exitTiming] : "Waiting for data"}</h2>
-          <span className={`forecastVerdict ${data?.exitTiming === "TAKE_PROFIT_WATCH" || data?.exitTiming === "REVERSAL_RISK" ? "forecastVerdict--down" : "forecastVerdict--wait"}`}>Open position</span>
+          <h2>{data?.exitManagement?.marketTurn === "BULLISH_REVERSAL_RISK" ? "Bullish reversal risk" : data?.exitManagement?.marketTurn === "BEARISH_REVERSAL_RISK" ? "Bearish reversal risk" : data?.exitManagement?.marketTurn === "MOMENTUM_WEAKENING" ? "Momentum weakening" : data?.exitManagement?.marketTurn === "NO_REVERSAL_SIGNAL" ? "No reversal warning" : "Insufficient data"}</h2>
+          <span className={`forecastVerdict ${data?.exitManagement?.marketTurn === "BULLISH_REVERSAL_RISK" || data?.exitManagement?.marketTurn === "BEARISH_REVERSAL_RISK" ? "forecastVerdict--down" : "forecastVerdict--wait"}`}>{data?.exitManagement?.scoreChange5m == null ? "5m score change —" : `5m score change ${data.exitManagement.scoreChange5m > 0 ? "+" : ""}${number(data.exitManagement.scoreChange5m, 1)}`}</span>
         </div>
-        <p>{data?.exitReason ?? "Open-position management cannot be evaluated yet."}</p>
-        <small>This is a review signal, not an exit order. It is rule-based, not a certainty.</small>
+        <div className="forecastMetaGrid" aria-label="Long and short exit risk">
+          <div className="forecastMeta">
+            <span>LONG position · {data?.exitManagement?.long.status ? exitLabels[data.exitManagement.long.status] : "Waiting for data"}</span>
+            <strong>{number(data?.exitManagement?.long.structureInvalidationPrice, 0)}</strong>
+            <small>{data?.exitManagement?.long.reason ?? "Long-side exit assessment unavailable."}</small>
+          </div>
+          <div className="forecastMeta">
+            <span>SHORT position · {data?.exitManagement?.short.status ? exitLabels[data.exitManagement.short.status] : "Waiting for data"}</span>
+            <strong>{number(data?.exitManagement?.short.structureInvalidationPrice, 0)}</strong>
+            <small>{data?.exitManagement?.short.reason ?? "Short-side exit assessment unavailable."}</small>
+          </div>
+        </div>
+        <p>{data?.exitReason ?? "Exit risk cannot be evaluated yet."}</p>
+        <small>Levels are volatility-buffered market-structure references, not entry-specific trailing stops or orders. Use your actual entry, fees, leverage and liquidation level to manage a live position.</small>
       </article>
     </section>
+
+    {mode === "details" && <section className="forecastDecision" aria-label="Exit strategy backtest">
+      <div className="sectionEyebrow">EXIT LOGIC VALIDATION · CHRONOLOGICAL HOLDOUT</div>
+      <div className="forecastDecisionTop">
+        <h2>Early exit vs fixed 60-minute hold</h2>
+        <span className={`forecastVerdict ${data?.exitBacktest?.status !== "EVALUATED" || (data.exitBacktest.meanDifferenceVsFixedHoldPct ?? 0) < 0 ? "forecastVerdict--down" : "forecastVerdict--wait"}`}>{data?.exitBacktest?.status !== "EVALUATED" ? "Insufficient sample" : (data.exitBacktest.meanDifferenceVsFixedHoldPct ?? 0) < 0 ? "Underperformed baseline" : "Outperformed baseline"}</span>
+      </div>
+      <div className="forecastMetaGrid">
+        <div className="forecastMeta"><span>Test trades</span><strong>{data?.exitBacktest?.testTrades ?? "—"}</strong></div>
+        <div className="forecastMeta"><span>Exited early</span><strong>{data?.exitBacktest?.earlyExits ?? "—"} ({rate(data?.exitBacktest?.earlyExitRatePct)})</strong></div>
+        <div className="forecastMeta"><span>Mean net · exit logic</span><strong>{pct(data?.exitBacktest?.meanNetReturnWithExitPct, 4)}</strong></div>
+        <div className="forecastMeta"><span>Mean net · fixed hold</span><strong>{pct(data?.exitBacktest?.meanNetReturnFixedHoldPct, 4)}</strong></div>
+        <div className="forecastMeta"><span>Difference vs fixed hold</span><strong>{pct(data?.exitBacktest?.meanDifferenceVsFixedHoldPct, 4)}</strong></div>
+      </div>
+      <p>{data?.exitBacktest?.method ?? "Exit strategy backtest unavailable."}</p>
+      <small>A positive difference means the tested early-exit rules outperformed the fixed-hold baseline on this sample; a negative difference means they underperformed. This is historical research, not proof of future performance.</small>
+    </section>}
 
     {mode === "details" && <section className="chartSection" aria-labelledby="trend-backtest-title">
       <div className="sectionHeader">
