@@ -212,8 +212,13 @@ function assessExitManagement(pairs: Pair[], features: Array<Feature | null>, di
   const adverseForShort = feature.return15Pct >= 0.03;
   const longBroken = price <= longInvalidation;
   const shortBroken = price >= shortInvalidation;
-  const longReversal = (direction === "BEARISH" || (feature.score <= -18 && adverseForLong && scoreChange5m <= -10));
-  const shortReversal = (direction === "BULLISH" || (feature.score >= 18 && adverseForShort && scoreChange5m >= 10));
+  // Detect a fast counter-trend turn before the slow multi-timeframe score
+  // flips. Requiring feature.score to cross the opposite trend threshold here
+  // would delay the warning until much of the retracement had already happened.
+  const bearishTurn = adverseForLong && scoreChange5m <= -10;
+  const bullishTurn = adverseForShort && scoreChange5m >= 10;
+  const longReversal = direction === "BEARISH" || bearishTurn;
+  const shortReversal = direction === "BULLISH" || bullishTurn;
   // Do not exit on score drift alone: require a counter-trend 15m move as well,
   // unless the market has already crossed the structure invalidation reference.
   const longWeakening = (adverseForLong && scoreChange5m <= -8) || longBroken;
@@ -237,8 +242,6 @@ function assessExitManagement(pairs: Pair[], features: Array<Feature | null>, di
 
   // Market-turn warnings require counter-trend momentum and score acceleration;
   // merely having the opposite side at risk is not itself a reversal signal.
-  const bullishTurn = feature.score >= 18 && adverseForShort && scoreChange5m >= 10;
-  const bearishTurn = feature.score <= -18 && adverseForLong && scoreChange5m <= -10;
   const momentumWeakening = direction === "BEARISH"
     ? shortWeakening
     : direction === "BULLISH"
