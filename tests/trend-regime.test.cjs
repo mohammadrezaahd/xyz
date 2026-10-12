@@ -21,6 +21,10 @@ test("trend engine identifies a persistent multi-hour bearish regime", () => {
   assert.equal(result.direction, "BEARISH");
   assert.ok(result.score < -18);
   assert.ok(result.persistenceVotes.bearish >= 3);
+  assert.equal(result.exitManagement.marketTurn, "NO_REVERSAL_SIGNAL");
+  assert.equal(result.exitManagement.short.status, "HOLD_TREND");
+  assert.equal(result.exitManagement.long.status, "REVERSAL_RISK");
+  assert.ok(result.exitManagement.short.structureInvalidationPrice > result.price);
   assert.equal(result.backtest.futureDataUsedForPrediction, false);
 });
 
@@ -29,6 +33,8 @@ test("trend engine does not call a brief counter-move a confirmed regime reversa
   const result = run(series);
   assert.ok(["BEARISH", "REVERSAL_WATCH", "RANGE"].includes(result.direction));
   assert.notEqual(result.direction, "BULLISH");
+  assert.ok(result.exitManagement);
+  assert.ok(["REVERSAL_RISK", "STRUCTURE_WEAKENING", "TAKE_PROFIT_WATCH", "HOLD_TREND"].includes(result.exitManagement.short.status));
 });
 
 test("trend engine refuses to infer a multi-hour regime from insufficient history", () => {
@@ -37,6 +43,8 @@ test("trend engine refuses to infer a multi-hour regime from insufficient histor
   assert.equal(result.dataStatus, "INSUFFICIENT_DATA");
   assert.equal(result.direction, "INSUFFICIENT_DATA");
   assert.equal(result.entryTiming, "INSUFFICIENT_DATA");
+  assert.equal(result.exitTiming, "INSUFFICIENT_DATA");
+  assert.equal(result.exitManagement.marketTurn, "INSUFFICIENT_DATA");
 });
 
 test("trend backtest uses a chronological holdout and validates costs", () => {
