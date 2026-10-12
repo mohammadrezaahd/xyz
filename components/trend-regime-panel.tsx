@@ -203,7 +203,7 @@ export function TrendRegimePanel({ mode = "summary" }: { mode?: "summary" | "det
       <div className="sectionEyebrow">EXIT LOGIC VALIDATION · CHRONOLOGICAL HOLDOUT</div>
       <div className="forecastDecisionTop">
         <h2>Early exit vs fixed 60-minute hold</h2>
-        <span className={`forecastVerdict ${data?.exitBacktest?.status === "EVALUATED" ? "forecastVerdict--wait" : "forecastVerdict--down"}`}>{data?.exitBacktest?.status === "EVALUATED" ? "Evaluated" : "Insufficient sample"}</span>
+        <span className={`forecastVerdict ${data?.exitBacktest?.status !== "EVALUATED" || (data.exitBacktest.meanDifferenceVsFixedHoldPct ?? 0) < 0 ? "forecastVerdict--down" : "forecastVerdict--wait"}`}>{data?.exitBacktest?.status !== "EVALUATED" ? "Insufficient sample" : (data.exitBacktest.meanDifferenceVsFixedHoldPct ?? 0) < 0 ? "Underperformed baseline" : "Outperformed baseline"}</span>
       </div>
       <div className="forecastMetaGrid">
         <div className="forecastMeta"><span>Test trades</span><strong>{data?.exitBacktest?.testTrades ?? "—"}</strong></div>
