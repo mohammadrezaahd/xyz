@@ -311,11 +311,13 @@ function evaluateExitBacktest(pairs: Pair[], features: Array<Feature | null>, co
     if (!positive(entryPrice)) continue;
     let exitIndex = index + horizonMinutes;
     let weakeningStreak = 0;
+    let reversalStreak = 0;
 
     for (let cursor = index + 1; cursor <= index + horizonMinutes; cursor += 1) {
       const feature = features[cursor];
       if (!feature) {
         weakeningStreak = 0;
+        reversalStreak = 0;
         continue;
       }
       const currentDirection = trendAt(features, cursor).direction;
@@ -325,10 +327,10 @@ function evaluateExitBacktest(pairs: Pair[], features: Array<Feature | null>, co
       const breached = side.structureInvalidationPrice != null &&
         (entryDirection === "BULLISH" ? price <= side.structureInvalidationPrice : price >= side.structureInvalidationPrice);
       weakeningStreak = side.status === "STRUCTURE_WEAKENING" ? weakeningStreak + 1 : 0;
-      // Reversal regime or a breached structure level exits immediately.
-      // A weakening-only warning must persist for two consecutive closed
-      // candles to avoid exiting on a single noisy minute.
-      if (side.status === "REVERSAL_RISK" || breached || weakeningStreak >= 2) {
+      reversalStreak = side.status === "REVERSAL_RISK" ? reversalStreak + 1 : 0;
+      // Require persistent reversal/weakening warnings to reduce churn.
+      // A confirmed structure break remains an immediate exit trigger.
+      if (breached || reversalStreak >= 3 || weakeningStreak >= 3) {
         exitIndex = cursor;
         earlyExits += 1;
         break;
@@ -350,7 +352,7 @@ function evaluateExitBacktest(pairs: Pair[], features: Array<Feature | null>, co
     ? meanNetReturnWithExitPct - meanNetReturnFixedHoldPct
     : null;
   return {
-    method: "Chronological final-20% holdout; non-overlapping trend entries; decisions use data available at each minute; weakening must persist for two closed candles unless reversal or structure break is confirmed; compared with fixed 60-minute hold; overlapping positions excluded.",
+    method: "Chronological final-20% holdout; non-overlapping trend entries; decisions use data available at each minute; weakening or reversal warnings must persist for three closed candles unless structure breaks; compared with fixed 60-minute hold; overlapping positions excluded.",
     horizonMinutes,
     testTrades,
     earlyExits,
