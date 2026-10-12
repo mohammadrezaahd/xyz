@@ -15,9 +15,9 @@ type CandleResponse = {
   diagnostics?: Record<string, unknown>;
 };
 
-export async function GET() {
+export async function GET(request: Request) {
   try {
-    const payload = await loadCandleHistory() as CandleResponse;
+    const payload = await loadCandleHistory(new URL(request.url).searchParams.get("asset")) as CandleResponse;
 
     const bitpin = dedupeSort(payload.bitpin ?? []);
     const wallex = dedupeSort(payload.wallex ?? []);

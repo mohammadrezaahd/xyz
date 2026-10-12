@@ -7,8 +7,10 @@ import {
 
 const env = (key: string, fallback = "") => process.env[key] ?? fallback;
 const WALLEX_CHUNK_SECONDS = 6 * 60 * 60;
+import { getMarketAsset, type MarketAsset } from "@/lib/market-assets";
 
-async function fetchBitpin(): Promise<Candle[]> {
+async function fetchBitpin(asset: MarketAsset): Promise<Candle[]> {
+  const market = getMarketAsset(asset);
   const url = new URL(env("BITPIN_CANDLES_URL"));
   const now = Math.floor(Date.now() / 1000);
   const resolution = env("BITPIN_RESOLUTION", "1");
@@ -27,7 +29,7 @@ async function fetchBitpin(): Promise<Candle[]> {
   const maxRangeSeconds = Math.max(0, maxBars - 1) * stepSeconds;
   const from = now - Math.min(requestedSeconds, maxRangeSeconds);
 
-  url.searchParams.set(env("BITPIN_CANDLES_SYMBOL_PARAM", "symbol"), env("BITPIN_SYMBOL", "USDT_IRT"));
+  url.searchParams.set(env("BITPIN_CANDLES_SYMBOL_PARAM", "symbol"), market.bitpin);
   url.searchParams.set(env("BITPIN_CANDLES_RESOLUTION_PARAM", "res"), resolution);
   url.searchParams.set(env("BITPIN_CANDLES_FROM_PARAM", "from"), String(from));
   url.searchParams.set(env("BITPIN_CANDLES_TO_PARAM", "to"), String(now));
@@ -91,15 +93,16 @@ async function fetchWallexChunk(
   return dedupeSort(parseCandles(payload));
 }
 
-async function fetchWallex(): Promise<{
+async function fetchWallex(asset: MarketAsset): Promise<{
   candles: Candle[];
   failures: WallexChunkFailure[];
 }> {
+  const market = getMarketAsset(asset);
   const baseUrl = env(
     "WALLEX_CANDLES_URL",
     "https://api.wallex.ir/v1/udf/history",
   );
-  const symbol = env("WALLEX_SYMBOL", "USDTTMN");
+  const symbol = market.wallex;
   const resolution = env("WALLEX_RESOLUTION", "1");
   const days = Math.max(1, Number(env("WALLEX_INITIAL_DAYS", "20")));
   const apiKey = env("WALLEX_API_KEY");
@@ -143,10 +146,10 @@ async function fetchWallex(): Promise<{
   };
 }
 
-async function fetchCandleHistory() {
+async function fetchCandleHistory(asset: MarketAsset) {
   const [bitpin, wallex] = await Promise.allSettled([
-    fetchBitpin(),
-    fetchWallex(),
+    fetchBitpin(asset),
+    fetchWallex(asset),
   ]);
 
   const errors: string[] = [];
@@ -215,24 +218,28 @@ async function fetchCandleHistory() {
 }
 
 type CandleHistoryPayload = Awaited<ReturnType<typeof fetchCandleHistory>>;
-let cachedHistory: { expiresAt: number; payload: CandleHistoryPayload } | null = null;
-let historyRequest: Promise<CandleHistoryPayload> | null = null;
+const cachedHistory = new Map<MarketAsset, { expiresAt: number; payload: CandleHistoryPayload }>();
+const historyRequests = new Map<MarketAsset, Promise<CandleHistoryPayload>>();
 
 /**
  * Research endpoints often need the same candles concurrently. Share one short-lived
  * result so a single dashboard refresh does not multiply exchange API requests.
  */
-export async function loadCandleHistory(): Promise<CandleHistoryPayload> {
+export async function loadCandleHistory(assetValue?: string | null): Promise<CandleHistoryPayload> {
+  const asset = getMarketAsset(assetValue).asset;
   const now = Date.now();
-  if (cachedHistory && cachedHistory.expiresAt > now) return cachedHistory.payload;
-  if (historyRequest) return historyRequest;
+  const cached = cachedHistory.get(asset);
+  if (cached && cached.expiresAt > now) return cached.payload;
+  const existing = historyRequests.get(asset);
+  if (existing) return existing;
 
-  historyRequest = fetchCandleHistory();
+  const request = fetchCandleHistory(asset);
+  historyRequests.set(asset, request);
   try {
-    const payload = await historyRequest;
-    cachedHistory = { payload, expiresAt: Date.now() + 12_000 };
+    const payload = await request;
+    cachedHistory.set(asset, { payload, expiresAt: Date.now() + 12_000 });
     return payload;
   } finally {
-    historyRequest = null;
+    historyRequests.delete(asset);
   }
 }

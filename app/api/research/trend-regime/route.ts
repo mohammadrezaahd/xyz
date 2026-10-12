@@ -15,9 +15,9 @@ type CandlePayload = {
   diagnostics?: Record<string, unknown>;
 };
 
-export async function GET() {
+export async function GET(request: Request) {
   try {
-    const payload = await loadCandleHistory() as CandlePayload;
+    const payload = await loadCandleHistory(new URL(request.url).searchParams.get("asset")) as CandlePayload;
     const cost = Number(process.env.RESEARCH_BACKTEST_ROUND_TRIP_COST_PCT ?? "0.2");
     if (!Number.isFinite(cost) || cost < 0) {
       return NextResponse.json({ ok: false, error: "RESEARCH_BACKTEST_ROUND_TRIP_COST_PCT must be a non-negative percentage" }, { status: 500 });

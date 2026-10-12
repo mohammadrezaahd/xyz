@@ -271,3 +271,8 @@
 .chartDisplaySwitch:checked::before{transform:translateX(14px)}
 .chartDisplaySwitch:focus-visible{outline:2px solid #7dd3fc;outline-offset:3px}
 .chartDisplaySwitch:disabled{opacity:.5;cursor:not-allowed}
+
+
+/* Multi-asset market selector */
+.marketAssetSelect { display:block; width:100%; min-width:0; margin:7px 0 5px; padding:9px 10px; border:1px solid var(--border, #343b47); border-radius:8px; color:inherit; background:var(--surface, #171b22); font:inherit; font-weight:600; cursor:pointer; }
+.marketAssetSelect:focus-visible { outline:2px solid var(--accent, #8ba4ff); outline-offset:2px; }

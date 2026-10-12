@@ -63,7 +63,7 @@ const rate = (value: number | null | undefined) =>
 const number = (value: number | null | undefined, digits = 1) =>
   value == null || !Number.isFinite(value) ? "—" : value.toLocaleString("en-US", { maximumFractionDigits: digits });
 
-export function TrendRegimePanel({ mode = "summary" }: { mode?: "summary" | "details" | "compact" }) {
+export function TrendRegimePanel({ mode = "summary", asset = "USDT" }: { mode?: "summary" | "details" | "compact"; asset?: string }) {
   const [data, setData] = useState<TrendPayload | null>(null);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -72,7 +72,7 @@ export function TrendRegimePanel({ mode = "summary" }: { mode?: "summary" | "det
   const load = useCallback(async (silent = false) => {
     if (silent) setRefreshing(true); else setLoading(true);
     try {
-      const response = await fetch("/api/research/trend-regime", { cache: "no-store" });
+      const response = await fetch(`/api/research/trend-regime?asset=${asset}`, { cache: "no-store" });
       const payload = await response.json() as TrendPayload;
       if (!response.ok || !payload.ok) throw new Error(payload.error ?? `Trend API HTTP ${response.status}`);
       setData(payload);
@@ -83,7 +83,7 @@ export function TrendRegimePanel({ mode = "summary" }: { mode?: "summary" | "det
       setLoading(false);
       setRefreshing(false);
     }
-  }, []);
+  }, [asset]);
 
   useEffect(() => {
     void load();

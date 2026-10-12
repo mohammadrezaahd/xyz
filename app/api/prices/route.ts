@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { parsePositivePrice } from "@/lib/prices";
 import { fetchWallexTickerPrice } from "@/lib/wallex-ticker";
+import { getMarketAsset } from "@/lib/market-assets";
 
 const env = (key: string, fallback = "") => process.env[key] ?? fallback;
 
@@ -35,10 +36,9 @@ function findBitpinPrice(payload: unknown, symbol: string): number | null {
   return parsePositivePrice((row as Record<string, unknown>).price);
 }
 
-async function fetchBitpinPrice(): Promise<number> {
+async function fetchBitpinPrice(symbol: string): Promise<number> {
   const baseUrl = requireEnv("BITPIN_API_BASE_URL").replace(/\/$/, "");
   const url = new URL(`${baseUrl}/api/v1/mkt/tickers/`);
-  const symbol = requireEnv("BITPIN_SYMBOL");
   url.searchParams.set("symbol", symbol);
 
   const response = await fetch(url, { cache: "no-store" });
@@ -55,10 +55,10 @@ async function fetchBitpinPrice(): Promise<number> {
   return price;
 }
 
-async function fetchWallexPrice(): Promise<number> {
+async function fetchWallexPrice(symbol: string): Promise<number> {
   return fetchWallexTickerPrice({
     baseUrl: env("WALLEX_API_BASE_URL", "https://api.wallex.ir"),
-    symbol: env("WALLEX_SYMBOL", "USDTTMN"),
+    symbol,
     apiKey: env("WALLEX_API_KEY"),
     timeoutMs: Number(env("WALLEX_TICKER_TIMEOUT_MS", "4500")),
   });
@@ -73,25 +73,27 @@ async function measurePrice(fetcher: () => Promise<number>): Promise<MeasuredPri
   return { price, fetchedAt, durationMs: fetchedAt - startedAt };
 }
 
-export async function GET() {
+export async function GET(request: Request) {
+  const market = getMarketAsset(new URL(request.url).searchParams.get("asset"));
   const [bitpin, wallex] = await Promise.allSettled([
-    measurePrice(fetchBitpinPrice),
-    measurePrice(fetchWallexPrice),
+    measurePrice(() => fetchBitpinPrice(market.bitpin)),
+    measurePrice(() => fetchWallexPrice(market.wallex)),
   ]);
 
   const errors: string[] = [];
   const bitpinPrice =
     bitpin.status === "fulfilled"
       ? bitpin.value.price
-      : (errors.push(`Bitpin ticker: ${String(bitpin.reason)}`), null);
+      : (errors.push(`Bitpin ${market.asset} ticker: ${String(bitpin.reason)}`), null);
   const wallexPrice =
     wallex.status === "fulfilled"
       ? wallex.value.price
-      : (errors.push(`Wallex ticker: ${String(wallex.reason)}`), null);
+      : (errors.push(`Wallex ${market.asset} ticker: ${String(wallex.reason)}`), null);
 
   return NextResponse.json({
     bitpin: bitpinPrice,
     wallex: wallexPrice,
+    asset: market.asset,
     fetchedAt: Date.now(),
     providers: {
       bitpin: { status: bitpin.status === "fulfilled" ? "SUCCESS" : "FAILED", fetchedAt: bitpin.status === "fulfilled" ? bitpin.value.fetchedAt : null, durationMs: bitpin.status === "fulfilled" ? bitpin.value.durationMs : null },

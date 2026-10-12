@@ -17,10 +17,10 @@ const BANDS: Band[] = [
 
 type CandlePayload = { bitpin?: Candle[]; errors?: string[]; providers?: Record<string, string>; diagnostics?: Record<string, unknown> };
 
-export async function GET() {
+export async function GET(request: Request) {
   try {
     const [candlePayload, observations, totalObservationCount] = await Promise.all([
-      loadCandleHistory() as Promise<CandlePayload>,
+      loadCandleHistory(new URL(request.url).searchParams.get("asset")) as Promise<CandlePayload>,
       listResearchObservations({ limit: 5000 }),
       countResearchObservations(),
     ]);

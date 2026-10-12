@@ -70,7 +70,7 @@ const directionLabel: Record<ForecastRow["direction"], string> = {
   INSUFFICIENT_DATA: "NO SIGNAL",
 };
 
-export function MarketForecastPanel({ mode = "summary" }: { mode?: "summary" | "details" | "compact" }) {
+export function MarketForecastPanel({ mode = "summary", asset = "USDT" }: { mode?: "summary" | "details" | "compact"; asset?: string }) {
   const [forecast, setForecast] = useState<ForecastPayload | null>(null);
   const [backtest, setBacktest] = useState<BacktestPayload | null>(null);
   const [regimes, setRegimes] = useState<RegimePayload | null>(null);
@@ -82,9 +82,9 @@ export function MarketForecastPanel({ mode = "summary" }: { mode?: "summary" | "
     if (silent) setRefreshing(true); else setLoading(true);
     try {
       const [forecastResponse, backtestResponse, regimesResponse] = await Promise.all([
-        fetch("/api/research/forecast", { cache: "no-store" }),
-        fetch("/api/research/backtest", { cache: "no-store" }),
-        fetch("/api/research/regimes", { cache: "no-store" }),
+        fetch(`/api/research/forecast?asset=${asset}`, { cache: "no-store" }),
+        fetch(`/api/research/backtest?asset=${asset}`, { cache: "no-store" }),
+        fetch(`/api/research/regimes?asset=${asset}`, { cache: "no-store" }),
       ]);
       const [forecastJson, backtestJson, regimesJson] = await Promise.all([
         forecastResponse.json() as Promise<ForecastPayload>,
@@ -102,7 +102,7 @@ export function MarketForecastPanel({ mode = "summary" }: { mode?: "summary" | "
       setLoading(false);
       setRefreshing(false);
     }
-  }, []);
+  }, [asset]);
 
   useEffect(() => {
     void load();

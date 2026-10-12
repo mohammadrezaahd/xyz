@@ -314,7 +314,7 @@ export function OpportunityPanel({
         <div className="opportunityGroup">
           <h3>Current Prices</h3>
           <label className="inputField">
-            <span>External Tether Price</span>
+            <span>External Reference Price</span>
             <input
               inputMode="decimal"
               type="text"
