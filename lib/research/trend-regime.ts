@@ -310,17 +310,25 @@ function evaluateExitBacktest(pairs: Pair[], features: Array<Feature | null>, co
     const entryPrice = pairs[index].bitpin.close;
     if (!positive(entryPrice)) continue;
     let exitIndex = index + horizonMinutes;
+    let weakeningStreak = 0;
 
     for (let cursor = index + 1; cursor <= index + horizonMinutes; cursor += 1) {
       const feature = features[cursor];
-      if (!feature) continue;
+      if (!feature) {
+        weakeningStreak = 0;
+        continue;
+      }
       const currentDirection = trendAt(features, cursor).direction;
       const assessment = assessExitManagement(pairs, features, currentDirection, feature, cursor);
       const side = entryDirection === "BULLISH" ? assessment.long : assessment.short;
       const price = pairs[cursor].bitpin.close;
       const breached = side.structureInvalidationPrice != null &&
         (entryDirection === "BULLISH" ? price <= side.structureInvalidationPrice : price >= side.structureInvalidationPrice);
-      if (side.status === "REVERSAL_RISK" || side.status === "STRUCTURE_WEAKENING" || breached) {
+      weakeningStreak = side.status === "STRUCTURE_WEAKENING" ? weakeningStreak + 1 : 0;
+      // Reversal regime or a breached structure level exits immediately.
+      // A weakening-only warning must persist for two consecutive closed
+      // candles to avoid exiting on a single noisy minute.
+      if (side.status === "REVERSAL_RISK" || breached || weakeningStreak >= 2) {
         exitIndex = cursor;
         earlyExits += 1;
         break;
