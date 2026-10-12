@@ -235,11 +235,16 @@ function assessExitManagement(pairs: Pair[], features: Array<Feature | null>, di
   // merely having the opposite side at risk is not itself a reversal signal.
   const bullishTurn = feature.score >= 18 && adverseForShort && scoreChange5m >= 10;
   const bearishTurn = feature.score <= -18 && adverseForLong && scoreChange5m <= -10;
+  const momentumWeakening = direction === "BEARISH"
+    ? shortWeakening
+    : direction === "BULLISH"
+      ? longWeakening
+      : adverseForLong || adverseForShort || Math.abs(scoreChange5m) >= 8;
   const marketTurn = bullishTurn
     ? "BULLISH_REVERSAL_RISK" as const
     : bearishTurn
       ? "BEARISH_REVERSAL_RISK" as const
-      : longWeakening || shortWeakening
+      : momentumWeakening
         ? "MOMENTUM_WEAKENING" as const
         : "NO_REVERSAL_SIGNAL" as const;
   return { marketTurn, scoreChange5m, long, short };
