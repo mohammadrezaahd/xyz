@@ -52,6 +52,10 @@ test("trend backtest uses a chronological holdout and validates costs", () => {
   const result = run(rising, rising, 0.25);
   assert.equal(result.backtest.costPerRoundTripPct, 0.25);
   assert.equal(result.backtest.futureDataUsedForPrediction, false);
+  assert.equal(result.exitBacktest.horizonMinutes, 60);
+  assert.equal(result.exitBacktest.status, "INSUFFICIENT_SAMPLE");
+  assert.equal(result.exitBacktest.testTrades, 4);
+  assert.match(result.exitBacktest.method, /data available at each minute/);
   assert.deepEqual(result.backtest.horizons.map((item) => item.horizonMinutes), [15, 60, 180]);
   assert.ok(result.backtest.horizons.every((item) => item.testSamples > 0));
   assert.throws(() => buildTrendRegime(rising, rising, { costPerRoundTripPct: -1 }), /non-negative/);
