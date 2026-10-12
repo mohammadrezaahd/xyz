@@ -231,10 +231,14 @@ function assessExitManagement(pairs: Pair[], features: Array<Feature | null>, di
         ? { status: "HOLD_TREND", structureInvalidationPrice: shortInvalidation, reason: "فعلاً هشدار معنادار علیه شورت دیده نمی‌شود؛ این سطح، مرجع ساختاری بازار است و حد ضرر شخصی تو نیست." }
         : { status: "TAKE_PROFIT_WATCH", structureInvalidationPrice: shortInvalidation, reason: "روند فعلی از شورت حمایت نمی‌کند؛ اگر شورت باز داری، سود/ریسک را بازبینی کن و فقط به برچسب روند تکیه نکن." };
 
-  const marketTurn = longReversal && !shortReversal
-    ? "BEARISH_REVERSAL_RISK" as const
-    : shortReversal && !longReversal
-      ? "BULLISH_REVERSAL_RISK" as const
+  // Market-turn warnings require counter-trend momentum and score acceleration;
+  // merely having the opposite side at risk is not itself a reversal signal.
+  const bullishTurn = feature.score >= 18 && adverseForShort && scoreChange5m >= 10;
+  const bearishTurn = feature.score <= -18 && adverseForLong && scoreChange5m <= -10;
+  const marketTurn = bullishTurn
+    ? "BULLISH_REVERSAL_RISK" as const
+    : bearishTurn
+      ? "BEARISH_REVERSAL_RISK" as const
       : longWeakening || shortWeakening
         ? "MOMENTUM_WEAKENING" as const
         : "NO_REVERSAL_SIGNAL" as const;
