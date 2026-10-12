@@ -350,7 +350,7 @@ function evaluateExitBacktest(pairs: Pair[], features: Array<Feature | null>, co
     ? meanNetReturnWithExitPct - meanNetReturnFixedHoldPct
     : null;
   return {
-    method: "Chronological final-20% holdout; non-overlapping trend entries; exits evaluated with data available at each minute; compared with fixed 60-minute hold; overlapping positions excluded.",
+    method: "Chronological final-20% holdout; non-overlapping trend entries; decisions use data available at each minute; weakening must persist for two closed candles unless reversal or structure break is confirmed; compared with fixed 60-minute hold; overlapping positions excluded.",
     horizonMinutes,
     testTrades,
     earlyExits,
