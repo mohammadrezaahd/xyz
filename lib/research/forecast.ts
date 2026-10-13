@@ -97,7 +97,8 @@ function featureAt(pairs: Pair[], index: number): FeatureRow | null {
     if (pairs[offset].time - pairs[offset - 1].time > 120) continue;
     returns.push((next / previous - 1) * 100);
   }
-  if (returns.length < 8) return null;\n  const volatility15Pct = returns.reduce((sum, value) => sum + Math.abs(value), 0) / returns.length;
+  if (returns.length < 8) return null;
+  const volatility15Pct = returns.reduce((sum, value) => sum + Math.abs(value), 0) / returns.length;
   const bitpinSign = Math.sign(m5);
   const wallexSign = Math.sign(w5);
   // Flat/zero momentum is neutral, never agreement in the bullish direction.
