@@ -6,7 +6,7 @@ import {
 } from "@/lib/wallex-candles";
 
 const env = (key: string, fallback = "") => process.env[key] ?? fallback;
-const WALLEX_CHUNK_SECONDS = 24 * 60 * 60;
+const WALLEX_CHUNK_SECONDS = 6 * 60 * 60;
 let bitpinRecoveryDiagnostics = { initialCount: 0, chunkCandles: 0, recoveredCount: 0, newCount: 0, chunkFailures: 0, lastError: null as string | null };
 
 async function fetchBitpin(): Promise<Candle[]> {
