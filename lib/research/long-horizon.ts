@@ -118,7 +118,7 @@ function featureAt(pairs: Pair[], index: number): Feature | null {
   // today's forecast if coverage is sufficient and the latest candles are fresh.
   // Reject only a gap in the recent tail; long-horizon returns use actual candles
   // at each target timestamp and volume pressure skips intervals over three hours.
-  const recentWindow = [...history, current].slice(-4);
+  const recentWindow = [...history, current].filter((pair) => pair.time >= current.time - 3 * HOUR);
   if (recentWindow.some((pair, offset) => offset > 0 && pair.time - recentWindow[offset - 1].time > 3 * HOUR)) return null;
 
   const priorAt = (hours: 24 | 168 | 720, venue: "bitpin" | "wallex" = "bitpin") => {
@@ -296,7 +296,6 @@ export function buildLongHorizonForecast(
   const tailWindow = pairs.filter((pair) => latest !== null && pair.time >= latest.time - LOOKBACK_HOURS * HOUR);
   const recentTail = pairs.filter((pair) => latest !== null && pair.time >= latest.time - 3 * HOUR);
   const tailGap = tailWindow.length < LOOKBACK_HOURS * 0.9 ||
-    recentTail.length < 2 ||
     recentTail.some((pair, offset, rows) => offset > 0 && pair.time - rows[offset - 1].time > 3 * HOUR);
   const stale = candleAgeSeconds === null || candleAgeSeconds > 3 * HOUR;
   const dataStatus = !current ? "INSUFFICIENT_DATA" : stale || tailGap ? "STALE_OR_GAPPED" : "READY";
