@@ -55,6 +55,11 @@ function median(values: number[]): number | null {
   return sorted.length % 2 ? sorted[middle] : (sorted[middle - 1] + sorted[middle]) / 2;
 }
 
+/** Signal-only view: preserve the original candles for chart rendering, but ignore provider padding with zero traded volume. */
+function signalCandles(candles: Candle[]): Candle[] {
+  return candles.filter((candle) => candle.volume === undefined || (Number.isFinite(candle.volume) && candle.volume > 0));
+}
+
 function makePairs(bitpinCandles: Candle[], wallexCandles: Candle[]): Pair[] {
   const validMap = (candles: Candle[]) => {
     const map = new Map<number, Candle>();
@@ -63,8 +68,8 @@ function makePairs(bitpinCandles: Candle[], wallexCandles: Candle[]): Pair[] {
     }
     return map;
   };
-  const bitpin = validMap(bitpinCandles);
-  const wallex = validMap(wallexCandles);
+  const bitpin = validMap(signalCandles(bitpinCandles));
+  const wallex = validMap(signalCandles(wallexCandles));
   return [...bitpin.keys()]
     .filter((time) => wallex.has(time))
     .sort((a, b) => a - b)
