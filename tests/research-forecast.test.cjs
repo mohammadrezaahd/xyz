@@ -43,11 +43,22 @@ test("bearish forecast reports a signed negative market-return estimate", () => 
   }
 });
 
-test("forecast rejects stale candles and gaps in the latest contiguous window", () => {
+test("forecast tolerates one missing minute without fabricating a candle", () => {
+  const full = candles(240);
+  const missingTime = full[180].time;
+  const bitpin = full.filter((candle) => candle.time !== missingTime);
+  const wallex = full.filter((candle) => candle.time !== missingTime);
+  const now = (full[239].time + 60) * 1000;
+  const result = buildLiveForecast(bitpin, wallex, now);
+  assert.ok(result.forecasts.every((item) => item.score !== null));
+  assert.ok(result.forecasts.every((item) => item.direction === "UP"));
+});
+
+test("forecast rejects a multi-minute gap in the latest window", () => {
   const full = candles(100);
-  const gapTime = full[95].time;
-  const bitpin = full.filter((candle) => candle.time !== gapTime);
-  const wallex = full.filter((candle) => candle.time !== gapTime);
+  const missingTimes = new Set(full.slice(93, 96).map((candle) => candle.time));
+  const bitpin = full.filter((candle) => !missingTimes.has(candle.time));
+  const wallex = full.filter((candle) => !missingTimes.has(candle.time));
   const now = (full[99].time + 60) * 1000;
   const result = buildLiveForecast(bitpin, wallex, now);
   assert.ok(result.forecasts.every((item) => item.direction === "INSUFFICIENT_DATA"));
