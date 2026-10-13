@@ -93,3 +93,13 @@ test("flat synchronized prices do not gain bullish points from venue agreement",
   assert.ok(result.forecasts.every((item) => item.calibrationSamples >= 30));
   assert.ok(result.forecasts.every((item) => item.historicalHitRate === 1));
 });
+
+
+test("zero-volume candles do not create a live forecast", () => {
+  const bitpin = candles(180), wallex = candles(180);
+  const last = bitpin[179].time;
+  for (let i=1;i<=90;i++) { const c={...bitpin[179],time:last+i*60,volume:0}; bitpin.push(c); wallex.push({...c}); }
+  const result=buildLiveForecast(bitpin,wallex,(last+91*60)*1000);
+  assert.ok(result.forecasts.every(x=>x.direction==="INSUFFICIENT_DATA"));
+  assert.ok(result.forecasts.every(x=>x.dataStatus==="STALE_OR_GAPPED"));
+});
