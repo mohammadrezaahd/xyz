@@ -7,6 +7,8 @@ import {
 
 const env = (key: string, fallback = "") => process.env[key] ?? fallback;
 const WALLEX_CHUNK_SECONDS = 6 * 60 * 60;
+const WALLEX_RECENT_RECOVERY_SECONDS = 8 * 60 * 60;
+const WALLEX_RECENT_CHUNK_SECONDS = 2 * 60 * 60;
 let bitpinRecoveryDiagnostics = { initialCount: 0, chunkCandles: 0, recoveredCount: 0, newCount: 0, chunkFailures: 0, lastError: null as string | null };
 
 async function fetchBitpin(): Promise<Candle[]> {
@@ -120,7 +122,7 @@ async function fetchWallex(): Promise<{
   );
   const symbol = env("WALLEX_SYMBOL", "USDTTMN");
   const resolution = env("WALLEX_RESOLUTION", "1");
-  const days = Math.max(1, Number(env("WALLEX_INITIAL_DAYS", "20")));
+  const days = Math.max(1, Number(env("WALLEX_INITIAL_DAYS", "7")));
   const apiKey = env("WALLEX_API_KEY");
 
   if (!apiKey) {
@@ -129,16 +131,16 @@ async function fetchWallex(): Promise<{
 
   const now = Math.floor(Date.now() / 1000);
   const from = now - days * 86400;
+  const recentStart = Math.max(from, now - WALLEX_RECENT_RECOVERY_SECONDS);
   const chunks: WallexChunk[] = [];
 
-  for (
-    let chunkFrom = from;
-    chunkFrom < now;
-    chunkFrom += WALLEX_CHUNK_SECONDS
-  ) {
+  // Fetch the older range in six-hour chunks, leaving the newest eight hours
+  // for smaller recovery chunks. This avoids duplicate requests while still
+  // recovering recent gaps in the provider's minute candles.
+  for (let chunkFrom = from; chunkFrom < recentStart; chunkFrom += WALLEX_CHUNK_SECONDS) {
     chunks.push({
       from: chunkFrom,
-      to: Math.min(chunkFrom + WALLEX_CHUNK_SECONDS, now),
+      to: Math.min(chunkFrom + WALLEX_CHUNK_SECONDS, recentStart),
     });
   }
 
@@ -157,10 +159,8 @@ async function fetchWallex(): Promise<{
   );
 
   const recentChunks: WallexChunk[] = [];
-  const recentStart = now - 8 * 60 * 60;
-  const recentChunkSeconds = 2 * 60 * 60;
-  for (let chunkFrom = recentStart; chunkFrom < now; chunkFrom += recentChunkSeconds) {
-    recentChunks.push({ from: chunkFrom, to: Math.min(chunkFrom + recentChunkSeconds, now) });
+  for (let chunkFrom = recentStart; chunkFrom < now; chunkFrom += WALLEX_RECENT_CHUNK_SECONDS) {
+    recentChunks.push({ from: chunkFrom, to: Math.min(chunkFrom + WALLEX_RECENT_CHUNK_SECONDS, now) });
   }
   const recent = await fetchWallexChunks(
     recentChunks,
