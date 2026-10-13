@@ -78,3 +78,27 @@ test("backtest net returns deduct costs from directional positions", () => {
   assert.ok(testedTrades.length > 0);
   assert.ok(testedTrades.every((sample) => Math.abs(sample.netStrategyReturnPct - (sample.grossStrategyReturnPct - 0.5)) < 1e-8));
 });
+
+
+test("opening study groups volume, prior trend and prior-day volatility without mutating chart candles", () => {
+  const { runOpeningBacktest } = require("../.test-dist/lib/research/opening-backtest.js");
+  const rows = [];
+  // Build three Tehran sessions; timestamps are stored as UTC seconds.
+  for (let day = 1; day <= 3; day++) {
+    const localStart = Date.UTC(2026, 9, day, 5, 30) / 1000; // 09:00 Asia/Tehran
+    for (let minute = 0; minute < 180; minute++) {
+      const close = 100 + day * 0.4 + minute * 0.01;
+      rows.push({ time: localStart + minute * 60, open: close - 0.01, high: close + 0.03, low: close - 0.03, close, volume: 10 + (minute % 5) });
+    }
+  }
+  const padded = [...rows, { ...rows[rows.length - 1], time: rows[rows.length - 1].time + 60, volume: 0 }];
+  const before = padded.length;
+  const result = runOpeningBacktest(padded, 0.2);
+  assert.equal(padded.length, before, "research must not mutate the chart's candle array");
+  assert.equal(result.method, "opening-event-study-v1");
+  assert.equal(result.summary.sessions, 3);
+  assert.deepEqual(result.groups.map((group) => group.dimension), ["volumeRegime", "trendRegime", "volatilityRegime"]);
+  assert.ok(result.metrics.every((metric) => metric.costPerRoundTripPct === 0.2));
+  assert.ok(result.metrics.every((metric) => metric.status === "INSUFFICIENT_SAMPLE"));
+  assert.equal(result.assumptions.futureDataUsedForPrediction, false);
+});
