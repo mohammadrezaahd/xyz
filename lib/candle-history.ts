@@ -7,6 +7,7 @@ import {
 
 const env = (key: string, fallback = "") => process.env[key] ?? fallback;
 const WALLEX_CHUNK_SECONDS = 24 * 60 * 60;
+let bitpinRecoveryDiagnostics = { initialCount: 0, chunkCandles: 0, recoveredCount: 0, newCount: 0, chunkFailures: 0, lastError: null as string | null };
 
 async function fetchBitpin(): Promise<Candle[]> {
   const url = new URL(env("BITPIN_CANDLES_URL"));
@@ -39,6 +40,7 @@ async function fetchBitpin(): Promise<Candle[]> {
   }
 
   const initialCandles = dedupeSort(parseCandles(await response.json()));
+  bitpinRecoveryDiagnostics = { initialCount: initialCandles.length, chunkCandles: 0, recoveredCount: initialCandles.length, newCount: 0, chunkFailures: 0, lastError: null };
   if (requestedSeconds <= 10 * 60) return initialCandles;
   const rangeEnd = Math.floor(now / 60) * 60;
   const rangeStart = rangeEnd - 8 * 60 * 60;
@@ -49,9 +51,25 @@ async function fetchBitpin(): Promise<Candle[]> {
     const chunkUrl = new URL(url.toString());
     chunkUrl.searchParams.set(env("BITPIN_CANDLES_FROM_PARAM", "from"), String(chunk.from));
     chunkUrl.searchParams.set(env("BITPIN_CANDLES_TO_PARAM", "to"), String(chunk.to));
-    try { const chunkResponse = await fetch(chunkUrl, { cache: "no-store" }); if (!chunkResponse.ok) return [] as Candle[]; return dedupeSort(parseCandles(await chunkResponse.json())); } catch { return [] as Candle[]; }
+    try {
+      const chunkResponse = await fetch(chunkUrl, { cache: "no-store" });
+      if (!chunkResponse.ok) {
+        bitpinRecoveryDiagnostics.chunkFailures += 1;
+        bitpinRecoveryDiagnostics.lastError = `HTTP ${chunkResponse.status}`;
+        return [] as Candle[];
+      }
+      const candles = dedupeSort(parseCandles(await chunkResponse.json()));
+      bitpinRecoveryDiagnostics.chunkCandles += candles.length;
+      return candles;
+    } catch (error) {
+      bitpinRecoveryDiagnostics.chunkFailures += 1;
+      bitpinRecoveryDiagnostics.lastError = error instanceof Error ? error.message : String(error);
+      return [] as Candle[];
+    }
   }));
   const recovered = dedupeSort([...initialCandles, ...historicalChunks.flat()]);
+  bitpinRecoveryDiagnostics.recoveredCount = recovered.length;
+  bitpinRecoveryDiagnostics.newCount = recovered.length - initialCandles.length;
   return recovered.length > initialCandles.length ? recovered : initialCandles;
 }
 
@@ -208,6 +226,7 @@ async function fetchCandleHistory() {
       bitpin: bitpinFreshness,
       wallex: wallexFreshness,
       wallexChunkFailures: wallexChunkFailures.length,
+      bitpinRecovery: { ...bitpinRecoveryDiagnostics },
     },
     fetchedAt,
     refreshMs: Number(env("CANDLE_REFRESH_MS", "15000")),
