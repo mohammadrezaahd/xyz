@@ -7,7 +7,7 @@ type ExitSideAssessment = { status: ExitTiming; structureInvalidationPrice: numb
 type ExitManagement = { marketTurn: "BULLISH_REVERSAL_RISK" | "BEARISH_REVERSAL_RISK" | "MOMENTUM_WEAKENING" | "NO_REVERSAL_SIGNAL" | "INSUFFICIENT_DATA"; scoreChange5m: number | null; long: ExitSideAssessment; short: ExitSideAssessment };
 type ExitBacktest = { method: string; horizonMinutes: number; testTrades: number; earlyExits: number; earlyExitRatePct: number | null; meanNetReturnWithExitPct: number | null; meanNetReturnFixedHoldPct: number | null; meanDifferenceVsFixedHoldPct: number | null; status: "EVALUATED" | "INSUFFICIENT_SAMPLE" };
 
-type Pair = { time: number; bitpin: Candle; wallex: Candle };
+type Pair = { time: number; bitpin: Candle; wallex: Candle | null };
 type Feature = {
   time: number;
   index: number;
@@ -35,6 +35,7 @@ export type TrendRegimeResult = {
   warning: string;
   dataStatus: "READY" | "STALE_OR_GAPPED" | "INSUFFICIENT_DATA";
   synchronizedCandles: number;
+  dataSource: "BITPIN_AND_WALLEX" | "BITPIN_ONLY";
   latestCandleTime: number | null;
   candleAgeSeconds: number | null;
   price: number | null;
@@ -76,8 +77,12 @@ function pairsFor(bitpinCandles: Candle[], wallexCandles: Candle[]): Pair[] {
   };
   const bitpin = map(bitpinCandles);
   const wallex = map(wallexCandles);
-  return [...bitpin.keys()].filter((time) => wallex.has(time)).sort((a, b) => a - b)
-    .map((time) => ({ time, bitpin: bitpin.get(time)!, wallex: wallex.get(time)! }));
+
+  // Trend direction is calculated from Bitpin candles. Wallex is a useful
+  // cross-check, but requiring an exact Wallex match for every minute made
+  // the entire trend panel unavailable when that provider stopped responding.
+  return [...bitpin.keys()].sort((a, b) => a - b)
+    .map((time) => ({ time, bitpin: bitpin.get(time)!, wallex: wallex.get(time) ?? null }));
 }
 
 function featureAt(pairs: Pair[], index: number): Feature | null {
@@ -425,7 +430,8 @@ export function buildTrendRegime(
     model: "multi-timeframe-persistence-v1",
     warning: "Research-only. Regime labels are rules-based, not probabilities or guarantees. Backtest figures are overlapping historical signal diagnostics, not compounded portfolio returns.",
     dataStatus,
-    synchronizedCandles: pairs.length,
+    synchronizedCandles: pairs.filter((pair) => pair.wallex !== null).length,
+    dataSource: pairs.some((pair) => pair.wallex !== null) ? "BITPIN_AND_WALLEX" : "BITPIN_ONLY",
     latestCandleTime: latest?.time ?? null,
     candleAgeSeconds,
     price: latest?.bitpin.close ?? null,
