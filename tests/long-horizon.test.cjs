@@ -51,6 +51,18 @@ test("a resolved historical outage does not invalidate a fresh long-horizon fore
   assert.ok(result.forecasts.every((row) => row.score !== null));
 });
 
+test("fresh latest hourly candle can forecast after a resolved outage without inventing missing candles", () => {
+  const bitpin = candles(1600, (index) => 250_000 + index * 20);
+  const wallex = candles(1600, (index) => 250_000 + index * 18);
+  const missing = new Set(Array.from({ length: 7 }, (_, offset) => bitpin[1592 + offset].time));
+  const result = run(
+    bitpin.filter((candle) => !missing.has(candle.time)),
+    wallex.filter((candle) => !missing.has(candle.time)),
+  );
+  assert.equal(result.dataStatus, "READY");
+  assert.ok(result.forecasts.every((row) => row.score !== null));
+});
+
 test("long-horizon live prediction is invariant to candles after the prediction timestamp", () => {
   const base = candles(1600, (index) => 250_000 + index * 20);
   const wallex = candles(1600, (index) => 250_000 + index * 18);
