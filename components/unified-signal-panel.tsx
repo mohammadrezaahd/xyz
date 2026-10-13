@@ -35,36 +35,31 @@ export function UnifiedSignalPanel({ analysis, longForecast }: Props) {
   const [error, setError] = useState("");
 
   const load = useCallback(async () => {
-    try {
-      const [forecastResponse, trendResponse, backtestResponse] = await Promise.all([
-        fetch("/api/research/forecast", { cache: "no-store" }),
-        fetch("/api/research/trend-regime", { cache: "no-store" }),
-        fetch("/api/research/backtest", { cache: "no-store" }),
-      ]);
-      const [forecastPayload, trendPayload, backtestPayload] = await Promise.all([
-        forecastResponse.json() as Promise<ForecastPayload>,
-        trendResponse.json() as Promise<TrendPayload>,
-        backtestResponse.json() as Promise<BacktestPayload>,
-      ]);
-      if (!forecastResponse.ok || !forecastPayload.ok) throw new Error(forecastPayload.error ?? "Forecast unavailable");
-      if (!trendResponse.ok || !trendPayload.ok) throw new Error(trendPayload.error ?? "Trend regime unavailable");
-      setForecast(forecastPayload);
-      setTrend(trendPayload);
-      if (backtestResponse.ok && backtestPayload.ok) {
-        setBacktest(backtestPayload);
-        setError("");
-      } else {
-        setBacktest(null);
-        setError(backtestPayload.error ?? `Backtest API HTTP ${backtestResponse.status}`);
+    const errors: string[] = [];
+    const loadEngine = async <T extends { ok?: boolean; error?: string }>(
+      path: string,
+      onSuccess: (payload: T) => void,
+      fallback: string,
+    ) => {
+      try {
+        const response = await fetch(path, { cache: "no-store" });
+        const payload = await response.json() as T;
+        if (!response.ok || payload.ok === false) {
+          throw new Error(payload.error ?? `${fallback} (HTTP ${response.status})`);
+        }
+        onSuccess(payload);
+      } catch (value) {
+        errors.push(value instanceof Error ? value.message : fallback);
       }
-    } catch (value) {
-      setForecast(null);
-      setTrend(null);
-      setBacktest(null);
-      setError(value instanceof Error ? value.message : "Unified signal engines are unavailable");
-    } finally {
-      setLoading(false);
-    }
+    };
+
+    await Promise.all([
+      loadEngine<ForecastPayload>("/api/research/forecast", (payload) => setForecast(payload), "Forecast unavailable"),
+      loadEngine<TrendPayload>("/api/research/trend-regime", (payload) => setTrend(payload), "Trend regime unavailable"),
+      loadEngine<BacktestPayload>("/api/research/backtest", (payload) => setBacktest(payload), "Backtest unavailable"),
+    ]);
+    setError(errors.join(" · "));
+    setLoading(false);
   }, []);
 
   useEffect(() => {
