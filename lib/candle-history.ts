@@ -41,8 +41,8 @@ async function fetchBitpin(): Promise<Candle[]> {
   const initialCandles = dedupeSort(parseCandles(await response.json()));
   if (requestedSeconds <= 10 * 60) return initialCandles;
   const rangeEnd = Math.floor(now / 60) * 60;
-  const rangeStart = rangeEnd - 2 * 60 * 60;
-  const chunkSeconds = 10 * 60;
+  const rangeStart = rangeEnd - 8 * 60 * 60;
+  const chunkSeconds = 60 * 60;
   const chunks: Array<{ from: number; to: number }> = [];
   for (let chunkFrom = rangeStart; chunkFrom < rangeEnd; chunkFrom += chunkSeconds) chunks.push({ from: chunkFrom, to: Math.min(chunkFrom + chunkSeconds, rangeEnd) });
   const historicalChunks = await Promise.all(chunks.map(async (chunk) => {
