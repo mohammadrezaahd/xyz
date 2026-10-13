@@ -93,7 +93,8 @@ function featureAt(pairs: Pair[], index: number): FeatureRow | null {
   for (let offset = index - 14; offset <= index; offset += 1) {
     const previous = pairs[offset - 1].bitpin.close;
     const next = pairs[offset].bitpin.close;
-    if (!finitePositive(previous) || !finitePositive(next)) return null;
+    if (!finitePositive(previous) || !finitePositive(next)) continue;
+    if (pairs[offset].time - pairs[offset - 1].time > 120) continue;
     returns.push((next / previous - 1) * 100);
   }
   if (returns.length < 8) return null;\n  const volatility15Pct = returns.reduce((sum, value) => sum + Math.abs(value), 0) / returns.length;
