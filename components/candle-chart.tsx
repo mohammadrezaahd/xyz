@@ -59,6 +59,7 @@ export function CandleChart({ candles, historicalCandles = [] }: { candles: Cand
   const chartRef = useRef<IChartApi | null>(null);
   const seriesRef = useRef<ISeriesApi<"Candlestick"> | null>(null);
   const priceLinesRef = useRef<Array<ReturnType<ISeriesApi<"Candlestick">["createPriceLine"]>>>([]);
+  const lastFittedViewRef = useRef<View | null>(null);
   const [view, setView] = useState<View>("intraday");
   const [showSupport, setShowSupport] = useState(false);
   const [showResistance, setShowResistance] = useState(false);
@@ -151,8 +152,13 @@ export function CandleChart({ candles, historicalCandles = [] }: { candles: Cand
         title: (level.kind === "support" ? "S" : "R") + " · " + level.touches + "x",
       }));
     }
-    chartRef.current?.timeScale().fitContent();
-  }, [visibleCandles, levels, showSupport, showResistance]);
+    // Fit only when the chart first receives data or the user changes timeframe.
+    // Live updates and support/resistance toggles must preserve the user's zoom and scroll.
+    if (data.length > 0 && lastFittedViewRef.current !== view) {
+      chartRef.current?.timeScale().fitContent();
+      lastFittedViewRef.current = view;
+    }
+  }, [visibleCandles, levels, showSupport, showResistance, view]);
 
   return (
     <div className="chartFrame">
