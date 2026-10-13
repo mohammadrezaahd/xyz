@@ -112,6 +112,7 @@ async function fetchWallexChunk(
 async function fetchWallex(): Promise<{
   candles: Candle[];
   failures: WallexChunkFailure[];
+  recovery: { initialCount: number; recentChunkCandles: number; recoveredCount: number; newCount: number; chunkFailures: number };
 }> {
   const baseUrl = env(
     "WALLEX_CANDLES_URL",
@@ -152,12 +153,32 @@ async function fetchWallex(): Promise<{
         chunk.to,
         apiKey,
       ),
-    4,
+    8,
   );
 
+  const recentChunks: WallexChunk[] = [];
+  const recentStart = now - 8 * 60 * 60;
+  const recentChunkSeconds = 2 * 60 * 60;
+  for (let chunkFrom = recentStart; chunkFrom < now; chunkFrom += recentChunkSeconds) {
+    recentChunks.push({ from: chunkFrom, to: Math.min(chunkFrom + recentChunkSeconds, now) });
+  }
+  const recent = await fetchWallexChunks(
+    recentChunks,
+    (chunk) => fetchWallexChunk(baseUrl, symbol, resolution, chunk.from, chunk.to, apiKey),
+    4,
+  );
+  const recovered = dedupeSort([...result.candles, ...recent.candles]);
+
   return {
-    candles: dedupeSort(result.candles),
-    failures: result.failures,
+    candles: recovered,
+    failures: [...result.failures, ...recent.failures],
+    recovery: {
+      initialCount: result.candles.length,
+      recentChunkCandles: recent.candles.length,
+      recoveredCount: recovered.length,
+      newCount: recovered.length - result.candles.length,
+      chunkFailures: recent.failures.length,
+    },
   };
 }
 
@@ -226,6 +247,7 @@ async function fetchCandleHistory() {
       bitpin: bitpinFreshness,
       wallex: wallexFreshness,
       wallexChunkFailures: wallexChunkFailures.length,
+      wallexRecovery: wallex.status === "fulfilled" ? wallex.value.recovery : null,
       bitpinRecovery: { ...bitpinRecoveryDiagnostics },
     },
     fetchedAt,
