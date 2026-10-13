@@ -209,7 +209,8 @@ export function buildUnifiedSignal(input: {
   if (finalDirection === "NEUTRAL") blockers.push("No sufficiently clear short-term direction.");
   const opportunityEligible = opportunity.eligibleForSignal && opportunity.decision === "BUY_CHEAP_SELL_EXPENSIVE" && opportunity.dataQuality.status === "READY";
   const canTrade = opportunityEligible && opportunityResponse !== null && backtestValidated && longForecastFresh && higherTimeframeDirection === "BULLISH" && !!usableTrend?.priceLevels && usableTrend.priceLevels.breakout !== "INSUFFICIENT_DATA" && usableTrend?.direction !== "REVERSAL_WATCH" && finalDirection === "BULLISH" && nearTerm.every((row) => row.direction === "BULLISH" && row.evidenceStrength !== "CONFLICT" && !row.conflictReasons.includes("The trend engine reports reversal risk."));
-  const action: UnifiedAction = !usableForecast || !usableTrend || !longForecastFresh || !backtest ? "INSUFFICIENT_DATA" : canTrade ? "BUY_CHEAP_SELL_EXPENSIVE" : opportunityEligible ? "WAIT_FOR_CONFIRMATION" : "NO_TRADE";
+  // INSUFFICIENT_DATA means there is no fresh short-horizon forecast to read. Missing secondary engines block trade clearance, but should not erase an otherwise valid directional read.
+  const action: UnifiedAction = !usableForecast ? "INSUFFICIENT_DATA" : canTrade ? "BUY_CHEAP_SELL_EXPENSIVE" : opportunityEligible ? "WAIT_FOR_CONFIRMATION" : "NO_TRADE";
   const evidenceStrength = hasConflict || finalDirection === "CONFLICT" ? "CONFLICT" : !usableForecast ? "UNAVAILABLE" : Math.abs(score ?? 0) >= 45 ? "STRONG" : Math.abs(score ?? 0) >= 25 ? "MODERATE" : "WEAK";
   const summary = action === "BUY_CHEAP_SELL_EXPENSIVE"
     ? "Directional evidence, higher-timeframe forecasts, Opportunity gates, structure, and out-of-sample backtest gates align. Research signal only; verify live execution conditions."
