@@ -84,7 +84,7 @@ function featureAt(pairs: Pair[], index: number): Feature | null {
   if (index < 180) return null;
   const availableLookback = Math.min(index, 360);
   const window = pairs.slice(index - availableLookback, index + 1);
-  if (window.length !== availableLookback + 1 || window.some((pair, offset) => offset > 0 && pair.time - window[offset - 1].time !== 60)) return null;
+  if (window.length !== availableLookback + 1 || window.some((pair, offset) => offset > 0 && pair.time - window[offset - 1].time > 120)) return null;
   const current = pairs[index];
   const ret = (minutes: number) => {
     const prior = pairs[index - minutes]?.bitpin.close;
@@ -381,7 +381,7 @@ export function buildTrendRegime(
   const feature = features[index] ?? null;
   const trend = trendAt(features, index);
   const stale = candleAgeSeconds === null || candleAgeSeconds > 180 || !feature;
-  const tailGap = pairs.length < 181 || pairs.slice(-181).some((pair, offset, rows) => offset > 0 && pair.time - rows[offset - 1].time !== 60);
+  const tailGap = pairs.length < 181 || pairs.slice(-181).some((pair, offset, rows) => offset > 0 && pair.time - rows[offset - 1].time > 120);
   const dataStatus = !feature || pairs.length < 181 ? "INSUFFICIENT_DATA" : stale || tailGap ? "STALE_OR_GAPPED" : "READY";
   const direction: TrendDirection = dataStatus === "READY" ? trend.direction : "INSUFFICIENT_DATA";
   const entry = entryAssessment(direction, feature, pairs);
