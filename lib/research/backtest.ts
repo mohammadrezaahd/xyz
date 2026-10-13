@@ -86,9 +86,11 @@ export function runResearchBacktest(
     throw new Error("Backtest parameters must be finite non-negative percentages");
   }
 
+  // Zero-volume flat bars are provider padding during the closed session. Filter only in this research calculation; chart history remains untouched.
+  const signalCandles = (candles: Candle[]) => candles.filter((candle) => candle.volume === undefined || (Number.isFinite(candle.volume) && candle.volume > 0));
   const byTime = (candles: Candle[]) => {
     const map = new Map<number, Candle>();
-    for (const candle of candles) {
+    for (const candle of signalCandles(candles)) {
       if (Number.isFinite(candle.time) && finitePositive(candle.close)) map.set(candle.time, candle);
     }
     return map;
