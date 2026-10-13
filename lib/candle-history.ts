@@ -6,7 +6,7 @@ import {
 } from "@/lib/wallex-candles";
 
 const env = (key: string, fallback = "") => process.env[key] ?? fallback;
-const WALLEX_CHUNK_SECONDS = 6 * 60 * 60;
+const WALLEX_CHUNK_SECONDS = 24 * 60 * 60;
 
 async function fetchBitpin(): Promise<Candle[]> {
   const url = new URL(env("BITPIN_CANDLES_URL"));
