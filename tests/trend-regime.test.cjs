@@ -48,6 +48,16 @@ test("fast bullish counter-move warns on a short before the main regime flips", 
   assert.equal(result.exitManagement.short.status, "REVERSAL_RISK");
   assert.notEqual(result.exitManagement.long.status, "REVERSAL_RISK");
 });
+test("trend engine falls back to fresh Bitpin candles when Wallex history is unavailable", () => {
+  const falling = candles(900, (i) => 300_000 - i * 18);
+  const result = run(falling, []);
+  assert.equal(result.dataStatus, "READY");
+  assert.equal(result.direction, "BEARISH");
+  assert.equal(result.synchronizedCandles, 0);
+  assert.equal(result.dataSource, "BITPIN_ONLY");
+  assert.ok(result.score < -18);
+});
+
 test("trend engine refuses to infer a multi-hour regime from insufficient history", () => {
   const short = candles(120, (i) => 200_000 + i * 10);
   const result = run(short);
