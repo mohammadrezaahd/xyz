@@ -45,7 +45,7 @@ test("bearish forecast reports a signed negative market-return estimate", () => 
 
 test("forecast tolerates one missing minute without fabricating a candle", () => {
   const full = candles(240);
-  const missingTime = full[180].time;
+  const missingTime = full[235].time;
   const bitpin = full.filter((candle) => candle.time !== missingTime);
   const wallex = full.filter((candle) => candle.time !== missingTime);
   const now = (full[239].time + 60) * 1000;
