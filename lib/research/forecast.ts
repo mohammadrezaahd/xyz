@@ -74,11 +74,15 @@ function makePairs(bitpinCandles: Candle[], wallexCandles: Candle[]): Pair[] {
 function featureAt(pairs: Pair[], index: number): FeatureRow | null {
   if (index < 30) return null;
   const window = pairs.slice(index - 30, index + 1);
-  if (window.length !== 31 || window.some((pair, offset) => offset > 0 && pair.time - window[offset - 1].time !== 60)) return null;
+  if (window.length !== 31 || window.some((pair, offset) => offset > 0 && pair.time - window[offset - 1].time > 120)) return null;
   const current = pairs[index];
-  const ret = (ago: number, venue: "bitpin" | "wallex") => {
-    const prior = pairs[index - ago][venue].close;
-    return finitePositive(prior) ? (current[venue].close / prior - 1) * 100 : null;
+  const ret = (minutes: number, venue: "bitpin" | "wallex") => {
+    const targetTime = current.time - minutes * 60;
+    let priorIndex = index - 1;
+    while (priorIndex >= 0 && pairs[priorIndex].time > targetTime) priorIndex -= 1;
+    const prior = pairs[priorIndex];
+    if (!prior || targetTime - prior.time > 120) return null;
+    return finitePositive(prior[venue].close) ? (current[venue].close / prior[venue].close - 1) * 100 : null;
   };
   const m5 = ret(5, "bitpin");
   const m15 = ret(15, "bitpin");
@@ -89,9 +93,11 @@ function featureAt(pairs: Pair[], index: number): FeatureRow | null {
   for (let offset = index - 14; offset <= index; offset += 1) {
     const previous = pairs[offset - 1].bitpin.close;
     const next = pairs[offset].bitpin.close;
-    if (!finitePositive(previous) || !finitePositive(next)) return null;
+    if (!finitePositive(previous) || !finitePositive(next)) continue;
+    if (pairs[offset].time - pairs[offset - 1].time > 120) continue;
     returns.push((next / previous - 1) * 100);
   }
+  if (returns.length < 8) return null;
   const volatility15Pct = returns.reduce((sum, value) => sum + Math.abs(value), 0) / returns.length;
   const bitpinSign = Math.sign(m5);
   const wallexSign = Math.sign(w5);
@@ -183,7 +189,7 @@ export function buildLiveForecast(
   const pairs = makePairs(bitpinCandles, wallexCandles).filter((pair) => pair.time < currentMinuteStart);
   const latest = pairs[pairs.length - 1];
   const latestAgeSeconds = latest ? Math.max(0, Math.floor(nowMs / 1000) - (latest.time + 60)) : null;
-  const gapAtTail = pairs.length < 31 || pairs.slice(-31).some((pair, offset, rows) => offset > 0 && pair.time - rows[offset - 1].time !== 60);
+  const gapAtTail = pairs.length < 31 || pairs.slice(-31).some((pair, offset, rows) => offset > 0 && pair.time - rows[offset - 1].time > 120);
   const latestIndex = pairs.length - 1;
   const currentFeatures = featureAt(pairs, latestIndex);
   const forecasts = FORECAST_HORIZONS.map((horizonMinutes): LiveForecast => {
@@ -201,9 +207,11 @@ export function buildLiveForecast(
     for (let index = 30; index + horizonMinutes < latestIndex; index += 1) {
       const features = featureAt(pairs, index);
       if (!features) continue;
+      const targetTime = pairs[index].time + horizonMinutes * 60;
       const future = pairs[index + horizonMinutes];
+      if (!future || Math.abs(future.time - targetTime) > 120) continue;
       const futureWindow = pairs.slice(index, index + horizonMinutes + 1);
-      if (futureWindow.length !== horizonMinutes + 1 || futureWindow.some((pair, offset) => offset > 0 && pair.time - futureWindow[offset - 1].time !== 60)) continue;
+      if (futureWindow.some((pair, offset) => offset > 0 && pair.time - futureWindow[offset - 1].time > 120)) continue;
       const start = pairs[index].bitpin.close;
       const actualReturnPct = (future.bitpin.close / start - 1) * 100;
       const actualDirection = actualReturnPct > 0.02 ? "UP" : actualReturnPct < -0.02 ? "DOWN" : "FLAT";

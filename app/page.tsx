@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { CandleChart } from "@/components/candle-chart";
 import { BuySellBalance } from "@/components/buy-sell-balance";
 import { OpportunityPanel } from "@/components/opportunity-panel";
@@ -81,21 +81,36 @@ export default function Home() {
   const [snapshotDialogOpen, setSnapshotDialogOpen] = useState(false);
   const [snapshotSaving, setSnapshotSaving] = useState(false);
   const [snapshotError, setSnapshotError] = useState("");
+  const loadInFlight = useRef(false);
 
   const load = useCallback(async () => {
+    if (loadInFlight.current) return;
+    loadInFlight.current = true;
     setLoading(true);
-    try {
-      const [candleResponse, priceResponse] = await Promise.all([
-        fetch("/api/candles", { cache: "no-store" }),
-        fetch("/api/prices", { cache: "no-store" }),
-      ]);
-      const candleJson = (await candleResponse.json()) as CandleResponse;
-      const priceJson = (await priceResponse.json()) as CurrentPricesResponse;
-      if (!candleResponse.ok) throw new Error(candleJson.errors?.join("\\n") || `Candle API HTTP ${candleResponse.status}`);
-      if (!priceResponse.ok) throw new Error(priceJson.errors?.join("\\n") || `Price API HTTP ${priceResponse.status}`);
-      setData(candleJson); setPrices(priceJson); setError([...(candleJson.errors ?? []), ...(priceJson.errors ?? [])].join("\\n"));
-    } catch (value) { setError(value instanceof Error ? value.message : "Unable to load market data"); }
-    finally { setLoading(false); }
+    setError("");
+    const appendError = (message: string) => {
+      if (message) setError((current) => [current, message].filter(Boolean).join("\\n"));
+    };
+    const candleRequest = fetch("/api/candles", { cache: "no-store" })
+      .then(async (response) => {
+        const payload = (await response.json()) as CandleResponse;
+        if (!response.ok) throw new Error(payload.errors?.join("\\n") || `Candle API HTTP ${response.status}`);
+        setData(payload);
+        if (payload.errors?.length) appendError(payload.errors.join("\\n"));
+      })
+      .catch((value) => appendError(value instanceof Error ? value.message : "Unable to load candle history"))
+      .finally(() => setLoading(false));
+    const priceRequest = fetch("/api/prices", { cache: "no-store" })
+      .then(async (response) => {
+        const payload = (await response.json()) as CurrentPricesResponse;
+        if (!response.ok) throw new Error(payload.errors?.join("\\n") || `Price API HTTP ${response.status}`);
+        setPrices(payload);
+        if (payload.errors?.length) appendError(payload.errors.join("\\n"));
+      })
+      .catch((value) => appendError(value instanceof Error ? value.message : "Unable to load current prices"))
+      .finally(() => setLoading(false));
+    await Promise.all([candleRequest, priceRequest]);
+    loadInFlight.current = false;
   }, []);
 
   useEffect(() => { void load(); const timer = window.setInterval(load, Number(process.env.NEXT_PUBLIC_CANDLE_REFRESH_MS ?? 15000)); return () => window.clearInterval(timer); }, [load, refreshTick]);

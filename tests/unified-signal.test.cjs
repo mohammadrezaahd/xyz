@@ -156,6 +156,22 @@ test("Opportunity failure blocks an otherwise bullish forecast", () => {
   assert.equal(result.action, "NO_TRADE");
 });
 
+test("fresh short-horizon forecast remains visible when trend and long-horizon engines lack data", () => {
+  const incompleteTrend = trend();
+  incompleteTrend.dataStatus = "INSUFFICIENT_DATA";
+  const result = buildUnifiedSignal({
+    opportunity: opportunity({ eligible: false, decision: "NO_TRADE_NEGATIVE_EDGE" }),
+    forecast: forecast(),
+    trend: incompleteTrend,
+    longForecast: null,
+    backtest: null,
+    nowMs: 1_000_000,
+  });
+  assert.notEqual(result.horizons.find((row) => row.horizonMinutes === 15).direction, "INSUFFICIENT_DATA");
+  assert.equal(result.action, "NO_TRADE");
+  assert.ok(result.blockers.some((reason) => reason.includes("24-hour / 7-day")));
+});
+
 test("stale forecast or trend is not allowed to produce a tradable signal", () => {
   const result = buildUnifiedSignal({
     opportunity: opportunity(),

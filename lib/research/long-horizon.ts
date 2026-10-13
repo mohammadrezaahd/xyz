@@ -114,8 +114,12 @@ function featureAt(pairs: Pair[], index: number): Feature | null {
   // Exchange feeds occasionally omit a candle. Keep the model usable when the
   // full time window exists and gaps are small, but reject prolonged outages.
   if (history.length < LOOKBACK_HOURS * 0.9) return null;
-  const timeWindow = [...history, current];
-  if (timeWindow.some((pair, offset) => offset > 0 && pair.time - timeWindow[offset - 1].time > 3 * HOUR)) return null;
+  // A historical outage anywhere in the 30-day lookback should not poison
+  // today's forecast if coverage is sufficient and the latest candles are fresh.
+  // Reject only a gap in the recent tail; long-horizon returns use actual candles
+  // at each target timestamp and volume pressure skips intervals over three hours.
+  const recentWindow = [...history, current].filter((pair) => pair.time >= current.time - 3 * HOUR);
+  if (recentWindow.some((pair, offset) => offset > 0 && pair.time - recentWindow[offset - 1].time > 3 * HOUR)) return null;
 
   const priorAt = (hours: 24 | 168 | 720, venue: "bitpin" | "wallex" = "bitpin") => {
     const target = current.time - hours * HOUR;
@@ -290,7 +294,9 @@ export function buildLongHorizonForecast(
   const current = features[latestIndex] ?? null;
   const outcomes = allOutcomes(pairs, features);
   const tailWindow = pairs.filter((pair) => latest !== null && pair.time >= latest.time - LOOKBACK_HOURS * HOUR);
-  const tailGap = tailWindow.length < LOOKBACK_HOURS * 0.9 || tailWindow.some((pair, offset, rows) => offset > 0 && pair.time - rows[offset - 1].time > 3 * HOUR);
+  const recentTail = pairs.filter((pair) => latest !== null && pair.time >= latest.time - 3 * HOUR);
+  const tailGap = tailWindow.length < LOOKBACK_HOURS * 0.9 ||
+    recentTail.some((pair, offset, rows) => offset > 0 && pair.time - rows[offset - 1].time > 3 * HOUR);
   const stale = candleAgeSeconds === null || candleAgeSeconds > 3 * HOUR;
   const dataStatus = !current ? "INSUFFICIENT_DATA" : stale || tailGap ? "STALE_OR_GAPPED" : "READY";
   const forecasts = LONG_HORIZONS_HOURS.map((horizonHours): LongHorizonForecastRow => {
